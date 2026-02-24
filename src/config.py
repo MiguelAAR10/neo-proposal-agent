@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     qdrant_url: str | None = None
     qdrant_api_key: str | None = None
     gemini_api_key: str | None = None
-    gemini_embedding_model: str = "models/text-embedding-004"
+    gemini_embedding_model: str = "models/gemini-embedding-001"
 
     model_config = SettingsConfigDict(
         env_file=".env",

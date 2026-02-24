@@ -68,7 +68,7 @@ def draft_node(state: ProposalState) -> ProposalState:
             return state
 
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-3-flash-preview",
             temperature=0.3,
             google_api_key=settings.gemini_api_key,
         )
