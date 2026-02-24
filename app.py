@@ -358,35 +358,29 @@ def render_case_card(i: int, case: dict, expanded: bool = True):
     score_pct = int(case["score"] * 100)
     icon = score_icon(case["score"])
 
-    tags_html = f"""
-        <span class="tag-pill tag-industry">{case.get('industria', 'N/A')}</span>
-        <span class="tag-pill tag-area">{case.get('area_funcional', 'N/A')}</span>
-    """
+    tags_html = f"""<span class="tag-pill tag-industry">{case.get('industria', 'N/A')}</span>
+<span class="tag-pill tag-area">{case.get('area_funcional', 'N/A')}</span>"""
     if case.get("trigger_comercial"):
         tags_html += f'<span class="tag-pill tag-trigger">🎯 {case["trigger_comercial"]}</span>'
 
-    header_html = f"""
-    <div class="case-card score-{sc}" id="case-{i}">
-        <div class="case-header">
-            <div>
-                <div class="case-empresa">{icon} {case.get('empresa', 'N/A')}</div>
-                <div class="case-id">#{case.get('id_caso', 'N/A')}</div>
-            </div>
-            <div class="score-badge score-{sc}">
-                {'▲' if sc == 'high' else '●'} {score_pct}% relevancia
-            </div>
-        </div>
-        <div>{tags_html}</div>
-        <div class="relevance-box">💡 <b>Por qué es relevante:</b> {case.get('relevancia', 'Similitud semántica con la búsqueda')}</div>
-    """
+    header_html = f"""<div class="case-card score-{sc}" id="case-{i}">
+<div class="case-header">
+    <div>
+        <div class="case-empresa">{icon} {case.get('empresa', 'N/A')}</div>
+        <div class="case-id">#{case.get('id_caso', 'N/A')}</div>
+    </div>
+    <div class="score-badge score-{sc}">
+        {'▲' if sc == 'high' else '●'} {score_pct}% relevancia
+    </div>
+</div>
+<div>{tags_html}</div>
+<div class="relevance-box">💡 <b>Por qué es relevante:</b> {case.get('relevancia', 'Similitud semántica con la búsqueda')}</div>"""
 
-    body_html = f"""
-        <div class="field-label">🎯 Problema del cliente</div>
-        <div class="field-value">{case.get('problema', 'N/A')}</div>
+    body_html = f"""<div class="field-label">🎯 Problema del cliente</div>
+<div class="field-value">{case.get('problema', 'N/A')}</div>
 
-        <div class="field-label">✅ Solución implementada</div>
-        <div class="field-value">{case.get('solucion', 'N/A')}</div>
-    """
+<div class="field-label">✅ Solución implementada</div>
+<div class="field-value">{case.get('solucion', 'N/A')}</div>"""
 
     results_html = ""
     if case.get("resultados"):
@@ -534,91 +528,81 @@ else:
     """, unsafe_allow_html=True)
 
     # Tabs: Casos | Chat RAG
-    tab_cases, tab_chat = st.tabs(["📁 Casos encontrados", "💬 Chat con los casos"])
+    col_cases, col_chat = st.columns([1.1, 1.9], gap="large")
 
-    # ── TAB 1: CASOS ──
-    with tab_cases:
+    # ── COL 1: CASOS ──
+    with col_cases:
+        st.markdown('<div class="section-label">📁 Casos encontrados</div>', unsafe_allow_html=True)
         for i, case in enumerate(results):
-            render_case_card(i + 1, case, expanded=(i < 3))
-            if i == 2 and len(results) > 3:
+            render_case_card(i + 1, case, expanded=(i < 2))
+            if i == 1 and len(results) > 2:
                 st.markdown('<hr class="neo-divider">', unsafe_allow_html=True)
-                st.markdown(f'<p style="color:#6e7681;font-size:0.82rem;text-align:center">{len(results) - 3} caso(s) adicional(es)</p>', unsafe_allow_html=True)
 
-    # ── TAB 2: CHAT RAG ──
-    with tab_chat:
+    # ── COL 2: CHAT RAG ──
+    with col_chat:
+        st.markdown('<div class="section-label">💬 Chat Inteligente</div>', unsafe_allow_html=True)
         st.markdown("""
         <div style="background:rgba(128,255,114,0.05);border:1px solid rgba(128,255,114,0.15);border-radius:10px;padding:0.8rem 1rem;margin-bottom:1rem">
-            <span style="color:#80ff72;font-weight:600">💬 Chat inteligente</span>
+            <span style="color:#80ff72;font-weight:600">NEO Assistant</span>
             <span style="color:#6e7681;font-size:0.88rem"> — El asistente conoce todos los casos encontrados. Pregúntale sobre ellos, pídele ideas de propuesta, o cuéntale más sobre tu cliente.</span>
         </div>
         """, unsafe_allow_html=True)
 
-        # Render historial de chat
-        chat_html = '<div class="chat-container" id="chat-box">'
-        if not st.session_state.chat_history:
-            # Mensaje de bienvenida
-            cases_preview = ", ".join(c.get("empresa", "N/A") for c in results[:3])
-            chat_html += f"""
-            <div class="chat-bubble-assistant">
-                <div class="chat-name chat-name-bot">NEO Assistant</div>
-                Hola 👋 He analizado los <b>{len(results)} casos</b> encontrados para tu búsqueda.<br><br>
-                Los casos incluyen: <b>{cases_preview}</b>{'...' if len(results) > 3 else ''}.<br><br>
-                ¿Qué quieres saber? Puedo explicarte cómo aplica cada caso al problema de tu cliente, 
-                ayudarte a construir una propuesta de valor, o profundizar en cualquier solución específica.
-            </div>
-            """
-        for msg in st.session_state.chat_history:
-            if msg["role"] == "user":
-                chat_html += f'<div class="chat-bubble-user"><div class="chat-name chat-name-user">Tú</div>{msg["content"]}</div>'
-            else:
-                content = msg["content"].replace("\n", "<br>")
-                chat_html += f'<div class="chat-bubble-assistant"><div class="chat-name chat-name-bot">NEO Assistant</div>{content}</div>'
-        chat_html += '</div>'
-        st.markdown(chat_html, unsafe_allow_html=True)
-
-        # Quick prompts
-        st.markdown('<div class="section-label">Preguntas rápidas</div>', unsafe_allow_html=True)
-        qp_cols = st.columns(3)
-        quick_prompts = [
-            "¿Qué caso es el más relevante y por qué?",
-            "¿Cómo adaptaría la solución del caso 1 a mi cliente?",
-            "Genera un pitch de propuesta con los mejores 2 casos",
-        ]
-        for idx, (col, prompt) in enumerate(zip(qp_cols, quick_prompts)):
-            with col:
-                if st.button(prompt, key=f"qp_{idx}", use_container_width=True):
-                    st.session_state.chat_input_prefill = prompt
-
-        # Input de chat
-        prefill = st.session_state.pop("chat_input_prefill", "") if "chat_input_prefill" in st.session_state else ""
-        user_msg = st.text_input(
-            "Tu mensaje:",
-            value=prefill,
-            placeholder="Pregunta sobre los casos, pide una propuesta, comparte contexto del cliente...",
-            key="chat_input_field",
-            label_visibility="collapsed",
-        )
-
-        c_send, c_clear = st.columns([4, 1])
-        with c_send:
-            send_btn = st.button("✉️ Enviar", type="primary", use_container_width=True, key="btn_send_chat")
+        # Quick prompts and clear
+        c_qp1, c_qp2, c_clear = st.columns([2, 2, 1])
+        with c_qp1:
+            if st.button("💡 ¿Qué caso es el más relevante?", use_container_width=True):
+                st.session_state.quick_prompt = "¿Qué caso es el más relevante y por qué?"
+                st.rerun()
+        with c_qp2:
+            if st.button("📝 Genera un pitch", use_container_width=True):
+                st.session_state.quick_prompt = "Genera un pitch de propuesta con los mejores 2 casos"
+                st.rerun()
         with c_clear:
-            if st.button("🗑️ Limpiar", key="btn_clear_chat"):
+            if st.button("🗑️ Limpiar", use_container_width=True):
                 st.session_state.chat_history = []
                 st.rerun()
 
-        if send_btn and user_msg.strip():
-            with st.spinner("NEO Assistant está pensando..."):
-                try:
-                    reply = call_chat(
-                        message=user_msg.strip(),
-                        cases_context=results,
-                        history=st.session_state.chat_history,
-                    )
-                    st.session_state.chat_history.append({"role": "user", "content": user_msg.strip()})
-                    st.session_state.chat_history.append({"role": "assistant", "content": reply})
-                    st.rerun()
-                except requests.exceptions.ConnectionError:
-                    st.error("❌ No se pudo conectar con la API.")
-                except Exception as e:
-                    st.error(f"❌ Error: {e}")
+        # Render historial de chat (Native Streamlit)
+        chat_container = st.container(height=450)
+        with chat_container:
+            if not st.session_state.chat_history:
+                cases_preview = ", ".join(c.get("empresa", "N/A") for c in results[:3])
+                with st.chat_message("assistant", avatar="🤖"):
+                    st.write(f"Hola 👋 He analizado los **{len(results)} casos** encontrados para tu búsqueda.")
+                    st.write(f"Los casos incluyen: **{cases_preview}**{'...' if len(results) > 3 else ''}.")
+                    st.write("¿Qué quieres saber? Puedo explicarte cómo aplica cada caso al problema de tu cliente, ayudarte a construir una propuesta de valor, o profundizar en cualquier solución específica.")
+            
+            for msg in st.session_state.chat_history:
+                avatar = "🧑‍💻" if msg["role"] == "user" else "🤖"
+                with st.chat_message(msg["role"], avatar=avatar):
+                    st.markdown(msg["content"])
+        
+        # Handle chat input
+        user_msg = None
+        if "quick_prompt" in st.session_state:
+            user_msg = st.session_state.pop("quick_prompt")
+        
+        chat_input_val = st.chat_input("Escribe tu pregunta o instrucción aquí...")
+        if chat_input_val:
+            user_msg = chat_input_val
+
+        if user_msg:
+            st.session_state.chat_history.append({"role": "user", "content": user_msg})
+            with chat_container:
+                with st.chat_message("user", avatar="🧑‍💻"):
+                    st.markdown(user_msg)
+                with st.chat_message("assistant", avatar="🤖"):
+                    with st.spinner("Pensando..."):
+                        try:
+                            reply = call_chat(
+                                message=user_msg,
+                                cases_context=results,
+                                history=st.session_state.chat_history[:-1] # excluye el mensaje actual
+                            )
+                            st.markdown(reply)
+                            st.session_state.chat_history.append({"role": "assistant", "content": reply})
+                        except requests.exceptions.ConnectionError:
+                            st.error("❌ No se pudo conectar con la API.")
+                        except Exception as e:
+                            st.error(f"❌ Error: {e}")
