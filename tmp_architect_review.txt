@@ -1,0 +1,704 @@
+# Project Tree (excluding my_env and my_venv)
+.
+├── .env
+├── .env.example
+├── .gitignore
+├── README.md
+├── app.py
+├── data
+│   ├── ai_cases.csv
+│   ├── neo_legacy.csv
+│   └── neo_legacy.csv:Zone.Identifier
+├── requirements.txt
+├── src
+│   ├── __init__.py
+│   ├── agent
+│   │   ├── __init__.py
+│   │   ├── graph.py
+│   │   ├── nodes.py
+│   │   └── state.py
+│   ├── api
+│   │   ├── __init__.py
+│   │   └── main.py
+│   ├── config.py
+│   └── tools
+│       ├── __init__.py
+│       ├── load_csv_to_qdrant.py
+│       └── qdrant_tool.py
+└── tmp_architect_review.txt
+
+6 directories, 21 files
+
+# File Contents (excluding my_env/my_venv and *.csv*)
+
+===== FILE: .env =====
+# Pon tus URLs y Keys reales aquí:
+QDRANT_URL=https://5ae96720-cb50-45b2-b922-e06cccf63450.us-east4-0.gcp.cloud.qdrant.io
+QDRANT_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.wMSYD9POmg0G-fRhLiOVQd5GCT5VpIDbYMhpTC8suAQ
+GEMINI_API_KEY=AIzaSyAN0oVeJiGcs2zuzl9NtzuGEEKCjIHjUx0
+===== FILE: .env.example =====
+# Configuración de Qdrant Cloud
+QDRANT_URL=https://tu-cluster-id.region.qdrant.tech
+QDRANT_API_KEY=tu_api_key_de_qdrant_aqui
+
+# Configuración de Gemini
+GEMINI_API_KEY=tu_api_key_de_gemini_aqui
+===== FILE: .gitignore =====
+# Entornos virtuales
+my_venv/
+venv/
+env/
+
+# Variables de entorno (¡CRÍTICO!)
+.env
+
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Datos locales (para que no subas los CSVs pesados por error)
+data/*.csv
+===== FILE: README.md =====
+# NEO Proposal Agent
+
+MVP para generar propuestas comerciales con LangGraph + Streamlit usando casos almacenados en Qdrant.
+
+## 1) Activar entorno
+
+```bash
+source my_venv/bin/activate
+```
+
+## 2) Verificar variables de entorno (`.env`)
+
+Debes tener al menos:
+
+- `QDRANT_URL`
+- `QDRANT_API_KEY` (si tu Qdrant lo requiere)
+- `GEMINI_API_KEY`
+
+Opcional para forzar modelo de embeddings:
+
+- `GEMINI_EMBEDDING_MODEL` (por ejemplo `models/embedding-001`)
+
+## 3) Procesar CSV y cargar colección en Qdrant
+
+```bash
+python -m src.tools.load_csv_to_qdrant
+```
+
+Esto procesa todos los `*.csv` dentro de `data/` y los sube a la colección `neo_cases_v1`.
+
+## 4) Levantar la aplicación
+
+```bash
+streamlit run app.py
+```
+
+## 5) Flujo en UI
+
+1. Completa Empresa, Rubro y Problema.
+2. Clic en **Buscar Casos**.
+3. Selecciona casos en la pausa HITL.
+4. Clic en **Generar Propuesta**.
+
+## Problemas comunes
+
+### Error `404 ... text-embedding-004 not found`
+
+El proyecto ahora prueba varios modelos de embedding automáticamente.
+Si persiste, fija explícitamente en `.env`:
+
+```env
+GEMINI_EMBEDDING_MODEL=models/embedding-001
+```
+
+### Se quedó con estado viejo / formulario bloqueado
+
+Usa **Nueva Sesion** en la barra lateral, o vuelve a enviar el formulario (cada búsqueda crea un thread nuevo).
+
+===== FILE: app.py =====
+from uuid import uuid4
+
+import streamlit as st
+
+from src.agent.graph import graph
+
+
+st.set_page_config(page_title="NEO Proposal Agent", page_icon="🧩", layout="wide")
+st.title("NEO Proposal Agent")
+st.caption("Generador de propuestas comerciales con LangGraph + Streamlit")
+
+
+def _new_thread_config() -> dict:
+    return {"configurable": {"thread_id": f"demo_{uuid4().hex[:8]}"}}
+
+
+if "graph_config" not in st.session_state:
+    st.session_state.graph_config = _new_thread_config()
+if "busy" not in st.session_state:
+    st.session_state.busy = False
+
+config = st.session_state.graph_config
+thread_id = config["configurable"]["thread_id"]
+
+with st.sidebar:
+    st.markdown("### Sesion")
+    st.code(thread_id)
+    if st.button("Nueva Sesion", disabled=st.session_state.busy):
+        st.session_state.graph_config = _new_thread_config()
+        st.session_state.busy = False
+        st.rerun()
+
+try:
+    snapshot = graph.get_state(config)
+except Exception:
+    snapshot = None
+
+values = dict(snapshot.values) if snapshot and snapshot.values else {}
+next_nodes = list(snapshot.next) if snapshot and snapshot.next else []
+
+error_msg = values.get("error", "") if values else ""
+propuesta_final = values.get("propuesta_final", "") if values else ""
+casos_encontrados = values.get("casos_encontrados", []) if values else []
+is_paused_for_draft = "draft_node" in next_nodes
+
+st.subheader("1) Formulario Inicial")
+def_empresa = values.get("empresa", "") if values else ""
+def_rubro = values.get("rubro", "") if values else ""
+def_problema = values.get("problema", "") if values else ""
+
+with st.form("initial_form"):
+    empresa = st.text_input("Empresa", value=def_empresa)
+    rubro = st.text_input("Rubro", value=def_rubro)
+    problema = st.text_area("Problema", value=def_problema, height=140)
+    submit_search = st.form_submit_button("Buscar Casos", disabled=st.session_state.busy)
+
+if submit_search and not st.session_state.busy:
+    st.session_state.busy = True
+    try:
+        # Cada busqueda arranca en un thread nuevo para evitar estados viejos atascados.
+        st.session_state.graph_config = _new_thread_config()
+        config = st.session_state.graph_config
+
+        initial_state = {
+            "empresa": empresa,
+            "rubro": rubro,
+            "problema": problema,
+            "casos_encontrados": [],
+            "casos_seleccionados_ids": [],
+            "propuesta_final": "",
+            "error": "",
+        }
+        graph.invoke(initial_state, config=config)
+    except Exception as exc:
+        st.error(f"Error iniciando flujo: {exc}")
+    finally:
+        st.session_state.busy = False
+    st.rerun()
+
+st.subheader("2) Seleccion de Casos (HITL)")
+if is_paused_for_draft and not propuesta_final:
+    if casos_encontrados:
+        with st.form("select_cases_form"):
+            st.write("Selecciona los casos a usar en la propuesta:")
+            selected_ids: list[str] = []
+            for case in casos_encontrados:
+                case_id = str(case.get("id", ""))
+                label = f"{case.get('titulo', 'Sin titulo')} (ID: {case_id})"
+                checked = st.checkbox(label, key=f"case_{case_id}")
+                resumen = str(case.get("resumen", "")).strip()
+                if resumen:
+                    st.caption(resumen)
+                if checked:
+                    selected_ids.append(case_id)
+
+            submit_draft = st.form_submit_button("Generar Propuesta", disabled=st.session_state.busy)
+
+        if submit_draft and not st.session_state.busy:
+            st.session_state.busy = True
+            try:
+                if not selected_ids:
+                    st.error("Selecciona al menos un caso.")
+                else:
+                    graph.update_state(config, {"casos_seleccionados_ids": selected_ids, "error": ""})
+                    graph.invoke(None, config=config)
+                    st.rerun()
+            except Exception as exc:
+                st.error(f"Error al reanudar el flujo: {exc}")
+            finally:
+                st.session_state.busy = False
+    else:
+        st.warning("No hay casos para seleccionar.")
+elif values and not propuesta_final and not error_msg:
+    st.info("Esperando resultados del paso de recuperacion.")
+
+st.subheader("3) Resultado")
+if error_msg:
+    st.error(error_msg)
+
+if propuesta_final:
+    st.markdown("### Propuesta Generada")
+    st.markdown(propuesta_final)
+
+===== FILE: requirements.txt =====
+python-dotenv>=1.0.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-google-genai>=1.0.0
+langgraph>=0.1.0
+langchain-qdrant>=0.1.0
+qdrant-client>=1.8.0
+fastapi>=0.110.0
+uvicorn>=0.28.0
+streamlit>=1.35.0
+pandas
+
+
+===== FILE: src/agent/graph.py =====
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, START, StateGraph
+
+from src.agent.nodes import draft_node, intake_node, retrieve_node
+from src.agent.state import ProposalState
+
+
+def _route_on_error(state: ProposalState) -> str:
+    return "end" if state.get("error") else "next"
+
+
+builder = StateGraph(ProposalState)
+builder.add_node("intake_node", intake_node)
+builder.add_node("retrieve_node", retrieve_node)
+builder.add_node("draft_node", draft_node)
+
+builder.add_edge(START, "intake_node")
+builder.add_conditional_edges(
+    "intake_node",
+    _route_on_error,
+    {
+        "end": END,
+        "next": "retrieve_node",
+    },
+)
+builder.add_conditional_edges(
+    "retrieve_node",
+    _route_on_error,
+    {
+        "end": END,
+        "next": "draft_node",
+    },
+)
+builder.add_edge("draft_node", END)
+
+checkpointer = MemorySaver()
+graph = builder.compile(checkpointer=checkpointer, interrupt_before=["draft_node"])
+
+===== FILE: src/agent/nodes.py =====
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from src.agent.state import ProposalState
+from src.config import get_settings
+from src.tools.qdrant_tool import db_connection
+
+
+def intake_node(state: ProposalState) -> ProposalState:
+    empresa = (state.get("empresa") or "").strip()
+    problema = (state.get("problema") or "").strip()
+
+    if not empresa or not problema:
+        state["error"] = "Los campos Empresa y Problema son obligatorios."
+        return state
+
+    state["empresa"] = empresa
+    state["problema"] = problema
+    state["error"] = ""
+    return state
+
+
+def retrieve_node(state: ProposalState) -> ProposalState:
+    if state.get("error"):
+        return state
+
+    try:
+        results = db_connection.search_cases(state["problema"], collection_name="neo_cases_v1", limit=6)
+        state["casos_encontrados"] = results
+        if not results:
+            state["error"] = "No se encontraron casos para el problema ingresado."
+    except Exception as exc:
+        state["error"] = f"Error consultando Qdrant: {exc}"
+
+    return state
+
+
+def _format_cases_for_prompt(cases: list[dict]) -> str:
+    if not cases:
+        return "No hay casos seleccionados."
+
+    blocks: list[str] = []
+    for idx, case in enumerate(cases, start=1):
+        blocks.append(
+            f"Caso {idx}\n"
+            f"ID: {case.get('id', 'N/A')}\n"
+            f"Titulo: {case.get('titulo', 'Sin titulo')}\n"
+            f"Resumen: {case.get('resumen', 'Sin resumen')}"
+        )
+    return "\n\n".join(blocks)
+
+
+def draft_node(state: ProposalState) -> ProposalState:
+    if state.get("error"):
+        return state
+
+    selected_ids = set(state.get("casos_seleccionados_ids", []))
+    found_cases = state.get("casos_encontrados", [])
+
+    filtered_cases = [c for c in found_cases if str(c.get("id")) in selected_ids]
+    if not filtered_cases:
+        state["error"] = "Debes seleccionar al menos un caso antes de generar la propuesta."
+        return state
+
+    try:
+        settings = get_settings()
+        if not settings.gemini_api_key:
+            state["error"] = "Falta configurar GEMINI_API_KEY para generar la propuesta."
+            return state
+
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0.3,
+            google_api_key=settings.gemini_api_key,
+        )
+
+        prompt = (
+            "Eres un consultor comercial senior. Redacta una propuesta de valor clara y accionable "
+            "de aproximadamente 400 palabras en espanol.\n\n"
+            f"Empresa: {state.get('empresa', '')}\n"
+            f"Rubro: {state.get('rubro', '')}\n"
+            f"Problema del cliente: {state.get('problema', '')}\n\n"
+            "Casos de referencia seleccionados:\n"
+            f"{_format_cases_for_prompt(filtered_cases)}\n\n"
+            "La propuesta debe incluir: contexto, enfoque recomendado, plan de trabajo resumido, "
+            "beneficios esperados y llamado a la accion."
+        )
+
+        response = llm.invoke(prompt)
+        content = response.content
+        if isinstance(content, list):
+            text = "\n".join(str(part) for part in content)
+        else:
+            text = str(content)
+
+        state["propuesta_final"] = text.strip()
+        state["error"] = ""
+    except Exception as exc:
+        state["error"] = f"Error generando propuesta: {exc}"
+
+    return state
+
+===== FILE: src/agent/state.py =====
+from typing import NotRequired, TypedDict
+
+
+class ProposalState(TypedDict):
+    empresa: str
+    rubro: str
+    problema: str
+    casos_encontrados: list[dict]
+    casos_seleccionados_ids: list[str]
+    propuesta_final: str
+    error: NotRequired[str]
+
+===== FILE: src/api/main.py =====
+from fastapi import FastAPI
+
+from src.agent.graph import run_agent
+from src.config import get_settings
+
+app = FastAPI(title="neo-proposal-agent", version="0.1.0")
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/config")
+def config_status() -> dict[str, bool]:
+    settings = get_settings()
+    return {
+        "qdrant_url_configured": bool(settings.qdrant_url),
+        "qdrant_api_key_configured": bool(settings.qdrant_api_key),
+        "gemini_api_key_configured": bool(settings.gemini_api_key),
+    }
+
+
+@app.post("/agent/run")
+def run(payload: dict[str, str]) -> dict[str, str]:
+    result = run_agent(payload.get("input", ""))
+    return {"answer": result["answer"]}
+
+===== FILE: src/config.py =====
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    qdrant_url: str | None = None
+    qdrant_api_key: str | None = None
+    gemini_api_key: str | None = None
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Return cached settings to avoid repeated environment parsing."""
+    return Settings()
+
+===== FILE: src/tools/load_csv_to_qdrant.py =====
+from pathlib import Path
+
+from src.tools.qdrant_tool import db_connection
+
+
+def main() -> None:
+    base = Path("data")
+    csv_files = sorted(str(p) for p in base.glob("*.csv"))
+    if not csv_files:
+        raise SystemExit("No se encontraron CSV en ./data")
+
+    inserted = db_connection.load_csv_files(csv_files, collection_name="neo_cases_v1")
+    print(f"CSV procesados: {len(csv_files)}")
+    print(f"Registros cargados en neo_cases_v1: {inserted}")
+
+
+if __name__ == "__main__":
+    main()
+
+===== FILE: src/tools/qdrant_tool.py =====
+import csv
+import hashlib
+import os
+from pathlib import Path
+from typing import Any
+
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
+
+from src.config import get_settings
+
+
+class QdrantConnection:
+    def __init__(self) -> None:
+        self._settings = get_settings()
+        self._client: QdrantClient | None = None
+        self._embeddings: GoogleGenerativeAIEmbeddings | None = None
+        self._embedding_model: str | None = None
+
+    def _ensure_client(self) -> QdrantClient:
+        if self._client is not None:
+            return self._client
+        if not self._settings.qdrant_url:
+            raise ValueError("Falta configurar QDRANT_URL")
+        self._client = QdrantClient(
+            url=self._settings.qdrant_url,
+            api_key=self._settings.qdrant_api_key,
+        )
+        return self._client
+
+    def _candidate_embedding_models(self) -> list[str]:
+        env_model = os.getenv("GEMINI_EMBEDDING_MODEL", "").strip()
+        candidates = []
+        if env_model:
+            candidates.append(env_model)
+
+        # Fallbacks comunes entre endpoints/versiones.
+        candidates.extend(
+            [
+                "models/embedding-001",
+                "embedding-001",
+                "text-embedding-004",
+                "models/text-embedding-004",
+            ]
+        )
+
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for m in candidates:
+            if m not in seen:
+                seen.add(m)
+                deduped.append(m)
+        return deduped
+
+    def _build_embeddings(self, model_name: str) -> GoogleGenerativeAIEmbeddings:
+        if not self._settings.gemini_api_key:
+            raise ValueError("Falta configurar GEMINI_API_KEY")
+        return GoogleGenerativeAIEmbeddings(
+            model=model_name,
+            google_api_key=self._settings.gemini_api_key,
+        )
+
+    def _ensure_embeddings(self) -> GoogleGenerativeAIEmbeddings:
+        if self._embeddings is not None:
+            return self._embeddings
+
+        last_error: Exception | None = None
+        for model_name in self._candidate_embedding_models():
+            try:
+                emb = self._build_embeddings(model_name)
+                # Probar una consulta mínima para validar compatibilidad del endpoint.
+                emb.embed_query("test")
+                self._embeddings = emb
+                self._embedding_model = model_name
+                return emb
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+
+        raise RuntimeError(f"No se pudo inicializar embeddings de Gemini: {last_error}")
+
+    def _point_id_from_external(self, external_id: str) -> int:
+        digest = hashlib.sha1(external_id.encode("utf-8")).hexdigest()
+        return int(digest[:16], 16)
+
+    def _compose_text_for_embedding(self, row: dict[str, Any]) -> str:
+        preferred_fields = [
+            "contexto_para_embedding",
+            "texto_completo_slide",
+            "descripcion_reto",
+            "descripcion_solucion",
+            "resultados_mencionados",
+            "problema",
+            "solucion_detectada",
+            "resultados_detectados",
+        ]
+        parts = [str(row.get(k, "")).strip() for k in preferred_fields if str(row.get(k, "")).strip()]
+        if parts:
+            return " | ".join(parts)
+        return " | ".join(str(v).strip() for v in row.values() if str(v).strip())
+
+    def _normalize_case_payload(self, row: dict[str, Any]) -> dict[str, Any]:
+        case_id = str(
+            row.get("id_caso")
+            or row.get("id")
+            or row.get("case_id")
+            or f"CASE-{hashlib.md5(str(row).encode('utf-8')).hexdigest()[:8]}"
+        ).strip()
+        empresa = str(row.get("nombre_empresa_crudo") or row.get("cliente_mencionado") or "").strip()
+        rubro = str(row.get("industria_detectada") or row.get("industria_pdf") or "").strip()
+        titulo = str(row.get("titulo_caso") or row.get("trigger_comercial_detectado") or "").strip()
+        resumen = str(
+            row.get("contexto_para_embedding")
+            or row.get("texto_completo_slide")
+            or row.get("descripcion_reto")
+            or row.get("problema")
+            or ""
+        ).strip()
+
+        return {
+            "id": case_id,
+            "empresa": empresa,
+            "rubro": rubro,
+            "titulo": titulo or f"Caso {case_id}",
+            "resumen": resumen or "Sin resumen",
+            "source": str(row.get("_source_file", "")).strip(),
+            "raw": row,
+        }
+
+    def ensure_collection(self, collection_name: str = "neo_cases_v1") -> None:
+        client = self._ensure_client()
+        embeddings = self._ensure_embeddings()
+        probe = embeddings.embed_query("dimension probe")
+        vector_size = len(probe)
+
+        existing = {c.name for c in client.get_collections().collections}
+        if collection_name in existing:
+            return
+
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=models.VectorParams(size=vector_size, distance=models.Distance.COSINE),
+        )
+
+    def upsert_cases(self, rows: list[dict[str, Any]], collection_name: str = "neo_cases_v1") -> int:
+        if not rows:
+            return 0
+
+        self.ensure_collection(collection_name=collection_name)
+        embeddings = self._ensure_embeddings()
+        client = self._ensure_client()
+
+        normalized = [self._normalize_case_payload(r) for r in rows]
+        texts = [self._compose_text_for_embedding(n["raw"]) for n in normalized]
+        vectors = embeddings.embed_documents(texts)
+
+        points: list[models.PointStruct] = []
+        for payload, vector in zip(normalized, vectors):
+            points.append(
+                models.PointStruct(
+                    id=self._point_id_from_external(payload["id"]),
+                    vector=vector,
+                    payload=payload,
+                )
+            )
+
+        client.upsert(collection_name=collection_name, points=points)
+        return len(points)
+
+    def load_csv_files(self, csv_paths: list[str], collection_name: str = "neo_cases_v1") -> int:
+        all_rows: list[dict[str, Any]] = []
+        for file_path in csv_paths:
+            path = Path(file_path)
+            if not path.exists() or not path.is_file():
+                continue
+            with path.open("r", encoding="utf-8-sig", newline="") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    row["_source_file"] = str(path)
+                    all_rows.append(row)
+
+        return self.upsert_cases(all_rows, collection_name=collection_name)
+
+    def search_cases(self, problem_text: str, collection_name: str = "neo_cases_v1", limit: int = 6) -> list[dict[str, Any]]:
+        client = self._ensure_client()
+        embeddings = self._ensure_embeddings()
+        query_vector = embeddings.embed_query(problem_text)
+
+        points = client.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            limit=limit,
+            with_payload=True,
+        )
+
+        results: list[dict[str, Any]] = []
+        for point in points:
+            payload = point.payload or {}
+            case_id = str(payload.get("id") or point.id)
+            results.append(
+                {
+                    "id": case_id,
+                    "score": float(point.score),
+                    "titulo": str(payload.get("titulo") or f"Caso {case_id}"),
+                    "resumen": str(payload.get("resumen") or "Sin resumen"),
+                    "empresa": str(payload.get("empresa") or ""),
+                    "rubro": str(payload.get("rubro") or ""),
+                    "payload": payload,
+                }
+            )
+        return results
+
+
+db_connection = QdrantConnection()
