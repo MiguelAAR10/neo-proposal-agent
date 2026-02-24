@@ -15,7 +15,8 @@ class QdrantConnection:
         self._settings = get_settings()
         self._client: QdrantClient | None = None
         self._embeddings: GoogleGenerativeAIEmbeddings | None = None
-        self._embedding_model: str | None = None
+        # El único modelo de embedding disponible en la API actual
+        self._embedding_model: str = "models/gemini-embedding-001"
 
     def _ensure_client(self) -> QdrantClient:
         if self._client is not None:
@@ -28,65 +29,35 @@ class QdrantConnection:
         )
         return self._client
 
-    def _candidate_embedding_models(self) -> list[str]:
-        env_model = self._settings.gemini_embedding_model.strip()
-        candidates = []
-        if env_model:
-            candidates.append(env_model)
-
-        # Fallbacks comunes entre endpoints/versiones.
-        candidates.extend(
-            [
-                "models/text-embedding-004",
-                "text-embedding-004",
-            ]
-        )
-
-        seen: set[str] = set()
-        deduped: list[str] = []
-        for m in candidates:
-            if m not in seen:
-                seen.add(m)
-                deduped.append(m)
-        return deduped
-
-    def _build_embeddings(self, model_name: str) -> GoogleGenerativeAIEmbeddings:
-        if not self._settings.gemini_api_key:
-            raise ValueError("Falta configurar GEMINI_API_KEY")
-        return GoogleGenerativeAIEmbeddings(
-            model=model_name,
-            google_api_key=self._settings.gemini_api_key,
-        )
-
     def _ensure_embeddings(self) -> GoogleGenerativeAIEmbeddings:
         if self._embeddings is not None:
             return self._embeddings
 
-        # Tomamos el modelo desde configuración tipada.
-        model_name = self._settings.gemini_embedding_model.strip()
-        
+        if not self._settings.gemini_api_key:
+            raise ValueError("Falta configurar GEMINI_API_KEY")
+            
         try:
-            self._embeddings = self._build_embeddings(model_name)
-            self._embedding_model = model_name
-            print(f"✅ Embeddings inicializados usando el modelo: {model_name}")
+            self._embeddings = GoogleGenerativeAIEmbeddings(
+                model=self._embedding_model,
+                google_api_key=self._settings.gemini_api_key,
+            )
+            # Probar una consulta mínima para validar compatibilidad
+            self._embeddings.embed_query("test")
+            print(f"✅ Embeddings inicializados con éxito usando: {self._embedding_model}")
             return self._embeddings
         except Exception as exc:
-            raise RuntimeError(f"Fallo crítico al inicializar Gemini Embeddings ({model_name}). Revisa tu API KEY. Error: {exc}")
-        
+            raise RuntimeError(f"Fallo crítico al inicializar Gemini Embeddings: {exc}")
+
     def _point_id_from_external(self, external_id: str) -> int:
         digest = hashlib.sha1(external_id.encode("utf-8")).hexdigest()
         return int(digest[:16], 16)
 
     def _compose_text_for_embedding(self, row: dict[str, Any]) -> str:
         preferred_fields = [
-            "contexto_para_embedding",
-            "texto_completo_slide",
-            "descripcion_reto",
-            "descripcion_solucion",
-            "resultados_mencionados",
-            "problema",
-            "solucion_detectada",
-            "resultados_detectados",
+            "contexto_para_embedding", "texto_completo_slide",
+            "descripcion_reto", "descripcion_solucion",
+            "resultados_mencionados", "problema",
+            "solucion_detectada", "resultados_detectados",
         ]
         parts = [str(row.get(k, "")).strip() for k in preferred_fields if str(row.get(k, "")).strip()]
         if parts:
@@ -94,22 +65,11 @@ class QdrantConnection:
         return " | ".join(str(v).strip() for v in row.values() if str(v).strip())
 
     def _normalize_case_payload(self, row: dict[str, Any]) -> dict[str, Any]:
-        case_id = str(
-            row.get("id_caso")
-            or row.get("id")
-            or row.get("case_id")
-            or f"CASE-{hashlib.md5(str(row).encode('utf-8')).hexdigest()[:8]}"
-        ).strip()
+        case_id = str(row.get("id_caso") or row.get("id") or row.get("case_id") or f"CASE-{hashlib.md5(str(row).encode('utf-8')).hexdigest()[:8]}").strip()
         empresa = str(row.get("nombre_empresa_crudo") or row.get("cliente_mencionado") or "").strip()
         rubro = str(row.get("industria_detectada") or row.get("industria_pdf") or "").strip()
         titulo = str(row.get("titulo_caso") or row.get("trigger_comercial_detectado") or "").strip()
-        resumen = str(
-            row.get("contexto_para_embedding")
-            or row.get("texto_completo_slide")
-            or row.get("descripcion_reto")
-            or row.get("problema")
-            or ""
-        ).strip()
+        resumen = str(row.get("contexto_para_embedding") or row.get("texto_completo_slide") or row.get("descripcion_reto") or row.get("problema") or "").strip()
 
         return {
             "id": case_id,
@@ -180,15 +140,15 @@ class QdrantConnection:
         embeddings = self._ensure_embeddings()
         query_vector = embeddings.embed_query(problem_text)
 
-        points = client.search(
+        response = client.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=limit,
             with_payload=True,
         )
 
         results: list[dict[str, Any]] = []
-        for point in points:
+        for point in response.points:
             payload = point.payload or {}
             case_id = str(payload.get("id") or point.id)
             results.append(
