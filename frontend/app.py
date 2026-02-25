@@ -330,11 +330,12 @@ def call_search(query: str, industria: str, area: str, top_k: int) -> list[dict]
     return resp.json()
 
 
-def call_chat(message: str, cases_context: list[dict], history: list[dict]) -> str:
+def call_chat(message: str, cases_context: list[dict], history: list[dict], session_id: str) -> str:
     payload = {
         "message": message,
         "cases_context": cases_context,
         "history": history,
+        "session_id": session_id,
     }
     resp = requests.post(f"{API_URL}/chat", json=payload, timeout=75)
     resp.raise_for_status()
@@ -414,6 +415,7 @@ for key, val in {
     "chat_history": [],
     "chat_input": "",
     "tab": "search",
+    "session_id": str(__import__('uuid').uuid4()),
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -599,7 +601,8 @@ else:
                             reply = call_chat(
                                 message=user_msg,
                                 cases_context=results,
-                                history=st.session_state.chat_history[:-1] # excluye el mensaje actual
+                                history=st.session_state.chat_history[:-1], # excluye el mensaje actual
+                                session_id=st.session_state.session_id
                             )
                             st.markdown(reply)
                             st.session_state.chat_history.append({"role": "assistant", "content": reply})
