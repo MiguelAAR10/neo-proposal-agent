@@ -1,61 +1,60 @@
 # NEO Proposal Agent - Proyecto Detalle
 
-Este documento detalla la arquitectura técnica, lógica de negocio y componentes del proyecto **NEO Proposal Agent**. Está diseñado para facilitar el escalamiento y la transición a una arquitectura basada en FastAPI (Versión 2).
+Este documento detalla la arquitectura técnica, la lógica de negocio y los componentes del proyecto **NEO Proposal Agent**. Refleja el estado consolidado de la **Versión 1 (V1)**, la cual ya implementa una arquitectura separada (Frontend en Streamlit, Backend en FastAPI) e integración completa con LangGraph y Qdrant.
 
 ## 1. Lógica de Negocio
-El objetivo del agente es automatizar la creación de propuestas comerciales personalizadas.
-- **Entrada:** Nombre de la empresa, rubro y el problema/necesidad detectada.
-- **Proceso:** El agente busca en una base de datos vectorial (Qdrant) casos de éxito previos (proyectos "legacy") que se asemejen al problema actual.
-- **HITL (Human-In-The-Loop):** El consultor revisa los casos encontrados y selecciona los más relevantes.
-- **Salida:** Generación de una propuesta de valor estructurada usando un LLM (Gemini).
+El objetivo del agente es actuar como un copiloto experto (NEO Assistant) para los consultores, automatizando el descubrimiento de casos de éxito y la ideación de propuestas de valor.
+- **Entrada:** Descripción en lenguaje natural del problema o necesidad del cliente, con filtros opcionales por industria y área funcional.
+- **Proceso:** El backend, orquestado con LangGraph, procesa el texto, genera embeddings (Gemini) y realiza una búsqueda semántica y filtrada en una base de datos vectorial (Qdrant).
+- **Asistencia Activa (Chat RAG):** El consultor visualiza los casos más relevantes y utiliza un chat inteligente (alimentado por Gemini Flash) que tiene contexto completo de los casos encontrados para resolver dudas técnicas, extraer ideas o redactar borradores de propuestas ("pitches").
+- **Salida:** Casos de éxito validados y material de propuesta de valor generado iterativamente en el chat.
 
-## 2. Arquitectura Técnica
-El sistema está construido sobre un flujo agentico utilizando **LangGraph**.
+## 2. Arquitectura Técnica (V1 Consolidada)
+El sistema está construido siguiendo el paradigma "Backend-First" para asegurar escalabilidad y estabilidad.
 
 ### Componentes Core:
-- **Orquestador:** `src/agent/graph.py` define el flujo de estados.
-- **Base de Datos Vectorial:** Qdrant para almacenamiento y búsqueda semántica.
-- **LLM:** Google Gemini (1.5 Flash para generación, Text Embedding 004 para vectores).
-- **Frontend:** Streamlit (`app.py`) para validación rápida (V1).
-- **Backend (Draft):** FastAPI (`src/api/main.py`) preparado para la V2.
+- **Frontend (Dumb UI):** Streamlit (`app.py`). Interfaz de usuario pura. No procesa lógica pesada, solo envía peticiones HTTP y renderiza la pantalla dividida (Tarjetas de Casos + Chat Nativo RAG).
+- **Backend (API Central):** FastAPI (`src/api/main.py`). Expone los endpoints (ej. `/agent/run`) que consumen la lógica de LangGraph y Qdrant. Implementa inicialización segura ("Lazy Initialization") usando el patrón `lifespan` para las conexiones.
+- **Orquestador Lógico:** LangGraph (`src/agent/graph.py` y `src/agent/nodes.py`). Define el flujo de estados del agente, desde la ingesta de la petición hasta la recuperación de casos.
+- **Base de Datos Vectorial:** Qdrant en la nube (Qdrant Cloud). Almacena los casos procesados. Utiliza **Payload Indexes** (índices `KEYWORD`) para permitir filtros rápidos por `industria` y `area_funcional`.
+- **LLM y Embeddings:** Google Gemini. Se usa `gemini-3-flash-preview` (o la versión vigente) para el razonamiento y la generación en el chat, y `gemini-embedding-001` para vectorizar los textos.
 
 ## 3. Variables de Entorno y Configuración
-Ubicadas en `src/config.py`, cargadas desde un archivo `.env`.
+El archivo central de configuración es `src/config.py`, el cual carga de forma segura las variables desde un archivo `.env` en la raíz.
 
 | Variable | Descripción |
 | :--- | :--- |
-| `QDRANT_URL` | Endpoint de la base de datos Qdrant. |
+| `QDRANT_URL` | Endpoint de la base de datos Qdrant en la nube. |
 | `QDRANT_API_KEY` | Clave de acceso a Qdrant. |
-| `GEMINI_API_KEY` | Clave de API de Google AI Studio. |
-| `GEMINI_EMBEDDING_MODEL` | Modelo para generar embeddings (default: `models/text-embedding-004`). |
+| `GEMINI_API_KEY` | Clave de API de Google AI Studio para los modelos LLM y de embeddings. |
 
-## 4. Estructura de Módulos y Funciones Clave
+*Nota: Cualquier cambio de modelo de embeddings o versión del LLM debe hacerse de forma controlada y con validación, ya que versiones obsoletas (como `text-embedding-004`) generarán fallos críticos de tipo 404.*
+
+## 4. Estructura de Módulos Clave
 
 ### `src/agent/`
-- **`state.py`**: Define `ProposalState`, el diccionario que viaja por el grafo.
-- **`nodes.py`**:
-    - `intake_node`: Valida y limpia los datos de entrada.
-    - `retrieve_node`: Llama a Qdrant para buscar casos similares.
-    - `draft_node`: Invoca al LLM para redactar la propuesta final basada en los casos seleccionados.
-- **`graph.py`**: Compila el grafo con un `interrupt_before=["draft_node"]` para permitir la selección manual de casos.
+- **`state.py`**: Define la estructura de datos que viaja por el grafo (estado del agente).
+- **`nodes.py`**: Contiene los nodos lógicos del grafo (validación, recuperación en Qdrant, invocación del LLM).
+- **`graph.py`**: Compila y expone el flujo del agente, conectando los nodos de principio a fin.
 
 ### `src/tools/`
-- **`qdrant_tool.py`**: Clase `QdrantConnection`.
-    - `search_cases(problem_text)`: Realiza la búsqueda semántica.
-    - `upsert_cases(rows)`: Indexa nuevos casos en la colección `neo_cases_v1`.
-    - `load_csv_files(paths)`: Carga masiva desde archivos CSV.
+- **`qdrant_tool.py`**: Contiene la clase para la conexión a la base vectorial, encargada de la búsqueda semántica, la normalización de la carga útil (payload) y la integración con el modelo de embeddings actual.
 
-### `src/api/`
-- **`main.py`**: Define los endpoints de FastAPI. *Nota: Requiere actualización para integrarse correctamente con el grafo compilado.*
+### Raíz del Proyecto
+- **`app.py`**: Interfaz de Streamlit (V1 finalizada con diseño de columnas divididas).
+- **`api.py` / `src/api/main.py`**: Punto de entrada de FastAPI.
+- **`load_data.py` / `load_data_new.py`**: Scripts de ingesta de datos en lote desde archivos CSV hacia Qdrant, encargados de crear la colección, generar vectores y establecer los índices necesarios.
 
 ## 5. Dependencias Principales (`requirements.txt`)
-- `langgraph`: Orquestación de estados.
-- `langchain-google-genai`: Integración con Gemini.
-- `langchain-qdrant`: Conector vectorial.
-- `fastapi` & `uvicorn`: Servidor backend.
-- `streamlit`: Interfaz de usuario.
+- `fastapi` & `uvicorn`: Para el servidor backend de alto rendimiento.
+- `streamlit`: Para el frontend interactivo.
+- `google-genai` / `langchain-google-genai`: Para el acceso a los modelos de razonamiento y embeddings de Google.
+- `langgraph`: Para la orquestación del flujo del agente.
+- `qdrant-client`: Conector oficial de la base de datos vectorial.
+- `pydantic-settings`: Validación y gestión robusta de variables de entorno.
 
-## 6. Próximos Pasos (V2)
-1. **Refactorizar FastAPI:** Implementar endpoints que manejen el `thread_id` de LangGraph para sesiones persistentes.
-2. **Migración de UI:** Mover la lógica de Streamlit a un frontend desacoplado que consuma la API.
-3. **Ingesta Automática:** Crear un cron-job o endpoint para actualizar la base de casos desde nuevos CSVs.
+## 6. Próximos Pasos (V2) - Rama `feature/v2-fastapi-migration`
+Con la V1 estabilizada y el frontend desacoplado (solo haciendo peticiones), la Versión 2 se enfocará netamente en capacidades profundas del backend:
+1. **Memoria y Sesiones Persistentes:** Implementar `thread_id` en LangGraph gestionado a través de los endpoints de FastAPI para que el historial de chat se guarde de forma nativa en el backend y sobreviva a recargas de la página.
+2. **Ingesta Automática Continua:** Crear un mecanismo (endpoint o cron-job) para actualizar o agregar nuevos casos a Qdrant de forma dinámica, en lugar de depender exclusivamente de scripts de carga en lote (`load_data.py`).
+3. **Múltiples Agentes Especializados:** Extender el grafo para que el agente pueda tomar rutas distintas (ej. "Ruta de investigación de caso" vs "Ruta de redacción comercial").
