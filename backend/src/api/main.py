@@ -21,7 +21,10 @@ from src.agent.chat_graph import chat_graph
 from src.config import get_settings
 from src.agent.graph import graph
 
-load_dotenv()
+from pathlib import Path
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
 logger = logging.getLogger("neo_api")
 
 # --- Config ---

@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,7 +13,7 @@ class Settings(BaseSettings):
     gemini_embedding_model: str = "models/gemini-embedding-001"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(Path(__file__).parent.parent.parent / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

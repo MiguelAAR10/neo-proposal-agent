@@ -48,6 +48,14 @@ Ruta de implementacion por rol:
 - Fecha de consolidacion: `2026-02-25`
 - Estado: `Lista para retomar desarrollo`
 
+## Contexto historico V1
+
+Para preservar los aprendizajes fundacionales de V1, existe una carpeta de referencia:
+- `mvp-v1-memoria-fundacional/`
+
+Este contexto ayuda a los agentes a entender decisiones pasadas y evitar errores repetidos.
+No reemplaza los requisitos oficiales de V2.
+
 ## Nota de preservacion
 
 La documentacion V2 previa (desordenada o redundante) fue movida a:

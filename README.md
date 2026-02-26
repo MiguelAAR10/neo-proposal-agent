@@ -70,4 +70,4 @@ streamlit run app.py
 
 ## Documentación Técnica
 
-Para entender a fondo la lógica de conexión entre FastAPI, el orquestador LangGraph, y Qdrant, así como los planes para la Versión 2, lee `PROJECT_DETAILS.md`. Para revisar las lecciones aprendidas durante la construcción de la V1 y evitar anti-patrones, lee `BITACORA_APRENDIZAJES.md`.
+Para entender a fondo la lógica de conexión entre FastAPI, el orquestador LangGraph, y Qdrant, así como los planes para la Versión 2, lee `mvp-v1-memoria-fundacional/PROJECT_DETAILS.md`. Para revisar las lecciones aprendidas durante la construcción de la V1 y evitar anti-patrones, lee `mvp-v1-memoria-fundacional/BITACORA_APRENDIZAJES.md`. Como diagnóstico de organización histórica, consulta `mvp-v1-memoria-fundacional/RADIOGRAFIA_PROYECTO.md`.
