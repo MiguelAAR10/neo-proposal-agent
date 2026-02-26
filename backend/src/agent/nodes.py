@@ -86,7 +86,9 @@ def _format_profile_for_prompt(perfil: dict | None) -> str:
 
 def draft_node(state: ProposalState) -> ProposalState:
     """Genera la propuesta final usando los casos y el perfil del cliente."""
+    print(f"DEBUG: Entrando a draft_node para {state.get('empresa')}")
     if state.get("error"):
+        print(f"DEBUG: draft_node saltado por error previo: {state.get('error')}")
         return state
 
     selected_ids = set(state.get("casos_seleccionados_ids", []))
@@ -94,13 +96,15 @@ def draft_node(state: ProposalState) -> ProposalState:
 
     filtered_cases = [c for c in found_cases if str(c.get("id")) in selected_ids]
     if not filtered_cases:
+        print("DEBUG: draft_node - No hay casos filtrados")
         state["error"] = "Debes seleccionar al menos un caso antes de generar la propuesta."
         return state
 
     try:
+        print(f"DEBUG: draft_node - Llamando a Gemini con {len(filtered_cases)} casos...")
         settings = get_settings()
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash", # Actualizado a Flash para V2
+            model="gemini-2.0-flash",
             temperature=0.3,
             google_api_key=settings.gemini_api_key,
         )
