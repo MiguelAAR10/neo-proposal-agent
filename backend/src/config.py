@@ -9,6 +9,11 @@ class Settings(BaseSettings):
 
     qdrant_url: str | None = None
     qdrant_api_key: str | None = None
+    qdrant_collection_cases: str = "neo_cases_v1"
+    qdrant_collection_profiles: str = "neo_profiles_v1"
+    
+    redis_url: str = "redis://localhost:6379"
+    
     gemini_api_key: str | None = None
     gemini_embedding_model: str = "models/gemini-embedding-001"
 

@@ -1,13 +1,16 @@
+from datetime import datetime
+from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
-
 from src.agent.state import ProposalState
 from src.config import get_settings
 from src.tools.qdrant_tool import db_connection
 
-
 def intake_node(state: ProposalState) -> ProposalState:
+    """Valida los inputs iniciales y prepara el estado."""
     empresa = (state.get("empresa") or "").strip()
     problema = (state.get("problema") or "").strip()
+    area = (state.get("area") or "General").strip()
+    switch = state.get("switch") or "both"
 
     if not empresa or not problema:
         state["error"] = "Los campos Empresa y Problema son obligatorios."
@@ -15,24 +18,45 @@ def intake_node(state: ProposalState) -> ProposalState:
 
     state["empresa"] = empresa
     state["problema"] = problema
+    state["area"] = area
+    state["switch"] = switch
     state["error"] = ""
     return state
 
-
 def retrieve_node(state: ProposalState) -> ProposalState:
+    """Busca casos (con switch) y recupera el perfil del cliente (Dummy/Real)."""
     if state.get("error"):
         return state
 
     try:
-        results = db_connection.search_cases(state["problema"], collection_name="neo_cases_v1", limit=6)
+        # 1. Buscar casos técnicos/comerciales
+        results = db_connection.search_cases(
+            state["problema"], 
+            switch=state["switch"], 
+            limit=6
+        )
         state["casos_encontrados"] = results
+        
+        # 2. Buscar perfil del cliente (Insights de negocio)
+        perfil = db_connection.get_profile(state["empresa"], state["area"])
+        if perfil:
+            state["perfil_cliente"] = perfil
+            print(f"✅ Perfil encontrado para {state['empresa']}")
+        else:
+            # Si no existe, podemos crear un placeholder o dejarlo vacío
+            state["perfil_cliente"] = {
+                "empresa": state["empresa"],
+                "area": state["area"],
+                "notas": "Empresa nueva sin historial previo."
+            }
+
         if not results:
             state["error"] = "No se encontraron casos para el problema ingresado."
+            
     except Exception as exc:
-        state["error"] = f"Error consultando Qdrant: {exc}"
+        state["error"] = f"Error en retrieve_node: {exc}"
 
     return state
-
 
 def _format_cases_for_prompt(cases: list[dict]) -> str:
     if not cases:
@@ -41,15 +65,27 @@ def _format_cases_for_prompt(cases: list[dict]) -> str:
     blocks: list[str] = []
     for idx, case in enumerate(cases, start=1):
         blocks.append(
-            f"Caso {idx}\n"
-            f"ID: {case.get('id', 'N/A')}\n"
-            f"Titulo: {case.get('titulo', 'Sin titulo')}\n"
-            f"Resumen: {case.get('resumen', 'Sin resumen')}"
+            f"--- CASO {idx} ---\n"
+            f"TITULO: {case.get('titulo', 'Sin titulo')}\n"
+            f"PROBLEMA: {case.get('resumen', case.get('problema', 'N/A'))}\n"
+            f"SOLUCION: {case.get('solucion', 'Ver slide original')}\n"
+            f"BENEFICIOS: {case.get('beneficios', 'N/A')}"
         )
     return "\n\n".join(blocks)
 
+def _format_profile_for_prompt(perfil: dict | None) -> str:
+    if not perfil or not perfil.get("empresa"):
+        return "No hay información previa del cliente."
+    
+    return (
+        f"Información sobre {perfil.get('empresa')}:\n"
+        f"- Objetivos: {perfil.get('objetivos', 'N/A')}\n"
+        f"- Pain Points: {perfil.get('pain_points', 'N/A')}\n"
+        f"- Estilo/Cultura: {perfil.get('notas', 'N/A')}"
+    )
 
 def draft_node(state: ProposalState) -> ProposalState:
+    """Genera la propuesta final usando los casos y el perfil del cliente."""
     if state.get("error"):
         return state
 
@@ -63,36 +99,40 @@ def draft_node(state: ProposalState) -> ProposalState:
 
     try:
         settings = get_settings()
-        if not settings.gemini_api_key:
-            state["error"] = "Falta configurar GEMINI_API_KEY para generar la propuesta."
-            return state
-
         llm = ChatGoogleGenerativeAI(
-            model="gemini-3-flash-preview",
+            model="gemini-1.5-flash", # Actualizado a Flash para V2
             temperature=0.3,
             google_api_key=settings.gemini_api_key,
         )
 
         prompt = (
-            "Eres un consultor comercial senior. Redacta una propuesta de valor clara y accionable "
-            "de aproximadamente 400 palabras en espanol.\n\n"
-            f"Empresa: {state.get('empresa', '')}\n"
-            f"Rubro: {state.get('rubro', '')}\n"
-            f"Problema del cliente: {state.get('problema', '')}\n\n"
-            "Casos de referencia seleccionados:\n"
+            "Eres un consultor comercial senior experto en estrategia de negocios.\n"
+            "Tu objetivo es redactar una PROPUESTA DE VALOR que resuelva un problema técnico "
+            "pero que hable el lenguaje de negocio del cliente.\n\n"
+            
+            "--- CONTEXTO DEL CLIENTE ---\n"
+            f"Empresa: {state['empresa']}\n"
+            f"Área: {state['area']}\n"
+            f"Problema actual: {state['problema']}\n"
+            f"{_format_profile_for_prompt(state.get('perfil_cliente'))}\n\n"
+            
+            "--- CASOS DE ÉXITO SELECCIONADOS (BASE TECNOLÓGICA) ---\n"
             f"{_format_cases_for_prompt(filtered_cases)}\n\n"
-            "La propuesta debe incluir: contexto, enfoque recomendado, plan de trabajo resumido, "
-            "beneficios esperados y llamado a la accion."
+            
+            "INSTRUCCIONES DE REDACCIÓN:\n"
+            "1. Usa el 'Enfoque Propuesto' basado en los casos de éxito, pero ADÁPTALO a los objetivos del cliente.\n"
+            "2. Si el cliente es adverso al riesgo (ver perfil), propón una implementación modular.\n"
+            "3. Resalta el IMPACTO de negocio, no solo la tecnología.\n"
+            "4. Mantén un tono ejecutivo, profesional y persuasivo.\n"
+            "5. Máximo 500 palabras."
         )
 
         response = llm.invoke(prompt)
-        content = response.content
-        if isinstance(content, list):
-            text = "\n".join(str(part) for part in content)
-        else:
-            text = str(content)
+        text = str(response.content)
 
         state["propuesta_final"] = text.strip()
+        state["propuesta_versiones"] = [text.strip()]
+        state["updated_at"] = datetime.now().isoformat()
         state["error"] = ""
     except Exception as exc:
         state["error"] = f"Error generando propuesta: {exc}"

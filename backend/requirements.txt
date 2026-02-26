@@ -11,3 +11,5 @@ tqdm==4.67.0
 langchain-google-genai
 langgraph
 pydantic-settings
+redis==5.2.1
+langchain-redis
