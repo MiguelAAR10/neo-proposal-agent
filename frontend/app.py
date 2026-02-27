@@ -11,7 +11,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+# --- CÓDIGO A PRUEBA DE BALAS PARA LA CONEXIÓN ---
+if "API_URL" in st.secrets:
+    API_URL = st.secrets["API_URL"] # Lee de la nube
+else:
+    API_URL = os.getenv("API_URL", "http://localhost:8000") # Lee en local
+
+# Asegúrate de limpiar la URL por si acaso
+API_URL = API_URL.rstrip("/")
 
 # ─────────────────────────────────────────────
 # PAGE CONFIG
@@ -624,3 +631,6 @@ else:
                             fallback = f"❌ Error inesperado en chat: {e}"
                             st.error(fallback)
                             st.session_state.chat_history.append({"role": "assistant", "content": fallback})
+
+
+
