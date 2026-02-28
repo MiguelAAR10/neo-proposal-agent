@@ -32,13 +32,23 @@ export function CaseCard({ caseData }: CaseCardProps) {
       animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
+      aria-label={`${isSelected ? 'Deseleccionar' : 'Seleccionar'} caso ${caseData.titulo}`}
       className={cn(
-        "neo-glass-card relative flex flex-col p-5 border-2 transition-all duration-200 cursor-pointer group",
+        "neo-glass-card relative flex flex-col p-5 border-2 transition-all duration-200 cursor-pointer group focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1022]",
         isSelected 
           ? "border-[var(--accent-soft)] shadow-[0_0_0_1px_rgba(108,140,255,0.3),0_14px_26px_rgba(16,25,63,0.45)]" 
           : "border-white/10 hover:border-white/25 hover:shadow-[0_12px_24px_rgba(12,18,46,0.45)]"
       )}
       onClick={handleToggle}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleToggle()
+        }
+      }}
     >
       {/* Header */}
       <div className="flex justify-between items-start mb-3">
@@ -129,6 +139,7 @@ export function CaseCard({ caseData }: CaseCardProps) {
               href={caseData.url_slide}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`Abrir evidencia del caso ${caseData.titulo} en nueva pestaña`}
               onClick={(e) => e.stopPropagation()}
               className="text-xs font-semibold text-[var(--accent)] hover:text-white flex items-center gap-1"
             >
@@ -166,6 +177,8 @@ export function CaseCard({ caseData }: CaseCardProps) {
             e.stopPropagation()
             handleToggle()
           }}
+          aria-pressed={isSelected}
+          aria-label={`${isSelected ? 'Quitar' : 'Agregar'} caso ${caseData.titulo} a la selección`}
           className={cn(
             "w-full rounded-md border px-3 py-2 text-xs font-semibold transition-colors",
             isSelected

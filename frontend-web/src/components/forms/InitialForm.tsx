@@ -21,12 +21,13 @@ type FormData = z.infer<typeof formSchema>
 export function InitialForm() {
   const { setSession, setLoading, setError } = useAgentStore()
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       switch: 'both',
     }
   })
+  const problemaValue = watch('problema', '')
 
   const mutation = useMutation({
     mutationFn: async (values: FormData) => {
@@ -67,7 +68,11 @@ export function InitialForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="neo-glass-card space-y-6 max-w-2xl mx-auto p-6 md:p-8 shadow-2xl">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="neo-glass-card space-y-6 max-w-2xl mx-auto p-6 md:p-8 shadow-2xl"
+      aria-label="Formulario inicial de propuesta"
+    >
       <div className="space-y-2">
         <h2 className="text-3xl font-semibold text-[var(--foreground)]">Iniciar Propuesta</h2>
         <p className="text-slate-200/85 text-sm">Cuéntanos sobre el cliente y el desafío para buscar la mejor solución.</p>
@@ -76,8 +81,9 @@ export function InitialForm() {
       <div className="space-y-4">
         {/* Switch */}
         <div>
-          <label className="block text-sm font-medium text-slate-100 mb-1">¿Qué tipo de casos buscas?</label>
+          <label htmlFor="switch" className="block text-sm font-medium text-slate-100 mb-1">¿Qué tipo de casos buscas?</label>
           <select 
+            id="switch"
             {...register('switch')}
             className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
           >
@@ -90,32 +96,43 @@ export function InitialForm() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Empresa */}
           <div>
-            <label className="block text-sm font-medium text-slate-100 mb-1">Empresa Cliente</label>
+            <label htmlFor="empresa" className="block text-sm font-medium text-slate-100 mb-1">Empresa Cliente</label>
             <input 
+              id="empresa"
               {...register('empresa')}
               placeholder="Ej: BCP, Alicorp..."
+              autoComplete="organization"
+              aria-invalid={Boolean(errors.empresa)}
+              aria-describedby={errors.empresa ? 'empresa-error' : undefined}
               className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
             />
-            {errors.empresa && <p className="mt-1 text-xs text-rose-300">{errors.empresa.message}</p>}
+            {errors.empresa && <p id="empresa-error" className="mt-1 text-xs text-rose-300">{errors.empresa.message}</p>}
           </div>
 
           {/* Rubro */}
           <div>
-            <label className="block text-sm font-medium text-slate-100 mb-1">Industria/Rubro</label>
+            <label htmlFor="rubro" className="block text-sm font-medium text-slate-100 mb-1">Industria/Rubro</label>
             <input 
+              id="rubro"
               {...register('rubro')}
               placeholder="Ej: Banca, Retail..."
+              autoComplete="organization-title"
+              aria-invalid={Boolean(errors.rubro)}
+              aria-describedby={errors.rubro ? 'rubro-error' : undefined}
               className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
             />
-            {errors.rubro && <p className="mt-1 text-xs text-rose-300">{errors.rubro.message}</p>}
+            {errors.rubro && <p id="rubro-error" className="mt-1 text-xs text-rose-300">{errors.rubro.message}</p>}
           </div>
         </div>
 
         {/* Área */}
         <div>
-          <label className="block text-sm font-medium text-slate-100 mb-1">Área de la Empresa</label>
+          <label htmlFor="area" className="block text-sm font-medium text-slate-100 mb-1">Área de la Empresa</label>
           <select 
+            id="area"
             {...register('area')}
+            aria-invalid={Boolean(errors.area)}
+            aria-describedby={errors.area ? 'area-error' : undefined}
             className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
           >
             <option value="">Selecciona un área...</option>
@@ -127,19 +144,27 @@ export function InitialForm() {
             <option value="RRHH">RRHH</option>
             <option value="Innovación">Innovación</option>
           </select>
-          {errors.area && <p className="mt-1 text-xs text-rose-300">{errors.area.message}</p>}
+          {errors.area && <p id="area-error" className="mt-1 text-xs text-rose-300">{errors.area.message}</p>}
         </div>
 
         {/* Problema */}
         <div>
-          <label className="block text-sm font-medium text-slate-100 mb-1">Describe el Problema</label>
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <label htmlFor="problema" className="block text-sm font-medium text-slate-100">Describe el Problema</label>
+            <span className="text-xs text-slate-300">{problemaValue.trim().length}/500</span>
+          </div>
           <textarea 
+            id="problema"
             {...register('problema')}
             rows={4}
+            maxLength={500}
             placeholder="Describe el dolor del cliente y lo que busca resolver..."
+            aria-invalid={Boolean(errors.problema)}
+            aria-describedby={errors.problema ? 'problema-error' : 'problema-help'}
             className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
           />
-          {errors.problema && <p className="mt-1 text-xs text-rose-300">{errors.problema.message}</p>}
+          <p id="problema-help" className="mt-1 text-xs text-slate-300">Mínimo 20 caracteres. Enfócate en dolor, impacto y urgencia.</p>
+          {errors.problema && <p id="problema-error" className="mt-1 text-xs text-rose-300">{errors.problema.message}</p>}
         </div>
       </div>
 

@@ -95,7 +95,10 @@ export default function Home() {
               </button>
             )}
             {(phase === 'curating' || phase === 'complete') && (
-              <span className="text-xs text-slate-200 bg-[rgba(108,140,255,0.16)] border border-[rgba(108,140,255,0.35)] px-3 py-1.5 rounded-full">
+              <span
+                className="text-xs text-slate-200 bg-[rgba(108,140,255,0.16)] border border-[rgba(108,140,255,0.35)] px-3 py-1.5 rounded-full"
+                aria-live="polite"
+              >
                 {selectedCaseIds.length} seleccionados
               </span>
             )}
@@ -178,7 +181,7 @@ export default function Home() {
             </div>
 
             {error && (
-              <div className="mx-4 mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
+              <div role="alert" className="mx-4 mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
                 {error}
               </div>
             )}
@@ -202,18 +205,18 @@ export default function Home() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {topMatchGlobal && (
-                    <div className="md:col-span-2 p-4 rounded-xl border border-indigo-200 bg-indigo-50/70">
+                    <div className="md:col-span-2 p-4 rounded-2xl border border-[rgba(108,140,255,0.34)] bg-[rgba(108,140,255,0.12)]">
                       <div className="flex items-start gap-3">
-                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700">
+                        <div className="bg-[rgba(108,140,255,0.18)] p-2 rounded-lg text-[var(--accent)]">
                           <Sparkles className="w-4 h-4" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-indigo-900">Top Match Global</h4>
-                          <p className="text-xs text-indigo-800 mt-0.5">
+                          <h4 className="text-sm font-bold text-[var(--foreground)]">Top Match Global</h4>
+                          <p className="text-xs text-slate-200 mt-0.5">
                             {topMatchGlobal.titulo} • {topMatchGlobal.score_label ?? 'Muy relevante'} ({topMatchGlobal.confidence ?? `${Math.round((topMatchGlobal.score ?? 0) * 100)}% match`})
                           </p>
                           {topMatchGlobalReason && (
-                            <p className="text-[11px] text-indigo-700 mt-1">{topMatchGlobalReason}</p>
+                            <p className="text-[11px] text-slate-300 mt-1">{topMatchGlobalReason}</p>
                           )}
                         </div>
                       </div>
@@ -304,7 +307,7 @@ export default function Home() {
             </div>
 
             {error && (
-              <div className="mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
+              <div role="alert" className="mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
                 {error}
               </div>
             )}

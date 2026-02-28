@@ -227,3 +227,19 @@ V2.2 se considera cerrada cuando:
     - mayor densidad visual en header fijo, compensada con mejor navegabilidad.
   - validacion:
     - `npm --prefix frontend-web run build` => OK.
+- 2026-02-28: frontend fase 4 (accesibilidad operativa + coherencia dark premium) ejecutada.
+  - objetivo tecnico:
+    - mejorar usabilidad real con teclado/lectores de pantalla y corregir contraste inconsistente en bloques de insight.
+  - cambio:
+    - `CaseCard` ahora soporta interaccion por teclado (`Enter`/`Space`) con `role`, `tabIndex` y `aria-pressed`.
+    - `InitialForm` incorpora labels asociados, atributos ARIA por error, contador de caracteres y ayuda de campo en problema.
+    - `ChatPanel` pasa a `form` semantico con boton submit deshabilitable y etiquetas ARIA.
+    - `page.tsx` agrega `role="alert"` para errores y reestiliza `Top Match Global` al sistema visual dark institucional.
+    - `globals.css` agrega `:focus-visible` global alineado al color acento.
+  - por que negocio (breve):
+    - reduce friccion en demos operativas y mejora control del consultor en sesiones largas de curacion/refinamiento.
+    - minimiza fallos de percepcion (errores no visibles, foco perdido) en momentos criticos de propuesta comercial.
+  - tradeoff:
+    - mas detalles de implementacion UI a mantener, a cambio de una experiencia mas robusta y profesional.
+  - validacion:
+    - `npm --prefix frontend-web run build` => OK.
