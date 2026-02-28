@@ -262,7 +262,7 @@ async def ingest_cases(data: IngestRequest, authorization: str | None = Header(d
         import asyncio
         if data.force_rebuild:
             await asyncio.to_thread(db_connection.reset_cases_collection, "neo_cases_v1")
-        inserted = await asyncio.to_thread(db_connection.load_csv_files, csv_paths, "neo_cases_v1")
+        ingest_summary = await asyncio.to_thread(db_connection.load_csv_files, csv_paths, "neo_cases_v1")
     except Exception as exc:
         logger.exception("Error en /api/ingest: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -271,7 +271,11 @@ async def ingest_cases(data: IngestRequest, authorization: str | None = Header(d
         "status": "success",
         "summary": {
             "csv_files": data.csv_files,
-            "inserted": inserted,
+            "inserted": ingest_summary.get("valid", 0),
+            "rejected": ingest_summary.get("rejected", 0),
+            "with_url": ingest_summary.get("with_url", 0),
+            "missing_url": ingest_summary.get("missing_url", 0),
+            "source_stats": ingest_summary.get("source_stats", {}),
             "collection": "neo_cases_v1",
         },
     }

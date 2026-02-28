@@ -194,7 +194,8 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
         "origen": raw.get("origen") or "unknown",
         "semantic_quality": semantic_quality,
         "link_status": link_status,
-        "has_critical_evidence": has_valid_url and has_kpi,
+        "has_critical_evidence": has_valid_url,
+        "evidence_label": "Con evidencia verificable" if has_valid_url else "Sin URL verificable",
         "data_quality_score": round(min(1.0, quality), 3),
     }
 

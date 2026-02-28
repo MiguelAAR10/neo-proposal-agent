@@ -38,7 +38,7 @@ class CaseInput(BaseModel):
     titulo: str = Field(..., min_length=5, max_length=200)
     problema: str = Field(..., min_length=8, max_length=1000)
     solucion: str = Field(..., min_length=8, max_length=1000)
-    url_slide: str
+    url_slide: str | None = None
 
     empresa: str | None = None
     industria: str | None = None
@@ -58,11 +58,13 @@ class CaseInput(BaseModel):
 
     @field_validator("url_slide")
     @classmethod
-    def _validate_url(cls, value: str) -> str:
+    def _validate_url(cls, value: str | None) -> str | None:
         raw = (value or "").strip()
+        if not raw:
+            return None
         parsed = urlparse(raw)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("url_slide debe ser HTTP/HTTPS valida")
+            return None
         return raw
 
     @field_validator("industria")
@@ -94,7 +96,7 @@ class CaseQdrant(BaseModel):
     titulo: str
     problema: str
     solucion: str
-    url_slide: str
+    url_slide: str | None = None
 
     empresa: str | None = None
     industria: str | None = None

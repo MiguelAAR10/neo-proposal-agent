@@ -71,6 +71,17 @@ class QdrantConnection:
         self._ensure_cases_collection(collection_name)
 
     @staticmethod
+    def _normalize_url(raw: str | None) -> str | None:
+        value = (raw or "").strip()
+        if not value:
+            return None
+        if value.lower() in {"pendiente", "n/a", "na", "none", "null", "-"}:
+            return None
+        if re.match(r"^https?://", value, flags=re.IGNORECASE):
+            return value
+        return None
+
+    @staticmethod
     def _parse_list(raw: str | None) -> list[str]:
         if raw is None:
             return []
@@ -99,13 +110,13 @@ class QdrantConnection:
             beneficios=self._parse_list(row.get("resultados_detectados")),
             stack=self._parse_list(row.get("tecnologias_mencionadas")),
             kpi_impacto=self._clean_text(row.get("resultados_detectados")) or None,
-            url_slide=self._clean_text(row.get("url_slide")),
+            url_slide=self._normalize_url(row.get("url_slide")),
             origen=source_name,
         )
         return case
 
     def _normalize_neo_row(self, row: dict[str, str], source_name: str) -> CaseInput:
-        url = self._clean_text(row.get("url_slide")) or self._clean_text(row.get("google_slides_url"))
+        url = self._normalize_url(row.get("url_slide")) or self._normalize_url(row.get("google_slides_url"))
         case = CaseInput(
             case_id=self._clean_text(row.get("id_caso")),
             tipo="NEO",
@@ -136,7 +147,7 @@ class QdrantConnection:
             f"Tecnologias: {stack or 'No mapeado'}"
         )
 
-    def load_csv_files(self, csv_files: list[str], collection_name: str = "neo_cases_v1") -> int:
+    def load_csv_files(self, csv_files: list[str], collection_name: str = "neo_cases_v1") -> dict[str, Any]:
         self._ensure_cases_collection(collection_name)
         client = self._ensure_client()
         embeddings = self._ensure_embeddings()
@@ -145,9 +156,13 @@ class QdrantConnection:
         seen_ids: set[str] = set()
         valid_count = 0
         rejected_count = 0
+        missing_url_count = 0
+        with_url_count = 0
+        source_stats: dict[str, dict[str, int]] = {}
 
         for csv_path in csv_files:
             source = Path(csv_path).name
+            source_stats.setdefault(source, {"valid": 0, "rejected": 0, "with_url": 0, "missing_url": 0})
             with Path(csv_path).open("r", encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
@@ -166,6 +181,12 @@ class QdrantConnection:
                         seen_ids.add(case_input.case_id)
 
                         case_payload = CaseQdrant.from_input(case_input).model_dump()
+                        if case_payload.get("url_slide"):
+                            with_url_count += 1
+                            source_stats[source]["with_url"] += 1
+                        else:
+                            missing_url_count += 1
+                            source_stats[source]["missing_url"] += 1
                         embedding_text = self._build_embedding_text(case_payload)
                         vector = embeddings.embed_query(embedding_text)
 
@@ -177,11 +198,14 @@ class QdrantConnection:
                             )
                         )
                         valid_count += 1
+                        source_stats[source]["valid"] += 1
                     except (ValidationError, ValueError) as exc:
                         rejected_count += 1
+                        source_stats[source]["rejected"] += 1
                         logger.warning("Fila rechazada en %s: %s", source, exc)
                     except Exception as exc:
                         rejected_count += 1
+                        source_stats[source]["rejected"] += 1
                         logger.exception("Error inesperado en ingesta %s: %s", source, exc)
 
                     if len(points) >= 32:
@@ -191,13 +215,17 @@ class QdrantConnection:
         if points:
             client.upsert(collection_name=collection_name, points=points)
 
-        logger.info(
-            "Ingesta completada: valid=%s rejected=%s collection=%s",
-            valid_count,
-            rejected_count,
-            collection_name,
-        )
-        return valid_count
+        summary = {
+            "collection": collection_name,
+            "valid": valid_count,
+            "rejected": rejected_count,
+            "with_url": with_url_count,
+            "missing_url": missing_url_count,
+            "source_stats": source_stats,
+        }
+
+        logger.info("Ingesta completada: %s", summary)
+        return summary
 
     def embed_query(self, query: str) -> list[float]:
         embeddings = self._ensure_embeddings()

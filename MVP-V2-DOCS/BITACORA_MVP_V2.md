@@ -343,3 +343,23 @@ V2.2 se considera cerrada cuando:
     - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK.
     - `npm --prefix frontend-web run lint` => OK.
     - `npm --prefix frontend-web run build` => OK.
+- 2026-02-28 02:10:00 -05: hardening de ingesta de casos (URL + etiquetas de evidencia) ejecutado.
+  - objetivo tecnico:
+    - extraer casos correctamente aun con data heterogenea y exponer evidencia/etiquetas claras en retrieval.
+  - cambio backend:
+    - `CaseInput.url_slide` pasa a opcional con normalizacion robusta (no rompe por `PENDIENTE`).
+    - normalizador de URL en `qdrant_tool` para limpiar valores no validos (`pendiente`, `n/a`, etc.).
+    - ingesta retorna summary estructurado: `valid`, `rejected`, `with_url`, `missing_url`, `source_stats`.
+    - `/api/ingest` ahora expone esos contadores para control operativo.
+    - búsqueda agrega `evidence_label` y considera evidencia critica por URL verificable.
+  - por que negocio (breve):
+    - evita perder todos los casos AI por calidad irregular del CSV.
+    - permite transparencia comercial: caso con URL verificable vs sin respaldo.
+    - habilita priorizacion real de curacion por calidad de evidencia.
+  - tradeoff:
+    - se aceptan casos sin URL en base (para no perder contexto), pero se etiquetan y penalizan en confianza.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK.
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+    - smoke de ingesta real bloqueado por conectividad externa a Qdrant en entorno actual.
