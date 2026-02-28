@@ -99,7 +99,7 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="neo-glass-card flex flex-col h-[600px] overflow-hidden">
+    <div className="neo-glass-card flex flex-col h-[460px] md:h-[600px] overflow-hidden transition-all duration-200">
       {/* Header */}
       <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-2">
         <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] flex items-center justify-center text-white">

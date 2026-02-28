@@ -213,3 +213,17 @@ V2.2 se considera cerrada cuando:
     - mayor complejidad visual de estilos y estados en UI.
   - validacion:
     - `npm --prefix frontend-web run build` => OK.
+- 2026-02-28: frontend fase 3 (navegacion flotante + responsive + motion) ejecutada.
+  - objetivo tecnico:
+    - mejorar orientacion de fase y coherencia de interaccion en desktop/mobile.
+  - cambio:
+    - navbar flotante premium con estado de fase y seleccion activa.
+    - ajuste responsive para bloque propuesta + chat (sticky solo en anchos altos).
+    - unificacion de transiciones/easing en las fases principales.
+  - por que negocio (breve):
+    - reduce perdida de contexto durante iteraciones en propuestas bajo presion de tiempo.
+    - mejora lectura y control en presentacion interna del consultor.
+  - tradeoff:
+    - mayor densidad visual en header fijo, compensada con mejor navegabilidad.
+  - validacion:
+    - `npm --prefix frontend-web run build` => OK.

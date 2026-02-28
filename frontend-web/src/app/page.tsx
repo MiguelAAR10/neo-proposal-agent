@@ -57,10 +57,51 @@ export default function Home() {
 
   const effectiveNeoCases = neoCases.length > 0 ? neoCases : cases.filter((c) => c.tipo === 'NEO')
   const effectiveAiCases = aiCases.length > 0 ? aiCases : cases.filter((c) => c.tipo === 'AI')
+  const phaseLabel =
+    phase === 'idle'
+      ? 'Intake'
+      : phase === 'curating'
+        ? 'Curación'
+        : phase === 'complete'
+          ? 'Propuesta'
+          : 'Flujo'
 
   return (
-    <main className="neo-shell min-h-screen py-12 px-4 md:px-8">
+    <main className="neo-shell min-h-screen pt-24 pb-12 px-4 md:px-8">
       <div className="neo-content">
+      <motion.nav
+        initial={{ opacity: 0, y: -8, filter: 'blur(6px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-40 w-[min(96%,1080px)] neo-glass-card px-4 py-3"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-[rgba(108,140,255,0.2)] border border-white/20 text-[var(--foreground)] flex items-center justify-center text-xs font-semibold">
+              {phase === 'idle' ? '01' : phase === 'curating' ? '02' : '03'}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-300">NEO Proposal Agent</p>
+              <p className="text-sm text-[var(--foreground)] font-medium truncate">Fase activa: {phaseLabel}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {phase !== 'idle' && (
+              <button
+                onClick={reset}
+                className="neo-pill px-3 py-1.5 text-xs font-semibold text-slate-100 bg-white/10 border border-white/20 hover:bg-white/15 transition-colors"
+              >
+                Nueva búsqueda
+              </button>
+            )}
+            {(phase === 'curating' || phase === 'complete') && (
+              <span className="text-xs text-slate-200 bg-[rgba(108,140,255,0.16)] border border-[rgba(108,140,255,0.35)] px-3 py-1.5 rounded-full">
+                {selectedCaseIds.length} seleccionados
+              </span>
+            )}
+          </div>
+        </div>
+      </motion.nav>
       <AnimatePresence mode="wait">
         {/* PHASE: IDLE (Formulario inicial) */}
         {phase === 'idle' && (
@@ -69,6 +110,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             className="flex flex-col items-center justify-center min-h-[80vh]"
           >
             <div className="text-center mb-12">
@@ -90,6 +132,7 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             className="max-w-[1600px] mx-auto"
           >
             {/* Header de resultados */}
@@ -219,7 +262,7 @@ export default function Home() {
 
               {/* Sidebar (Chat) */}
               <aside className="w-full lg:w-[400px] px-4">
-                <div className="sticky top-8">
+                <div className="sticky top-24">
                   <ChatPanel />
                 </div>
               </aside>
@@ -233,6 +276,7 @@ export default function Home() {
             key="proposal"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             className="max-w-4xl mx-auto"
           >
             <div className="flex justify-between items-center mb-8">
@@ -265,13 +309,13 @@ export default function Home() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
-              <div className="neo-glass-card p-10 shadow-xl prose prose-invert max-w-none">
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
+              <div className="neo-glass-card p-6 md:p-10 shadow-xl prose prose-invert max-w-none">
                 <div className="whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
                   {proposal}
                 </div>
               </div>
-              <div className="lg:sticky lg:top-8 h-fit">
+              <div className="xl:sticky xl:top-24 h-fit">
                 <ChatPanel />
               </div>
             </div>
