@@ -1,20 +1,24 @@
 #!/bin/bash
 
 # ==========================================
-# HOW TO RUN THE MVP-2 (V2 Refactored Architecture)
+# HOW TO RUN MVP-2 (V2 Backend-First)
 # ==========================================
 #
-# Terminal 1: START BACKEND
-# ------------------------------------------
-# 1. Activate env: source my_venv/bin/activate
+# Opción recomendada (actual): FastAPI + Next.js
+# -----------------------------------------------
+# Terminal 1 (Backend)
+# 1. source my_venv/bin/activate
 # 2. cd backend
-# 3. Start API: uvicorn src.api.main:app --reload --port 8000
+# 3. uvicorn src.api.main:app --reload --port 8000
 #
-# Terminal 2: START FRONTEND
-# ------------------------------------------
-# 1. Activate env: source my_venv/bin/activate
-# 2. cd frontend
-# 3. Start UI: streamlit run app.py
+# Terminal 2 (Frontend Web)
+# 1. cd frontend-web
+# 2. npm install
+# 3. npm run dev
 #
-# The API will be on http://localhost:8000
-# The UI will be on http://localhost:8501
+# API: http://localhost:8000
+# UI:  http://localhost:3000
+#
+# Nota de compatibilidad:
+# - frontend/app.py (Streamlit) es legado de V1 y no está alineado al contrato API V2
+#   (/agent/start, /agent/{thread_id}/select, /agent/{thread_id}/state).
