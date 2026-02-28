@@ -8,6 +8,7 @@
 neo-proposal-agent-docs/
 ├── 00-INDEX-DOCUMENTACION.md          ← Estás aquí
 ├── BITACORA_MVP_V2.md                 ← Estado real, decisiones y aprendizajes
+├── MVP-2.1-ARQUITECTURA-Y-LOGICA.md   ← Documento rector de ejecucion MVP 2.1
 │
 ├── REQUIREMENTS/ (Lógica del Proyecto)
 │   ├── 01-VISION-NEGOCIO.md
@@ -33,12 +34,14 @@ Resumen rápido:
 * Frontend principal V2: `frontend-web/` (Next.js).
 * `frontend/app.py` (Streamlit) es legado de V1 y no está alineado al contrato API actual de V2.
 * Brecha activa: chat de Next.js sigue mockeado y falta endpoint de chat productivo.
+* Plan de reconstruccion tecnica: `MVP-2.1-ARQUITECTURA-Y-LOGICA.md`.
 
 ---
 
 ## 📖 Guía de Lectura por Rol
 
 **Lectura base obligatoria para cualquier rol:** `BITACORA_MVP_V2.md` (estado real, decisiones y deuda activa).
+**Lectura obligatoria para ejecucion actual:** `MVP-2.1-ARQUITECTURA-Y-LOGICA.md`.
 
 ### 👨‍💼 Product Manager / Stakeholder
 
