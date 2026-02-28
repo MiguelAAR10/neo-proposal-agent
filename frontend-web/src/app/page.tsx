@@ -6,6 +6,7 @@ import { CaseCard } from '@/components/cards/CaseCard'
 import { ChatPanel } from '@/components/chat/ChatPanel'
 import { useMutation } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
+import { getErrorMessage } from '@/lib/error'
 import { Loader2, FileText, ArrowLeft, Sparkles } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -43,14 +44,8 @@ export default function Home() {
       setError(null)
       setLoading(false)
     },
-    onError: (error: any) => {
-      const detail = error?.response?.data?.detail
-      const message =
-        (typeof detail === 'object' && detail?.message) ||
-        (typeof detail === 'string' && detail) ||
-        error?.message ||
-        'No se pudo generar la propuesta.'
-      setError(message)
+    onError: (error: unknown) => {
+      setError(getErrorMessage(error, 'No se pudo generar la propuesta.'))
       setLoading(false)
     }
   })
@@ -276,7 +271,7 @@ export default function Home() {
 
                 {effectiveNeoCases.length === 0 && effectiveAiCases.length === 0 && (
                   <div className="mt-8 rounded-xl border border-dashed border-white/20 p-6 text-sm text-slate-200">
-                    No encontramos casos con suficiente evidencia para este problema. Prueba con un problema más específico o cambia el switch a "Ambos".
+                    No encontramos casos con suficiente evidencia para este problema. Prueba con un problema más específico o cambia el switch a &quot;Ambos&quot;.
                   </div>
                 )}
               </div>

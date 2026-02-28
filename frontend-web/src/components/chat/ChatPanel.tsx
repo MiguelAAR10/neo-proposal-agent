@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Bot, Loader2 } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { getErrorMessage } from '@/lib/error'
 import { useAgentStore } from '@/stores/agentStore'
 
 interface Message {
@@ -92,12 +93,8 @@ export function ChatPanel() {
           },
         ])
       }
-    } catch (error: any) {
-      const detail = error?.response?.data?.detail
-      const message =
-        (typeof detail === 'object' && detail?.message) ||
-        (typeof detail === 'string' && detail) ||
-        'Ocurrió un error refinando la propuesta.'
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Ocurrió un error refinando la propuesta.')
       setMessages(prev => [...prev, { role: 'assistant', content: message }])
     } finally {
       setIsTyping(false)

@@ -28,6 +28,11 @@ export interface Case {
   tipo: 'AI' | 'NEO'
 }
 
+export interface PerfilCliente {
+  notas?: string
+  [key: string]: unknown
+}
+
 export interface ProposalState {
   // Session
   threadId: string | null
@@ -47,7 +52,7 @@ export interface ProposalState {
   topMatchGlobal: Case | null
   topMatchGlobalReason: string | null
   selectedCaseIds: string[]
-  perfilCliente: any | null
+  perfilCliente: PerfilCliente | null
   proposal: string | null
   
   // UI
@@ -65,7 +70,7 @@ export interface ProposalState {
     aiCases?: Case[]
     topMatchGlobal?: Case | null
     topMatchGlobalReason?: string | null
-    perfil: any
+    perfil: PerfilCliente | null
   }) => void
   selectCase: (id: string) => void
   unselectCase: (id: string) => void

@@ -274,3 +274,18 @@ V2.2 se considera cerrada cuando:
     - texto y ayudas mas visibles ocupan algo mas de espacio en pantalla.
   - validacion:
     - `npm --prefix frontend-web run build` => OK.
+- 2026-02-28: frontend fase 7 (cierre tecnico de calidad) ejecutada.
+  - objetivo tecnico:
+    - cerrar fase frontend con validacion completa de calidad de codigo y build productivo.
+  - cambio:
+    - se centralizo parseo de errores HTTP en `src/lib/error.ts` para eliminar duplicacion y `any` en componentes.
+    - se tiparon errores de UI (`unknown`) y `perfilCliente` en store.
+    - se corrigieron advertencias de lint de React Compiler migrando `watch()` a `useWatch()` en formulario.
+  - por que negocio (breve):
+    - reduce riesgo de fallos en demo/entrega por deuda tecnica de frontend.
+    - deja el flujo listo para evolucion sin romper contratos ni calidad base.
+  - tradeoff:
+    - ligera capa extra de utilidades compartidas, a cambio de codigo mas mantenible.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.

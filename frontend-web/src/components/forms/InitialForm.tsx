@@ -1,10 +1,11 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useAgentStore } from '@/stores/agentStore'
 import { apiClient } from '@/lib/api'
+import { getErrorMessage } from '@/lib/error'
 import { useMutation } from '@tanstack/react-query'
 import { Loader2, Search } from 'lucide-react'
 
@@ -21,13 +22,13 @@ type FormData = z.infer<typeof formSchema>
 export function InitialForm() {
   const { setSession, setLoading, setError } = useAgentStore()
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       switch: 'both',
     }
   })
-  const problemaValue = watch('problema', '')
+  const problemaValue = useWatch({ control, name: 'problema', defaultValue: '' })
 
   const mutation = useMutation({
     mutationFn: async (values: FormData) => {
@@ -51,14 +52,8 @@ export function InitialForm() {
       setError(null)
       setLoading(false)
     },
-    onError: (error: any) => {
-      const detail = error?.response?.data?.detail
-      const message =
-        (typeof detail === 'object' && detail?.message) ||
-        (typeof detail === 'string' && detail) ||
-        error?.message ||
-        'Error al iniciar el agente'
-      setError(message)
+    onError: (error: unknown) => {
+      setError(getErrorMessage(error, 'Error al iniciar el agente'))
       setLoading(false)
     }
   })
