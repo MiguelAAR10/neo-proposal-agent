@@ -183,3 +183,19 @@ V2.2 se considera cerrada cuando:
     - metricas locales (in-memory) se pierden en reinicio; suficiente para MVP, luego mover a observabilidad persistente.
   - validacion:
     - suite backend paso a 14 tests OK.
+- 2026-02-28: frontend fase 1 (chat real + base visual premium) ejecutada.
+  - objetivo tecnico:
+    - reemplazar simulacion del chat por integracion real de refinamiento y establecer base visual corporativa.
+  - cambio:
+    - `ChatPanel` ahora usa `/agent/{thread_id}/refine` (sin mock local).
+    - chat da feedback claro cuando falta sesion o propuesta previa.
+    - propuesta se actualiza en store despues de cada refinamiento exitoso.
+    - se aplico foundation visual premium (tokens, blobs, scanlines, glass cards, tipografia institucional).
+    - fase `complete` ahora incluye panel de chat para refinamiento iterativo real.
+  - por que negocio (breve):
+    - evita “falsa funcionalidad” en demo y habilita refinamiento real en contexto comercial.
+    - mejora percepcion de confianza y seniority visual frente a cliente interno/externo.
+  - tradeoff:
+    - mayor complejidad visual y de estado en frontend, pero sin romper contratos backend.
+  - validacion:
+    - `npm --prefix frontend-web run build` => OK.

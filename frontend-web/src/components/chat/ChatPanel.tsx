@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Send, Bot, Loader2 } from 'lucide-react'
+import { apiClient } from '@/lib/api'
+import { useAgentStore } from '@/stores/agentStore'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -10,8 +11,13 @@ interface Message {
 }
 
 export function ChatPanel() {
+  const { threadId, proposal, setProposal } = useAgentStore()
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: '¡Hola! Soy tu asistente NEO. He encontrado estos casos para ti. ¿Tienes alguna duda sobre ellos o buscas algo más específico?' }
+    {
+      role: 'assistant',
+      content:
+        'Estoy conectado al backend. Cuando tengas propuesta generada, puedo refinarla por instrucciones como: "hazla más ejecutiva" o "enfatiza ROI".',
+    },
   ])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -31,27 +37,78 @@ export function ChatPanel() {
     setInput('')
     setIsTyping(true)
 
-    // Simulación de respuesta mientras implementamos el endpoint de chat real de LangGraph
-    setTimeout(() => {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: `Entiendo tu punto sobre "${userMsg}". Basado en los casos que tenemos, te recomiendo priorizar aquellos con mayor ROI. ¿Te gustaría que enfatice algún aspecto técnico en la propuesta?` 
-      }])
+    if (!threadId) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'No hay sesión activa. Inicia una búsqueda primero para habilitar refinamiento.',
+        },
+      ])
       setIsTyping(false)
-    }, 1500)
+      return
+    }
+
+    if (!proposal) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Primero genera una propuesta seleccionando casos. Luego podré refinarla contigo.',
+        },
+      ])
+      setIsTyping(false)
+      return
+    }
+
+    try {
+      const response = await apiClient.post(`/agent/${threadId}/refine`, {
+        instruction: userMsg,
+      })
+      const refined = response.data?.propuesta_final
+
+      if (refined && typeof refined === 'string') {
+        setProposal(refined)
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content:
+              'Listo. Refiné la propuesta con tu instrucción y actualicé la versión actual en pantalla.',
+          },
+        ])
+      } else {
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: 'No pude obtener una propuesta refinada en este intento. Intenta nuevamente.',
+          },
+        ])
+      }
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail
+      const message =
+        (typeof detail === 'object' && detail?.message) ||
+        (typeof detail === 'string' && detail) ||
+        'Ocurrió un error refinando la propuesta.'
+      setMessages(prev => [...prev, { role: 'assistant', content: message }])
+    } finally {
+      setIsTyping(false)
+    }
   }
 
   return (
-    <div className="flex flex-col h-[600px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="neo-glass-card flex flex-col h-[600px] overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+      <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-2">
+        <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] flex items-center justify-center text-white">
           <Bot size={18} />
         </div>
         <div>
-          <h3 className="text-sm font-bold text-gray-900">Asistente NEO</h3>
-          <p className="text-[10px] text-green-600 font-medium flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+          <h3 className="text-sm font-bold text-[var(--foreground)]">Asistente NEO</h3>
+          <p className="text-[10px] text-emerald-300 font-medium flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
             En línea
           </p>
         </div>
@@ -63,8 +120,8 @@ export function ChatPanel() {
           <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${
               m.role === 'user' 
-                ? 'bg-blue-600 text-white rounded-tr-none' 
-                : 'bg-gray-100 text-gray-800 rounded-tl-none'
+                ? 'bg-[var(--accent-soft)] text-white rounded-tr-none' 
+                : 'bg-white/10 text-[var(--foreground)] rounded-tl-none border border-white/10'
             }`}>
               {m.content}
             </div>
@@ -72,30 +129,30 @@ export function ChatPanel() {
         ))}
         {isTyping && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 p-3 rounded-2xl rounded-tl-none flex gap-1">
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span>
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+            <div className="bg-white/10 border border-white/10 p-3 rounded-2xl rounded-tl-none flex gap-1">
+              <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce"></span>
+              <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+              <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.4s]"></span>
             </div>
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-50">
+      <div className="p-4 border-t border-white/10">
         <div className="relative">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Pregunta algo..."
-            className="w-full pl-4 pr-12 py-2.5 bg-gray-50 border-none rounded-lg text-sm focus:ring-2 focus:ring-blue-500 transition-all"
+            placeholder="Refina: tono, foco, ROI, longitud..."
+            className="w-full pl-4 pr-12 py-2.5 bg-white/10 border border-white/10 rounded-lg text-sm text-[var(--foreground)] placeholder:text-slate-300/70 focus:ring-2 focus:ring-[var(--accent)] transition-all outline-none"
           />
           <button 
             onClick={handleSend}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--accent)] hover:bg-white/10 rounded-md transition-colors"
           >
-            <Send size={18} />
+            {isTyping ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
         </div>
       </div>
