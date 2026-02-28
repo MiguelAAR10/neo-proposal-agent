@@ -11,6 +11,10 @@ class ProposalState(TypedDict):
     
     # Contexto recuperado
     casos_encontrados: list[dict]
+    neo_cases: NotRequired[list[dict]]
+    ai_cases: NotRequired[list[dict]]
+    top_match_global: NotRequired[dict]
+    top_match_global_reason: NotRequired[str]
     perfil_cliente: NotRequired[dict]
     inteligencia_sector: NotRequired[dict]
     

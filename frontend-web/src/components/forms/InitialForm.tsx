@@ -41,6 +41,10 @@ export function InitialForm() {
         area: data.area,
         problema: data.problema,
         cases: data.casos_encontrados,
+        neoCases: data.neo_cases ?? [],
+        aiCases: data.ai_cases ?? [],
+        topMatchGlobal: data.top_match_global ?? null,
+        topMatchGlobalReason: data.top_match_global_reason ?? null,
         perfil: data.perfil_cliente
       })
       setLoading(false)

@@ -3,15 +3,28 @@ import { persist } from 'zustand/middleware'
 
 export interface Case {
   id: string
+  case_id?: string
   titulo: string
   empresa: string
+  industria?: string
   area: string
   problema: string
   solucion: string
-  beneficios?: string
+  beneficios?: string[] | string
+  kpi_impacto?: string
+  stack?: string[]
   tecnologias: string[]
   url_slide?: string
   score: number
+  score_raw?: number
+  score_label?: string
+  confidence?: string
+  badge?: string
+  data_quality_score?: number
+  link_status?: 'verified' | 'inaccessible' | 'unknown' | string
+  semantic_quality?: 'good' | 'basic' | string
+  confianza_fuente?: number
+  origen?: string
   tipo: 'AI' | 'NEO'
 }
 
@@ -29,6 +42,10 @@ export interface ProposalState {
   
   // Results
   cases: Case[]
+  neoCases: Case[]
+  aiCases: Case[]
+  topMatchGlobal: Case | null
+  topMatchGlobalReason: string | null
   selectedCaseIds: string[]
   perfilCliente: any | null
   proposal: string | null
@@ -38,7 +55,18 @@ export interface ProposalState {
   error: string | null
   
   // Actions
-  setSession: (data: { threadId: string, empresa: string, area: string, problema: string, cases: Case[], perfil: any }) => void
+  setSession: (data: {
+    threadId: string
+    empresa: string
+    area: string
+    problema: string
+    cases: Case[]
+    neoCases?: Case[]
+    aiCases?: Case[]
+    topMatchGlobal?: Case | null
+    topMatchGlobalReason?: string | null
+    perfil: any
+  }) => void
   selectCase: (id: string) => void
   unselectCase: (id: string) => void
   setProposal: (proposal: string) => void
@@ -58,6 +86,10 @@ export const useAgentStore = create<ProposalState>()(
       problema: '',
       switch: 'both',
       cases: [],
+      neoCases: [],
+      aiCases: [],
+      topMatchGlobal: null,
+      topMatchGlobalReason: null,
       selectedCaseIds: [],
       perfilCliente: null,
       proposal: null,
@@ -70,6 +102,10 @@ export const useAgentStore = create<ProposalState>()(
         area: data.area,
         problema: data.problema,
         cases: data.cases,
+        neoCases: data.neoCases ?? data.cases.filter((c) => c.tipo === 'NEO'),
+        aiCases: data.aiCases ?? data.cases.filter((c) => c.tipo === 'AI'),
+        topMatchGlobal: data.topMatchGlobal ?? null,
+        topMatchGlobalReason: data.topMatchGlobalReason ?? null,
         perfilCliente: data.perfil,
         phase: 'curating'
       }),
@@ -101,6 +137,10 @@ export const useAgentStore = create<ProposalState>()(
         problema: '',
         switch: 'both',
         cases: [],
+        neoCases: [],
+        aiCases: [],
+        topMatchGlobal: null,
+        topMatchGlobalReason: null,
         selectedCaseIds: [],
         perfilCliente: null,
         proposal: null,

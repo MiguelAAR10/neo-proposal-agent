@@ -6,13 +6,17 @@ import { CaseCard } from '@/components/cards/CaseCard'
 import { ChatPanel } from '@/components/chat/ChatPanel'
 import { useMutation } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
-import { Loader2, FileText, ArrowLeft, Send } from 'lucide-react'
+import { Loader2, FileText, ArrowLeft, Sparkles } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function Home() {
   const { 
     phase, 
     cases, 
+    neoCases,
+    aiCases,
+    topMatchGlobal,
+    topMatchGlobalReason,
     selectedCaseIds, 
     empresa, 
     area, 
@@ -41,6 +45,9 @@ export default function Home() {
       setLoading(false)
     }
   })
+
+  const effectiveNeoCases = neoCases.length > 0 ? neoCases : cases.filter((c) => c.tipo === 'NEO')
+  const effectiveAiCases = aiCases.length > 0 ? aiCases : cases.filter((c) => c.tipo === 'AI')
 
   return (
     <main className="min-h-screen bg-gray-50/50 py-12 px-4 md:px-8">
@@ -135,10 +142,63 @@ export default function Home() {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {cases.map((c) => (
-                    <CaseCard key={c.id} caseData={c} />
-                  ))}
+                  {topMatchGlobal && (
+                    <div className="md:col-span-2 p-4 rounded-xl border border-indigo-200 bg-indigo-50/70">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-indigo-900">Top Match Global</h4>
+                          <p className="text-xs text-indigo-800 mt-0.5">
+                            {topMatchGlobal.titulo} • {topMatchGlobal.score_label ?? 'Muy relevante'} ({topMatchGlobal.confidence ?? `${Math.round((topMatchGlobal.score ?? 0) * 100)}% match`})
+                          </p>
+                          {topMatchGlobalReason && (
+                            <p className="text-[11px] text-indigo-700 mt-1">{topMatchGlobalReason}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {effectiveNeoCases.length > 0 && (
+                  <section className="mt-8">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-700">
+                        NEO
+                      </span>
+                      <h3 className="text-sm font-semibold text-gray-900">Casos ya ejecutados</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {effectiveNeoCases.map((c) => (
+                        <CaseCard key={c.id} caseData={c} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {effectiveAiCases.length > 0 && (
+                  <section className="mt-8">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-100 text-blue-700">
+                        AI
+                      </span>
+                      <h3 className="text-sm font-semibold text-gray-900">Referencias externas</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {effectiveAiCases.map((c) => (
+                        <CaseCard key={c.id} caseData={c} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {effectiveNeoCases.length === 0 && effectiveAiCases.length === 0 && (
+                  <div className="mt-8 rounded-xl border border-dashed border-gray-200 p-6 text-sm text-gray-500">
+                    No encontramos casos con suficiente evidencia para este problema.
+                  </div>
+                )}
               </div>
 
               {/* Sidebar (Chat) */}

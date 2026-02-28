@@ -83,6 +83,10 @@ class AgentStateResponse(BaseModel):
     area: str
     problema: str
     casos_encontrados: List[dict]
+    neo_cases: List[dict] = Field(default_factory=list)
+    ai_cases: List[dict] = Field(default_factory=list)
+    top_match_global: Optional[dict] = None
+    top_match_global_reason: Optional[str] = None
     casos_seleccionados_ids: List[str]
     perfil_cliente: Optional[dict] = None
     propuesta_final: Optional[str] = None
@@ -150,6 +154,10 @@ async def start_agent(data: StartRequest):
             area=final_state["area"],
             problema=final_state["problema"],
             casos_encontrados=final_state.get("casos_encontrados", []),
+            neo_cases=final_state.get("neo_cases", []),
+            ai_cases=final_state.get("ai_cases", []),
+            top_match_global=final_state.get("top_match_global"),
+            top_match_global_reason=final_state.get("top_match_global_reason"),
             casos_seleccionados_ids=final_state.get("casos_seleccionados_ids", []),
             perfil_cliente=final_state.get("perfil_cliente"),
             propuesta_final=final_state.get("propuesta_final"),
@@ -221,6 +229,10 @@ async def select_cases(thread_id: str, data: SelectRequest):
             area=final_state["area"],
             problema=final_state["problema"],
             casos_encontrados=final_state.get("casos_encontrados", []),
+            neo_cases=final_state.get("neo_cases", []),
+            ai_cases=final_state.get("ai_cases", []),
+            top_match_global=final_state.get("top_match_global"),
+            top_match_global_reason=final_state.get("top_match_global_reason"),
             casos_seleccionados_ids=final_state.get("casos_seleccionados_ids", []),
             perfil_cliente=final_state.get("perfil_cliente"),
             propuesta_final=final_state.get("propuesta_final"),
@@ -281,6 +293,10 @@ async def refine_proposal(thread_id: str, data: RefineRequest):
             area=latest.get("area", ""),
             problema=latest.get("problema", ""),
             casos_encontrados=latest.get("casos_encontrados", []),
+            neo_cases=latest.get("neo_cases", []),
+            ai_cases=latest.get("ai_cases", []),
+            top_match_global=latest.get("top_match_global"),
+            top_match_global_reason=latest.get("top_match_global_reason"),
             casos_seleccionados_ids=latest.get("casos_seleccionados_ids", []),
             perfil_cliente=latest.get("perfil_cliente"),
             propuesta_final=latest.get("propuesta_final"),
@@ -307,6 +323,10 @@ async def get_agent_state(thread_id: str):
         area=v.get("area", ""),
         problema=v.get("problema", ""),
         casos_encontrados=v.get("casos_encontrados", []),
+        neo_cases=v.get("neo_cases", []),
+        ai_cases=v.get("ai_cases", []),
+        top_match_global=v.get("top_match_global"),
+        top_match_global_reason=v.get("top_match_global_reason"),
         casos_seleccionados_ids=v.get("casos_seleccionados_ids", []),
         perfil_cliente=v.get("perfil_cliente"),
         propuesta_final=v.get("propuesta_final"),

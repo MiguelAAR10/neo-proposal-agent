@@ -1,7 +1,7 @@
 'use client'
 
 import { Case, useAgentStore } from '@/stores/agentStore'
-import { Check, ExternalLink, Tag } from 'lucide-react'
+import { Check, ExternalLink, Tag, ShieldCheck, AlertTriangle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -40,14 +40,21 @@ export function CaseCard({ caseData }: CaseCardProps) {
       {/* Header */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className={cn(
               "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-              caseData.tipo === 'AI' ? "bg-purple-100 text-purple-700" : "bg-orange-100 text-orange-700"
+              caseData.tipo === 'AI' ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
             )}>
               {caseData.tipo}
             </span>
-            <span className="text-xs text-gray-400 font-medium">Score: {(caseData.score * 100).toFixed(0)}%</span>
+            <span className="text-xs text-gray-500 font-medium">
+              {caseData.score_label ?? 'Muy relevante'} ({caseData.confidence ?? `Score: ${Math.round((caseData.score ?? 0) * 100)}%`})
+            </span>
+            {caseData.badge && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold">
+                {caseData.badge}
+              </span>
+            )}
           </div>
           <h3 className="font-bold text-gray-900 leading-tight group-hover:text-blue-600 transition-colors">
             {caseData.titulo}
@@ -67,11 +74,27 @@ export function CaseCard({ caseData }: CaseCardProps) {
           <span className="font-semibold text-gray-700">{caseData.empresa}</span>
           <span>•</span>
           <span>{caseData.area}</span>
+          {caseData.industria && (
+            <>
+              <span>•</span>
+              <span>{caseData.industria}</span>
+            </>
+          )}
         </div>
         
         <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
           {caseData.problema}
         </p>
+        <p className="text-xs text-gray-500 line-clamp-2">
+          {caseData.solucion}
+        </p>
+
+        {caseData.kpi_impacto && caseData.kpi_impacto !== 'No mapeado' && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">KPI de impacto</p>
+            <p className="text-xs text-emerald-800">{caseData.kpi_impacto}</p>
+          </div>
+        )}
       </div>
 
       {/* Techs */}
@@ -91,20 +114,58 @@ export function CaseCard({ caseData }: CaseCardProps) {
 
       {/* Footer */}
       <div className="pt-4 border-t border-gray-50 flex justify-between items-center">
-        {caseData.url_slide ? (
-          <a 
-            href={caseData.url_slide}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-          >
-            Ver Presentación
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        ) : (
-          <span className="text-[10px] text-gray-300">Slide no disponible</span>
-        )}
+        <div className="flex items-center gap-3">
+          {caseData.url_slide ? (
+            <a 
+              href={caseData.url_slide}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            >
+              Ver Presentación
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          ) : (
+            <span className="text-[10px] text-amber-600 font-medium">Evidencia no verificable</span>
+          )}
+
+          {caseData.link_status === 'verified' && (
+            <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              Link verificado
+            </span>
+          )}
+          {caseData.link_status === 'inaccessible' && (
+            <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              Link no accesible
+            </span>
+          )}
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-gray-400">Completitud</p>
+          <p className="text-xs font-bold text-gray-700">
+            {Math.round((caseData.data_quality_score ?? 0) * 100)}%
+          </p>
+        </div>
+      </div>
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleToggle()
+          }}
+          className={cn(
+            "w-full rounded-md border px-3 py-2 text-xs font-semibold transition-colors",
+            isSelected
+              ? "border-blue-300 bg-blue-50 text-blue-700"
+              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+          )}
+        >
+          {isSelected ? 'Caso seleccionado' : 'Seleccionar caso'}
+        </button>
       </div>
     </motion.div>
   )

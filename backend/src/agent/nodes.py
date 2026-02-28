@@ -38,6 +38,11 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             score_threshold=0.50,
         )
         state["casos_encontrados"] = search_payload.get("casos", [])
+        state["neo_cases"] = search_payload.get("neo_cases", [])
+        state["ai_cases"] = search_payload.get("ai_cases", [])
+        if search_payload.get("top_match_global"):
+            state["top_match_global"] = search_payload["top_match_global"]
+            state["top_match_global_reason"] = search_payload.get("top_match_global_reason", "")
 
         # 2. Buscar perfil del cliente (Insights de negocio)
         perfil = db_connection.get_profile(state["empresa"], state["area"])
