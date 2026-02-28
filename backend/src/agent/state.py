@@ -17,6 +17,7 @@ class ProposalState(TypedDict):
     top_match_global_reason: NotRequired[str]
     perfil_cliente: NotRequired[dict]
     profile_status: NotRequired[Literal["found", "not_found", "incomplete"]]
+    cliente_priorizado_contexto: NotRequired[dict]
     inteligencia_sector: NotRequired[dict]
     
     # Decisiones HITL

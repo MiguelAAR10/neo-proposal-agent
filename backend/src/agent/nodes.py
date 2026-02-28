@@ -4,6 +4,12 @@ from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.agent.state import ProposalState
 from src.config import get_settings
+from src.services.prioritized_clients import get_prioritized_client_context, is_prioritized_client
+from src.services.proposal_context import (
+    filter_selected_cases,
+    format_cases_for_prompt,
+    validate_selected_cases_have_url,
+)
 from src.services.search_service import search_cases_sync
 from src.tools.qdrant_tool import db_connection
 
@@ -20,11 +26,19 @@ def intake_node(state: ProposalState) -> ProposalState:
     if not empresa or not problema:
         state["error"] = "Los campos Empresa y Problema son obligatorios."
         return state
+    if not is_prioritized_client(empresa):
+        state["error"] = (
+            "En esta fase solo se permiten clientes priorizados: "
+            "BCP, Interbank, BBVA, Alicorp, Rimac, Pacifico, Scotiabank, MiBanco, "
+            "Credicorp, Plaza Vea, Falabella y Sodimac."
+        )
+        return state
 
     state["empresa"] = empresa
     state["problema"] = problema
     state["area"] = area
     state["switch"] = switch
+    state["cliente_priorizado_contexto"] = get_prioritized_client_context(empresa)
     state["error"] = ""
     return state
 
@@ -41,11 +55,17 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             limit=6,
             score_threshold=0.50,
         )
-        state["casos_encontrados"] = search_payload.get("casos", [])
-        state["neo_cases"] = search_payload.get("neo_cases", [])
-        state["ai_cases"] = search_payload.get("ai_cases", [])
-        if search_payload.get("top_match_global"):
-            state["top_match_global"] = search_payload["top_match_global"]
+        # Para cards seleccionables exigimos evidencia URL.
+        filtered_cases = [c for c in search_payload.get("casos", []) if c.get("url_slide")]
+        filtered_neo = [c for c in search_payload.get("neo_cases", []) if c.get("url_slide")]
+        filtered_ai = [c for c in search_payload.get("ai_cases", []) if c.get("url_slide")]
+        state["casos_encontrados"] = filtered_cases
+        state["neo_cases"] = filtered_neo
+        state["ai_cases"] = filtered_ai
+
+        top_match = search_payload.get("top_match_global")
+        if top_match and top_match.get("url_slide"):
+            state["top_match_global"] = top_match
             state["top_match_global_reason"] = search_payload.get("top_match_global_reason", "")
 
         # 2. Buscar perfil del cliente (Insights de negocio)
@@ -72,7 +92,7 @@ def retrieve_node(state: ProposalState) -> ProposalState:
         )
 
         if not state["casos_encontrados"]:
-            state["error"] = "No se encontraron casos para el problema ingresado."
+            state["error"] = "No se encontraron casos con URL verificable para el problema ingresado."
             
     except Exception as exc:
         state["error"] = f"Error en retrieve_node: {exc}"
@@ -102,28 +122,6 @@ def _build_sector_intel(rubro: str, area: str) -> dict:
         "source": "placeholder_v2",
     }
 
-def _format_cases_for_prompt(cases: list[dict]) -> str:
-    if not cases:
-        return "No hay casos seleccionados."
-
-    blocks: list[str] = []
-    for idx, case in enumerate(cases, start=1):
-        beneficios = case.get("beneficios", [])
-        if isinstance(beneficios, list):
-            beneficios_txt = ", ".join(str(v) for v in beneficios if str(v).strip()) or "N/A"
-        else:
-            beneficios_txt = str(beneficios or "N/A")
-        blocks.append(
-            f"--- CASO {idx} ---\n"
-            f"TITULO: {case.get('titulo', 'Sin titulo')}\n"
-            f"PROBLEMA: {case.get('resumen', case.get('problema', 'N/A'))}\n"
-            f"SOLUCION: {case.get('solucion', 'Ver slide original')}\n"
-            f"BENEFICIOS: {beneficios_txt}\n"
-            f"KPI: {case.get('kpi_impacto', 'N/A')}\n"
-            f"URL: {case.get('url_slide', 'N/A')}"
-        )
-    return "\n\n".join(blocks)
-
 def _format_profile_for_prompt(perfil: dict | None) -> str:
     if not perfil or not perfil.get("empresa"):
         return "No hay información previa del cliente."
@@ -146,6 +144,19 @@ def _format_sector_for_prompt(sector: dict | None) -> str:
         f"- Oportunidades: {sector.get('oportunidades', [])}"
     )
 
+
+def _format_prioritized_client_context(context: dict | None) -> str:
+    if not context:
+        return "No hay contexto estrategico del cliente priorizado."
+
+    return (
+        f"Vertical: {context.get('vertical', 'N/A')}\n"
+        f"- Prioridades: {context.get('priorities', [])}\n"
+        f"- Restricciones: {context.get('constraints', [])}\n"
+        f"- Fuente: {context.get('source', 'N/A')}"
+    )
+
+
 def draft_node(state: ProposalState) -> ProposalState:
     """Genera la propuesta final usando los casos y el perfil del cliente."""
     logger.info("Entrando a draft_node empresa=%s", state.get("empresa"))
@@ -153,13 +164,20 @@ def draft_node(state: ProposalState) -> ProposalState:
         logger.warning("draft_node omitido por error previo: %s", state.get("error"))
         return state
 
-    selected_ids = set(state.get("casos_seleccionados_ids", []))
+    selected_ids = list(state.get("casos_seleccionados_ids", []))
     found_cases = state.get("casos_encontrados", [])
-
-    filtered_cases = [c for c in found_cases if str(c.get("id")) in selected_ids]
+    filtered_cases = filter_selected_cases(found_cases, selected_ids)
     if not filtered_cases:
-        logger.warning("draft_node sin casos filtrados para selected_case_ids=%s", list(selected_ids))
+        logger.warning("draft_node sin casos filtrados para selected_case_ids=%s", selected_ids)
         state["error"] = "Debes seleccionar al menos un caso antes de generar la propuesta."
+        return state
+
+    has_url, missing_url_ids = validate_selected_cases_have_url(filtered_cases)
+    if not has_url:
+        state["error"] = (
+            "Todos los casos seleccionados deben incluir URL de evidencia. "
+            f"Faltan URL en: {', '.join(missing_url_ids)}"
+        )
         return state
 
     try:
@@ -182,11 +200,14 @@ def draft_node(state: ProposalState) -> ProposalState:
             f"Problema actual: {state['problema']}\n"
             f"{_format_profile_for_prompt(state.get('perfil_cliente'))}\n\n"
 
+            "--- CONTEXTO CLIENTE PRIORIZADO ---\n"
+            f"{_format_prioritized_client_context(state.get('cliente_priorizado_contexto'))}\n\n"
+
             "--- INTELIGENCIA DE MERCADO / SECTOR ---\n"
             f"{_format_sector_for_prompt(state.get('inteligencia_sector'))}\n\n"
             
             "--- CASOS DE ÉXITO SELECCIONADOS (BASE TECNOLÓGICA) ---\n"
-            f"{_format_cases_for_prompt(filtered_cases)}\n\n"
+            f"{format_cases_for_prompt(filtered_cases)}\n\n"
             
             "INSTRUCCIONES DE REDACCIÓN:\n"
             "1. Usa el 'Enfoque Propuesto' basado en los casos de éxito, pero ADÁPTALO a los objetivos del cliente.\n"

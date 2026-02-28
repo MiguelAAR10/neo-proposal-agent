@@ -52,8 +52,8 @@ Estado: `IMPLEMENTADO`
 ## RF-08 Chat contextual en curacion/refinamiento
 Estado: `PARCIAL`
 - backend refine existe.
-- UI de chat sigue mock en frontend.
-- falta endpoint de chat contextual dedicado.
+- UI de chat ya integra `POST /agent/{thread_id}/refine` (sin mock).
+- falta endpoint de chat contextual dedicado para separar flujo conversacional.
 
 ## RF-09 Ingesta administrativa de casos
 Estado: `IMPLEMENTADO`

@@ -8,7 +8,15 @@ from fastapi import HTTPException
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from src.api.main import SearchRequest, api_search, get_agent_state  # noqa: E402
+from src.api.main import (  # noqa: E402
+    SearchRequest,
+    SelectRequest,
+    StartRequest,
+    api_search,
+    get_agent_state,
+    select_cases,
+    start_agent,
+)
 from src.services.errors import ExternalDependencyTimeout  # noqa: E402
 
 
@@ -62,7 +70,50 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(exc.status_code, 404)
         self.assertEqual(exc.detail["code"], "SESSION_NOT_FOUND")
 
+    def test_start_agent_rejects_non_prioritized_client(self) -> None:
+        async def run() -> None:
+            await start_agent(
+                StartRequest(
+                    empresa="Cliente No Priorizado",
+                    rubro="Banca",
+                    area="Operaciones",
+                    problema="Necesitamos mejorar tiempos de respuesta en conciliaciones",
+                    switch="both",
+                )
+            )
+
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(run())
+
+        exc = ctx.exception
+        self.assertEqual(exc.status_code, 400)
+        self.assertEqual(exc.detail["code"], "BUSINESS_RULE_ERROR")
+
+    def test_select_cases_rejects_selected_case_without_url(self) -> None:
+        mock_state = type(
+            "S",
+            (),
+            {
+                "values": {
+                    "casos_encontrados": [
+                        {"id": "CASE-1", "url_slide": None},
+                        {"id": "CASE-2", "url_slide": "https://example.com/case-2"},
+                    ]
+                }
+            },
+        )()
+
+        async def run() -> None:
+            with patch("src.api.main.graph.aget_state", new=AsyncMock(return_value=mock_state)):
+                await select_cases("thread-1", SelectRequest(case_ids=["CASE-1"]))
+
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(run())
+
+        exc = ctx.exception
+        self.assertEqual(exc.status_code, 400)
+        self.assertEqual(exc.detail["code"], "BUSINESS_RULE_ERROR")
+
 
 if __name__ == "__main__":
     unittest.main()
-

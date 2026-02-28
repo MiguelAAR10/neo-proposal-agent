@@ -65,11 +65,12 @@ Cada commit que cambie comportamiento debe registrar una entrada en bitacora con
 5. Criterio de validacion.
 6. Estado (`implementado`, `parcial`, `revertido`).
 
-Plantilla sugerida:
+Plantilla sugerida (obligatoria en V2):
 
 ```text
-[YYYY-MM-DD] tipo(scope): resumen
+[YYYY-MM-DD HH:MM -05:00] tipo(scope): resumen
 - objetivo:
+- razon_negocio:
 - cambio:
 - tradeoff:
 - error detectado/evitado:
@@ -80,7 +81,7 @@ Plantilla sugerida:
 ## 6) Mapa de versiones y objetivo
 
 - `MVP V2.1 (actual)`: busqueda + curation + propuesta en una sola pantalla con segmentacion NEO/AI.
-- `MVP V2.2 (objetivo siguiente)`: chat contextual real, telemetria SLA y calidad de datos operativa.
+- `MVP V2.2 (objetivo siguiente)`: endpoint dedicado de chat contextual, telemetria SLA y calidad de datos operativa.
 
 ## 7) Definicion de terminado por version
 
@@ -90,11 +91,11 @@ V2.1 se considera estable cuando:
 - Propuesta incluye evidencia (casos + KPI + URL cuando exista).
 
 V2.2 se considera cerrada cuando:
-- Chat deja de ser mock y usa contexto de thread real.
+- Existe endpoint dedicado de chat contextual (no solo `refine`) y usa contexto de thread real.
 - Se exponen metricas p50/p95/p99 en tablero o logs estructurados persistentes.
 - Existe job de verificacion de links y se actualiza `link_status`.
 
-## 8) Registro de actualizaciones de esta bitacora
+## 8) Registro de actualizaciones de esta bitacora (fecha y hora obligatorias)
 
 - 2026-02-28: se agrega matriz de trazabilidad por commit y registro explicito de errores/aprendizajes para control de versiones V2.
 - 2026-02-28: backend plan fase inicial ejecutada.
@@ -363,3 +364,24 @@ V2.2 se considera cerrada cuando:
     - `npm --prefix frontend-web run lint` => OK.
     - `npm --prefix frontend-web run build` => OK.
     - smoke de ingesta real bloqueado por conectividad externa a Qdrant en entorno actual.
+- 2026-02-28 11:20:56 -05: backend fase clientes priorizados + consistencia de evidencia ejecutada.
+  - objetivo:
+    - cerrar el flujo de propuesta solo para clientes priorizados, asegurando que cada ficha seleccionable tenga evidencia URL y que ese contexto alimente generacion/refinamiento.
+  - razon_negocio:
+    - evita propuestas sobre cuentas fuera de foco comercial y mejora calidad de narrativa al exigir evidencia verificable por caso.
+  - cambio:
+    - nuevo servicio `prioritized_clients.py` con lista canonica top 12 y contexto estrategico por cliente.
+    - `POST /agent/start` valida cliente priorizado y normaliza nombre de empresa.
+    - `retrieve_node` filtra casos sin `url_slide` para que las fichas seleccionables mantengan evidencia minima.
+    - `POST /agent/{thread_id}/select` valida que `case_ids` pertenezcan a la busqueda actual y que todos tengan URL.
+    - propuesta/refine ahora incorporan contexto de cliente priorizado + perfil + sector + casos seleccionados con URL.
+    - nuevo endpoint `GET /api/prioritized-clients` para exponer lista oficial al frontend.
+  - tradeoff:
+    - mayor restriccion del flujo (puede rechazar inputs antes permitidos), aceptada para priorizar calidad comercial y consistencia de datos.
+  - error detectado/evitado:
+    - se evito un fallo de integridad donde se podian enviar `case_ids` ajenos al resultado o sin URL.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (19 tests).
+    - se agregaron tests de contrato para cliente no priorizado y seleccion sin URL.
+  - estado:
+    - implementado.

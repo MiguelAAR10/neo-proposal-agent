@@ -98,7 +98,7 @@ Checklist:
 
 ## 9) Backlog tecnico V2.2
 
-1. chat contextual productivo (no mock frontend).
+1. endpoint dedicado de chat contextual con memoria conversacional por `thread_id`.
 2. metricas persistentes (Prometheus/Datadog/LangSmith).
 3. health checks profundos por dependencia.
 4. reporte persistente de calidad de ingesta por categoria.

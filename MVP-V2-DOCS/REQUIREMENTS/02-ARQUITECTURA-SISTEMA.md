@@ -67,7 +67,7 @@ Dependencias
 - metricas SLA no persistentes (se pierden al reinicio).
 
 ### Backlog
-- chat contextual productivo (frontend hoy mock).
+- endpoint dedicado de chat contextual con memoria conversacional.
 - observabilidad persistente (Prometheus/Datadog/LangSmith).
 
 ## 6) Seguridad y entorno
@@ -92,4 +92,4 @@ Control actual:
 
 ## 8) Riesgo principal abierto
 
-Sin chat contextual real, el loop de refinamiento en UI no esta completamente cerrado en experiencia conversacional, aunque backend de refine si existe.
+El loop conversacional usa hoy `POST /agent/{thread_id}/refine`; falta endpoint dedicado de chat para separar intenciones conversacionales de instrucciones de refinamiento.

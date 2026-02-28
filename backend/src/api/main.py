@@ -21,6 +21,17 @@ from src.services.errors import (
     SessionNotFoundError,
 )
 from src.services.metrics import search_metrics
+from src.services.prioritized_clients import (
+    get_prioritized_client_context,
+    get_prioritized_clients,
+    is_prioritized_client,
+    normalize_company_name,
+)
+from src.services.proposal_context import (
+    filter_selected_cases,
+    format_cases_for_prompt,
+    validate_selected_cases_have_url,
+)
 from src.services.search_service import search_cases_with_sla
 from src.tools.qdrant_tool import db_connection
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -98,6 +109,7 @@ class AgentStateResponse(BaseModel):
     casos_seleccionados_ids: List[str]
     perfil_cliente: Optional[dict] = None
     profile_status: Optional[Literal["found", "not_found", "incomplete"]] = None
+    cliente_priorizado_contexto: Optional[dict] = None
     inteligencia_sector: Optional[dict] = None
     propuesta_final: Optional[str] = None
     status: str
@@ -133,6 +145,7 @@ def _map_state_response(
         casos_seleccionados_ids=state_values.get("casos_seleccionados_ids", []),
         perfil_cliente=state_values.get("perfil_cliente"),
         profile_status=state_values.get("profile_status"),
+        cliente_priorizado_contexto=state_values.get("cliente_priorizado_contexto"),
         inteligencia_sector=state_values.get("inteligencia_sector"),
         propuesta_final=state_values.get("propuesta_final"),
         status=resolved_status,
@@ -150,6 +163,16 @@ async def health():
         "environment": settings.app_env,
         "qdrant": "connected", # Podríamos añadir un ping real aquí
         "redis_required": settings.is_non_local_env,
+    }
+
+
+@app.get("/api/prioritized-clients")
+async def prioritized_clients():
+    """Lista oficial de clientes priorizados para fase actual."""
+    return {
+        "status": "success",
+        "total": len(get_prioritized_clients()),
+        "clients": get_prioritized_clients(),
     }
 
 @app.post("/api/search")
@@ -214,13 +237,21 @@ async def start_agent(data: StartRequest):
     """
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
+    empresa_normalized = normalize_company_name(data.empresa)
+    if not is_prioritized_client(data.empresa):
+        _raise_domain_http(
+            BusinessRuleError(
+                "En esta fase solo se permiten clientes priorizados para generar propuestas."
+            )
+        )
     
     inputs = {
-        "empresa": data.empresa,
+        "empresa": empresa_normalized,
         "rubro": data.rubro,
         "area": data.area,
         "problema": data.problema,
         "switch": data.switch,
+        "cliente_priorizado_contexto": get_prioritized_client_context(data.empresa),
         "casos_seleccionados_ids": [],
         "propuesta_versiones": []
     }
@@ -293,6 +324,27 @@ async def select_cases(thread_id: str, data: SelectRequest):
         _raise_domain_http(SessionNotFoundError("Sesión no encontrada."))
     
     try:
+        current_values = current_state.values or {}
+        all_cases = current_values.get("casos_encontrados", [])
+        available_ids = {str(case.get("id")) for case in all_cases}
+        invalid_ids = [case_id for case_id in data.case_ids if case_id not in available_ids]
+        if invalid_ids:
+            _raise_domain_http(
+                BusinessRuleError(
+                    f"Hay case_ids que no pertenecen a la busqueda actual: {', '.join(invalid_ids)}"
+                )
+            )
+
+        selected_cases = filter_selected_cases(all_cases, data.case_ids)
+        has_url, missing_url_ids = validate_selected_cases_have_url(selected_cases)
+        if not has_url:
+            _raise_domain_http(
+                BusinessRuleError(
+                    "Cada ficha seleccionada debe tener URL de evidencia. "
+                    f"Faltan URL en: {', '.join(missing_url_ids)}"
+                )
+            )
+
         # 2. Actualizar el estado con los IDs seleccionados
         await graph.aupdate_state(config, {"casos_seleccionados_ids": data.case_ids})
         
@@ -301,6 +353,8 @@ async def select_cases(thread_id: str, data: SelectRequest):
         return _map_state_response(thread_id, final_state, status="completed")
     except BackendDomainError as exc:
         _raise_domain_http(exc)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error in select_cases: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -326,9 +380,31 @@ async def refine_proposal(thread_id: str, data: RefineRequest):
             temperature=0.3,
             google_api_key=settings.gemini_api_key,
         )
+        selected_cases = filter_selected_cases(
+            list(v.get("casos_encontrados", [])),
+            list(v.get("casos_seleccionados_ids", [])),
+        )
+        profile_context = v.get("perfil_cliente") or {}
+        client_context = v.get("cliente_priorizado_contexto") or {}
+        sector_context = v.get("inteligencia_sector") or {}
+
         prompt = (
             "Refina la siguiente propuesta comercial manteniendo precisión y tono ejecutivo.\n"
             "Aplica estrictamente la instrucción del usuario.\n\n"
+            "--- CONTEXTO CLIENTE PRIORIZADO ---\n"
+            f"Empresa: {v.get('empresa', 'N/A')}\n"
+            f"Vertical: {client_context.get('vertical', 'N/A')}\n"
+            f"Prioridades: {client_context.get('priorities', [])}\n"
+            f"Restricciones: {client_context.get('constraints', [])}\n\n"
+            "--- CONTEXTO PERFIL CLIENTE ---\n"
+            f"Objetivos: {profile_context.get('objetivos', [])}\n"
+            f"Pain points: {profile_context.get('pain_points', [])}\n"
+            f"Notas: {profile_context.get('notas', 'N/A')}\n\n"
+            "--- CONTEXTO SECTOR ---\n"
+            f"Industria: {sector_context.get('industria', 'N/A')} / Area: {sector_context.get('area', 'N/A')}\n"
+            f"Tendencias: {sector_context.get('tendencias', [])}\n\n"
+            "--- CASOS SELECCIONADOS CON EVIDENCIA ---\n"
+            f"{format_cases_for_prompt(selected_cases)}\n\n"
             f"INSTRUCCION: {data.instruction}\n\n"
             "PROPUESTA ACTUAL:\n"
             f"{v['propuesta_final']}\n"
