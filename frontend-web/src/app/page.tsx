@@ -68,6 +68,12 @@ export default function Home() {
 
   return (
     <main className="neo-shell min-h-screen pt-24 pb-12 px-4 md:px-8">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only fixed top-2 left-2 z-50 neo-pill bg-[var(--accent-soft)] text-white px-3 py-2 text-xs font-semibold"
+      >
+        Saltar al contenido principal
+      </a>
       <div className="neo-content">
       <motion.nav
         initial={{ opacity: 0, y: -8, filter: 'blur(6px)' }}
@@ -89,7 +95,8 @@ export default function Home() {
             {phase !== 'idle' && (
               <button
                 onClick={reset}
-                className="neo-pill px-3 py-1.5 text-xs font-semibold text-slate-100 bg-white/10 border border-white/20 hover:bg-white/15 transition-colors"
+                aria-label="Reiniciar flujo y comenzar nueva búsqueda"
+                className="neo-pill px-3 py-1.5 text-xs font-semibold text-slate-100 bg-white/10 border border-white/20 hover:bg-white/15 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
                 Nueva búsqueda
               </button>
@@ -109,6 +116,7 @@ export default function Home() {
         {/* PHASE: IDLE (Formulario inicial) */}
         {phase === 'idle' && (
           <motion.div
+            id="main-content"
             key="form"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -131,6 +139,7 @@ export default function Home() {
         {/* PHASE: CURATING (Selección de casos) */}
         {phase === 'curating' && (
           <motion.div
+            id="main-content"
             key="results"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -143,7 +152,8 @@ export default function Home() {
               <div>
                 <button 
                   onClick={reset}
-                  className="flex items-center text-sm text-slate-300 hover:text-white mb-2 transition-colors"
+                  aria-label="Volver al formulario para nueva búsqueda"
+                  className="flex items-center text-sm text-slate-200 hover:text-white mb-2 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-md"
                 >
                   <ArrowLeft className="w-4 h-4 mr-1" />
                   Nueva búsqueda
@@ -157,13 +167,14 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-4">
-                <p className="text-sm font-medium text-slate-300">
+                <p className="text-sm font-medium text-slate-200" aria-live="polite">
                   <span className="text-[var(--accent)] font-bold">{selectedCaseIds.length}</span> seleccionados
                 </p>
                 <button
                   onClick={() => generateMutation.mutate()}
                   disabled={selectedCaseIds.length === 0 || generateMutation.isPending}
-                  className="neo-pill flex items-center bg-[var(--accent-soft)] text-white px-6 py-2.5 font-semibold hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-900/50"
+                  aria-label="Generar propuesta basada en casos seleccionados"
+                  className="neo-pill flex items-center bg-[var(--accent-soft)] text-white px-6 py-2.5 font-semibold hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-900/50 focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
                   {generateMutation.isPending ? (
                     <>
@@ -264,7 +275,7 @@ export default function Home() {
               </div>
 
               {/* Sidebar (Chat) */}
-              <aside className="w-full lg:w-[400px] px-4">
+              <aside className="w-full lg:w-[400px] px-4" aria-label="Panel de refinamiento conversacional">
                 <div className="sticky top-24">
                   <ChatPanel />
                 </div>
@@ -276,6 +287,7 @@ export default function Home() {
         {/* PHASE: COMPLETE (Propuesta final) */}
         {phase === 'complete' && (
           <motion.div
+            id="main-content"
             key="proposal"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -285,7 +297,8 @@ export default function Home() {
             <div className="flex justify-between items-center mb-8">
               <button 
                 onClick={() => useAgentStore.setState({ phase: 'curating' })}
-                className="flex items-center text-sm text-slate-300 hover:text-white transition-colors"
+                aria-label="Volver a la curación de casos"
+                className="flex items-center text-sm text-slate-200 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-md"
               >
                 <ArrowLeft className="w-4 h-4 mr-1" />
                 Editar selección
@@ -293,13 +306,15 @@ export default function Home() {
               <div className="flex gap-2">
                 <button 
                   onClick={() => window.print()}
-                  className="px-4 py-2 text-sm font-medium text-slate-100 bg-white/10 border border-white/20 rounded-lg hover:bg-white/15 transition-colors"
+                  aria-label="Exportar propuesta en PDF usando impresión"
+                  className="px-4 py-2 text-sm font-medium text-slate-100 bg-white/10 border border-white/20 rounded-lg hover:bg-white/15 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
                   Exportar PDF
                 </button>
                 <button 
                   onClick={reset}
-                  className="px-4 py-2 text-sm font-medium text-white bg-[var(--accent-soft)] rounded-lg hover:brightness-110 transition-colors"
+                  aria-label="Iniciar una nueva propuesta desde cero"
+                  className="px-4 py-2 text-sm font-medium text-white bg-[var(--accent-soft)] rounded-lg hover:brightness-110 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
                   Nueva Propuesta
                 </button>
@@ -313,12 +328,12 @@ export default function Home() {
             )}
 
             <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
-              <div className="neo-glass-card p-6 md:p-10 shadow-xl prose prose-invert max-w-none">
+              <div className="neo-glass-card p-6 md:p-10 shadow-xl prose prose-invert max-w-none" role="region" aria-label="Texto de propuesta generado">
                 <div className="whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
                   {proposal}
                 </div>
               </div>
-              <div className="xl:sticky xl:top-24 h-fit">
+              <div className="xl:sticky xl:top-24 h-fit" aria-label="Chat para refinar propuesta">
                 <ChatPanel />
               </div>
             </div>

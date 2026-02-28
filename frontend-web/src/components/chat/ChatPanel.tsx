@@ -158,7 +158,7 @@ export function ChatPanel() {
             type="submit"
             disabled={isTyping || !input.trim()}
             aria-label="Enviar instrucción"
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--accent)] hover:bg-white/10 rounded-md transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--accent)] hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             {isTyping ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>

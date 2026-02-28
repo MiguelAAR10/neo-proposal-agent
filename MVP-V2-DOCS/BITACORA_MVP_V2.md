@@ -243,3 +243,19 @@ V2.2 se considera cerrada cuando:
     - mas detalles de implementacion UI a mantener, a cambio de una experiencia mas robusta y profesional.
   - validacion:
     - `npm --prefix frontend-web run build` => OK.
+- 2026-02-28: frontend fase 5 (accesibilidad AA en flujo curating/complete) ejecutada.
+  - objetivo tecnico:
+    - fortalecer navegacion por teclado y semantica de interfaz en acciones criticas de seleccion/generacion/refinamiento.
+  - cambio:
+    - se agrego skip-link a contenido principal para acelerar navegacion por teclado.
+    - botones clave de `page.tsx` incorporan `aria-label` y foco visible consistente.
+    - contador de seleccion se publica en `aria-live` para feedback no visual.
+    - `CaseCard` evita conflicto de interactivos anidados (se retiro `role=button` del contenedor) y mantiene seleccion accesible via boton dedicado.
+    - `ChatPanel` mejora estado de envio (disabled visible + foco visible).
+  - por que negocio (breve):
+    - mejora control operativo del consultor cuando alterna rapido entre casos y propuesta.
+    - reduce errores de interaccion en demos y sesiones de trabajo intensivo bajo presion comercial.
+  - tradeoff:
+    - mayor detalle de marcado ARIA y estados de foco a mantener en evoluciones futuras.
+  - validacion:
+    - `npm --prefix frontend-web run build` => OK.
