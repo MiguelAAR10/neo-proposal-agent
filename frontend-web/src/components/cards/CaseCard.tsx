@@ -50,7 +50,7 @@ export function CaseCard({ caseData }: CaseCardProps) {
             )}>
               {caseData.tipo}
             </span>
-            <span className="text-xs text-slate-200/85 font-medium">
+            <span className="text-xs text-slate-100 font-medium">
               {caseData.score_label ?? 'Muy relevante'} ({caseData.confidence ?? `Score: ${Math.round((caseData.score ?? 0) * 100)}%`})
             </span>
             {caseData.badge && (
@@ -73,7 +73,7 @@ export function CaseCard({ caseData }: CaseCardProps) {
 
       {/* Info */}
       <div className="space-y-3 mb-4 flex-1">
-        <div className="text-xs text-slate-300 flex items-center gap-1">
+        <div className="text-xs text-slate-200 flex items-center gap-1">
           <span className="font-semibold text-slate-100">{caseData.empresa}</span>
           <span>•</span>
           <span>{caseData.area}</span>
@@ -88,7 +88,7 @@ export function CaseCard({ caseData }: CaseCardProps) {
         <p className="text-sm text-slate-100 line-clamp-3 leading-relaxed">
           {caseData.problema}
         </p>
-        <p className="text-xs text-slate-300 line-clamp-2">
+        <p className="text-xs text-slate-200 line-clamp-2">
           {caseData.solucion}
         </p>
 
@@ -116,7 +116,7 @@ export function CaseCard({ caseData }: CaseCardProps) {
             </motion.div>
           ))}
           {caseData.tecnologias.length > 3 && (
-            <span className="text-[10px] text-slate-300 font-medium px-1">+{caseData.tecnologias.length - 3}</span>
+            <span className="text-[10px] text-slate-200 font-medium px-1">+{caseData.tecnologias.length - 3}</span>
           )}
         </div>
       )}
@@ -154,7 +154,7 @@ export function CaseCard({ caseData }: CaseCardProps) {
           )}
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-slate-300">Completitud</p>
+          <p className="text-[10px] text-slate-200">Completitud</p>
           <p className="text-xs font-bold text-slate-100">
             {Math.round((caseData.data_quality_score ?? 0) * 100)}%
           </p>

@@ -80,6 +80,7 @@ export default function Home() {
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
         className="fixed top-4 left-1/2 -translate-x-1/2 z-40 w-[min(96%,1080px)] neo-glass-card px-4 py-3"
+        aria-label="Navegación de estado de propuesta"
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -129,7 +130,7 @@ export default function Home() {
                 NEO <span className="text-[var(--accent)]">Proposal</span> Agent
               </h1>
               <p className="text-lg text-slate-200/85 max-w-xl">
-                Triangulamos casos de éxito, perfiles de cliente e inteligencia de sector para crear propuestas de impacto en minutos.
+                Convierte oportunidades en propuestas ejecutivas con evidencia real en minutos.
               </p>
             </div>
             <InitialForm />
@@ -159,11 +160,12 @@ export default function Home() {
                   Nueva búsqueda
                 </button>
                 <h2 className="text-3xl font-semibold text-[var(--foreground)]">Casos Sugeridos</h2>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <p className="text-slate-300">Para: <span className="font-semibold text-white">{empresa}</span></p>
                   <span className="text-slate-500">|</span>
                   <p className="text-slate-300">Área: <span className="font-semibold text-white">{area}</span></p>
                 </div>
+                <p className="text-xs text-slate-200 mt-2">Selecciona casos con mejor evidencia para generar una propuesta más defendible.</p>
               </div>
 
               <div className="flex items-center gap-4">
@@ -190,6 +192,11 @@ export default function Home() {
                 </button>
               </div>
             </div>
+            {selectedCaseIds.length === 0 && (
+              <p className="px-4 -mt-4 mb-4 text-xs text-slate-200" aria-live="polite">
+                Elige al menos 1 caso para habilitar la generación.
+              </p>
+            )}
 
             {error && (
               <div role="alert" className="mx-4 mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
@@ -216,7 +223,7 @@ export default function Home() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {topMatchGlobal && (
-                    <div className="md:col-span-2 p-4 rounded-2xl border border-[rgba(108,140,255,0.34)] bg-[rgba(108,140,255,0.12)]">
+                    <div className="md:col-span-2 p-4 rounded-2xl border border-[rgba(108,140,255,0.34)] bg-[rgba(108,140,255,0.12)]" role="note" aria-label="Top match global de relevancia">
                       <div className="flex items-start gap-3">
                         <div className="bg-[rgba(108,140,255,0.18)] p-2 rounded-lg text-[var(--accent)]">
                           <Sparkles className="w-4 h-4" />
@@ -269,7 +276,7 @@ export default function Home() {
 
                 {effectiveNeoCases.length === 0 && effectiveAiCases.length === 0 && (
                   <div className="mt-8 rounded-xl border border-dashed border-white/20 p-6 text-sm text-slate-200">
-                    No encontramos casos con suficiente evidencia para este problema.
+                    No encontramos casos con suficiente evidencia para este problema. Prueba con un problema más específico o cambia el switch a "Ambos".
                   </div>
                 )}
               </div>
@@ -329,6 +336,7 @@ export default function Home() {
 
             <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
               <div className="neo-glass-card p-6 md:p-10 shadow-xl prose prose-invert max-w-none" role="region" aria-label="Texto de propuesta generado">
+                <p className="mb-4 text-xs text-slate-200">Versión activa para revisión comercial. Puedes refinarla desde el panel derecho.</p>
                 <div className="whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
                   {proposal}
                 </div>

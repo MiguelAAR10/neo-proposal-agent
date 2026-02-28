@@ -259,3 +259,18 @@ V2.2 se considera cerrada cuando:
     - mayor detalle de marcado ARIA y estados de foco a mantener en evoluciones futuras.
   - validacion:
     - `npm --prefix frontend-web run build` => OK.
+- 2026-02-28: frontend fase 6 (auditoria WCAG rapida + microcopy comercial) ejecutada.
+  - objetivo tecnico:
+    - mejorar contraste textual y acelerar refinamiento de propuesta sin aumentar complejidad de flujo.
+  - cambio:
+    - ajuste de contraste en `CaseCard` para metadatos y textos secundarios.
+    - `ChatPanel` agrega atajos de refinamiento (chips) para iteraciones mas rapidas.
+    - `page.tsx` mejora microcopy orientada a decision comercial y agrega notas de guidance en curacion/propuesta.
+    - se reforzaron etiquetas semanticas en bloques de estado (`nav`, `note`, mensajes de ayuda).
+  - por que negocio (breve):
+    - reduce tiempo de ida y vuelta para llegar a una propuesta “lista para cliente”.
+    - mejora legibilidad y claridad de decision al seleccionar evidencia bajo presion.
+  - tradeoff:
+    - texto y ayudas mas visibles ocupan algo mas de espacio en pantalla.
+  - validacion:
+    - `npm --prefix frontend-web run build` => OK.

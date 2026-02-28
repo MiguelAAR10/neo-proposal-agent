@@ -12,16 +12,22 @@ interface Message {
 
 export function ChatPanel() {
   const { threadId, proposal, setProposal } = useAgentStore()
+  const quickPrompts = [
+    'Hazla más ejecutiva en 6 bullets',
+    'Enfatiza ROI y payback',
+    'Reduce a 180 palabras',
+  ]
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
       content:
-        'Estoy conectado al backend. Cuando tengas propuesta generada, puedo refinarla por instrucciones como: "hazla más ejecutiva" o "enfatiza ROI".',
+        'Estoy listo para refinar la propuesta. Puedes pedir foco en ROI, síntesis ejecutiva o ajuste de tono.',
     },
   ])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -146,8 +152,25 @@ export function ChatPanel() {
           handleSend()
         }}
       >
+        <div className="mb-2 flex flex-wrap gap-2" aria-label="Sugerencias rápidas de refinamiento">
+          {quickPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              disabled={isTyping}
+              onClick={() => {
+                setInput(prompt)
+                inputRef.current?.focus()
+              }}
+              className="text-[11px] px-2.5 py-1 rounded-full border border-white/15 bg-white/8 text-slate-100 hover:bg-white/12 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
         <div className="relative">
           <input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             aria-label="Instrucción para refinar propuesta"
