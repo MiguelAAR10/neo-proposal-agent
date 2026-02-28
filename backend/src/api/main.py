@@ -14,6 +14,12 @@ from pydantic import BaseModel, Field, field_validator
 
 from src.agent.graph import graph
 from src.config import get_settings
+from src.services.errors import (
+    BackendDomainError,
+    BusinessRuleError,
+    ExternalDependencyTimeout,
+    SessionNotFoundError,
+)
 from src.services.search_service import search_cases_with_sla
 from src.tools.qdrant_tool import db_connection
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -21,6 +27,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 # Logging setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("neo_api_v2")
+settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,7 +46,7 @@ app = FastAPI(
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En producción, restringir a dominios específicos
+    allow_origins=settings.allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -93,6 +100,40 @@ class AgentStateResponse(BaseModel):
     status: str
     error: Optional[str] = None
 
+
+def _raise_domain_http(error: BackendDomainError) -> None:
+    raise HTTPException(
+        status_code=error.status_code,
+        detail={"code": error.code, "message": error.message},
+    )
+
+
+def _map_state_response(
+    thread_id: str,
+    state_values: dict,
+    status: Optional[str] = None,
+) -> AgentStateResponse:
+    resolved_status = status
+    if resolved_status is None:
+        resolved_status = "completed" if state_values.get("propuesta_final") else "awaiting_selection"
+
+    return AgentStateResponse(
+        thread_id=thread_id,
+        empresa=state_values.get("empresa", ""),
+        area=state_values.get("area", ""),
+        problema=state_values.get("problema", ""),
+        casos_encontrados=state_values.get("casos_encontrados", []),
+        neo_cases=state_values.get("neo_cases", []),
+        ai_cases=state_values.get("ai_cases", []),
+        top_match_global=state_values.get("top_match_global"),
+        top_match_global_reason=state_values.get("top_match_global_reason"),
+        casos_seleccionados_ids=state_values.get("casos_seleccionados_ids", []),
+        perfil_cliente=state_values.get("perfil_cliente"),
+        propuesta_final=state_values.get("propuesta_final"),
+        status=resolved_status,
+        error=state_values.get("error"),
+    )
+
 # --- Endpoints ---
 
 @app.get("/health")
@@ -101,7 +142,9 @@ async def health():
     return {
         "status": "healthy",
         "version": "2.0.0",
-        "qdrant": "connected" # Podríamos añadir un ping real aquí
+        "environment": settings.app_env,
+        "qdrant": "connected", # Podríamos añadir un ping real aquí
+        "redis_required": settings.is_non_local_env,
     }
 
 @app.post("/api/search")
@@ -117,10 +160,10 @@ async def api_search(data: SearchRequest):
             limit=6,
             score_threshold=0.50,
         )
-    except TimeoutError as exc:
-        detail = str(exc)
-        status = 503 if "Qdrant" in detail else 504
-        raise HTTPException(status_code=status, detail=detail)
+    except ExternalDependencyTimeout as exc:
+        _raise_domain_http(exc)
+    except BackendDomainError as exc:
+        _raise_domain_http(exc)
     except Exception as exc:
         logger.exception("Error in /api/search: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -147,23 +190,9 @@ async def start_agent(data: StartRequest):
     try:
         # Ejecutamos el grafo. Se detendrá antes de 'draft_node' debido a interrupt_before
         final_state = await graph.ainvoke(inputs, config=config)
-        
-        return AgentStateResponse(
-            thread_id=thread_id,
-            empresa=final_state["empresa"],
-            area=final_state["area"],
-            problema=final_state["problema"],
-            casos_encontrados=final_state.get("casos_encontrados", []),
-            neo_cases=final_state.get("neo_cases", []),
-            ai_cases=final_state.get("ai_cases", []),
-            top_match_global=final_state.get("top_match_global"),
-            top_match_global_reason=final_state.get("top_match_global_reason"),
-            casos_seleccionados_ids=final_state.get("casos_seleccionados_ids", []),
-            perfil_cliente=final_state.get("perfil_cliente"),
-            propuesta_final=final_state.get("propuesta_final"),
-            status="awaiting_selection",
-            error=final_state.get("error")
-        )
+        return _map_state_response(thread_id, final_state, status="awaiting_selection")
+    except BackendDomainError as exc:
+        _raise_domain_http(exc)
     except Exception as e:
         logger.exception(f"Error starting agent: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -174,11 +203,16 @@ async def ingest_cases(data: IngestRequest, authorization: str | None = Header(d
     Endpoint administrativo de ingesta de casos hacia Qdrant.
     Si ADMIN_TOKEN está configurado, exige header Authorization Bearer.
     """
-    settings = get_settings()
+    if settings.is_non_local_env and not settings.admin_token:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "MISCONFIGURATION", "message": "ADMIN_TOKEN obligatorio en staging/prod."},
+        )
+
     if settings.admin_token:
         expected = f"Bearer {settings.admin_token}"
         if authorization != expected:
-            raise HTTPException(status_code=401, detail="Unauthorized")
+            raise HTTPException(status_code=401, detail={"code": "UNAUTHORIZED", "message": "Unauthorized"})
 
     base = Path(__file__).resolve().parents[3] / "data"
     csv_paths = [str(base / name) for name in data.csv_files]
@@ -214,7 +248,7 @@ async def select_cases(thread_id: str, data: SelectRequest):
     # 1. Verificar que el estado existe
     current_state = await graph.aget_state(config)
     if not current_state.values:
-        raise HTTPException(status_code=404, detail="Sesión no encontrada.")
+        _raise_domain_http(SessionNotFoundError("Sesión no encontrada."))
     
     try:
         # 2. Actualizar el estado con los IDs seleccionados
@@ -222,23 +256,9 @@ async def select_cases(thread_id: str, data: SelectRequest):
         
         # 3. Continuar la ejecución del grafo
         final_state = await graph.ainvoke(None, config=config)
-        
-        return AgentStateResponse(
-            thread_id=thread_id,
-            empresa=final_state["empresa"],
-            area=final_state["area"],
-            problema=final_state["problema"],
-            casos_encontrados=final_state.get("casos_encontrados", []),
-            neo_cases=final_state.get("neo_cases", []),
-            ai_cases=final_state.get("ai_cases", []),
-            top_match_global=final_state.get("top_match_global"),
-            top_match_global_reason=final_state.get("top_match_global_reason"),
-            casos_seleccionados_ids=final_state.get("casos_seleccionados_ids", []),
-            perfil_cliente=final_state.get("perfil_cliente"),
-            propuesta_final=final_state.get("propuesta_final"),
-            status="completed",
-            error=final_state.get("error")
-        )
+        return _map_state_response(thread_id, final_state, status="completed")
+    except BackendDomainError as exc:
+        _raise_domain_http(exc)
     except Exception as e:
         logger.exception(f"Error in select_cases: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -251,11 +271,11 @@ async def refine_proposal(thread_id: str, data: RefineRequest):
     config = {"configurable": {"thread_id": thread_id}}
     state = await graph.aget_state(config)
     if not state.values:
-        raise HTTPException(status_code=404, detail="Sesión no encontrada.")
+        _raise_domain_http(SessionNotFoundError("Sesión no encontrada."))
 
     v = state.values
     if not v.get("propuesta_final"):
-        raise HTTPException(status_code=400, detail="No hay propuesta previa para refinar.")
+        _raise_domain_http(BusinessRuleError("No hay propuesta previa para refinar."))
 
     try:
         settings = get_settings()
@@ -287,22 +307,9 @@ async def refine_proposal(thread_id: str, data: RefineRequest):
 
         new_state = await graph.aget_state(config)
         latest = new_state.values
-        return AgentStateResponse(
-            thread_id=thread_id,
-            empresa=latest.get("empresa", ""),
-            area=latest.get("area", ""),
-            problema=latest.get("problema", ""),
-            casos_encontrados=latest.get("casos_encontrados", []),
-            neo_cases=latest.get("neo_cases", []),
-            ai_cases=latest.get("ai_cases", []),
-            top_match_global=latest.get("top_match_global"),
-            top_match_global_reason=latest.get("top_match_global_reason"),
-            casos_seleccionados_ids=latest.get("casos_seleccionados_ids", []),
-            perfil_cliente=latest.get("perfil_cliente"),
-            propuesta_final=latest.get("propuesta_final"),
-            status="completed",
-            error=latest.get("error"),
-        )
+        return _map_state_response(thread_id, latest, status="completed")
+    except BackendDomainError as exc:
+        _raise_domain_http(exc)
     except Exception as exc:
         logger.exception("Error refining proposal: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -314,25 +321,9 @@ async def get_agent_state(thread_id: str):
     state = await graph.aget_state(config)
     
     if not state.values:
-        raise HTTPException(status_code=404, detail="Sesión no encontrada.")
-    
-    v = state.values
-    return AgentStateResponse(
-        thread_id=thread_id,
-        empresa=v.get("empresa", ""),
-        area=v.get("area", ""),
-        problema=v.get("problema", ""),
-        casos_encontrados=v.get("casos_encontrados", []),
-        neo_cases=v.get("neo_cases", []),
-        ai_cases=v.get("ai_cases", []),
-        top_match_global=v.get("top_match_global"),
-        top_match_global_reason=v.get("top_match_global_reason"),
-        casos_seleccionados_ids=v.get("casos_seleccionados_ids", []),
-        perfil_cliente=v.get("perfil_cliente"),
-        propuesta_final=v.get("propuesta_final"),
-        status="completed" if v.get("propuesta_final") else "awaiting_selection",
-        error=v.get("error")
-    )
+        _raise_domain_http(SessionNotFoundError("Sesión no encontrada."))
+
+    return _map_state_response(thread_id, state.values)
 
 if __name__ == "__main__":
     import uvicorn

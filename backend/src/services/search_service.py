@@ -1,34 +1,102 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import time
 from typing import Any, Literal
 from urllib.parse import urlparse
 
+import redis
+from src.config import get_settings
+from src.services.errors import ExternalDependencyTimeout
 from src.tools.qdrant_tool import db_connection
 
 SwitchType = Literal["neo", "ai", "both"]
 _EMBED_CACHE: dict[str, tuple[float, list[float]]] = {}
 _EMBED_CACHE_TTL_SEC = 60 * 60 * 24
 _EMBED_CACHE_MAX = 500
+_REDIS_CACHE_PREFIX = "embed:v1:"
+_REDIS_CLIENT: redis.Redis | None = None
+_REDIS_UNAVAILABLE = False
+
+
+def _normalized_query(query: str) -> str:
+    return " ".join((query or "").strip().lower().split())
+
+
+def _cache_key(query: str) -> str:
+    digest = hashlib.sha1(_normalized_query(query).encode("utf-8")).hexdigest()
+    return f"{_REDIS_CACHE_PREFIX}{digest}"
+
+
+def _get_redis_client() -> redis.Redis | None:
+    global _REDIS_CLIENT, _REDIS_UNAVAILABLE
+    if _REDIS_UNAVAILABLE:
+        return None
+    if _REDIS_CLIENT is not None:
+        return _REDIS_CLIENT
+
+    settings = get_settings()
+    if not settings.redis_url:
+        _REDIS_UNAVAILABLE = True
+        return None
+
+    try:
+        client = redis.from_url(
+            settings.redis_url,
+            socket_timeout=0.2,
+            socket_connect_timeout=0.2,
+            decode_responses=False,
+        )
+        # Ping único para no castigar cada request en caso de caída.
+        client.ping()
+        _REDIS_CLIENT = client
+        return _REDIS_CLIENT
+    except Exception:
+        _REDIS_UNAVAILABLE = True
+        return None
 
 
 def _cache_get(query: str) -> list[float] | None:
-    row = _EMBED_CACHE.get(query)
+    normalized = _normalized_query(query)
+    key = _cache_key(query)
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        try:
+            raw = redis_client.get(key)
+            if raw:
+                parsed = json.loads(raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw)
+                if isinstance(parsed, list):
+                    return [float(v) for v in parsed]
+        except Exception:
+            pass
+
+    row = _EMBED_CACHE.get(normalized)
     if not row:
         return None
     ts, vector = row
     if (time.time() - ts) > _EMBED_CACHE_TTL_SEC:
-        _EMBED_CACHE.pop(query, None)
+        _EMBED_CACHE.pop(normalized, None)
         return None
     return vector
 
 
 def _cache_set(query: str, vector: list[float]) -> None:
+    normalized = _normalized_query(query)
+    key = _cache_key(query)
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        try:
+            redis_client.setex(key, _EMBED_CACHE_TTL_SEC, json.dumps(vector))
+            return
+        except Exception:
+            pass
+
     if len(_EMBED_CACHE) >= _EMBED_CACHE_MAX:
         oldest_key = min(_EMBED_CACHE, key=lambda k: _EMBED_CACHE[k][0])
         _EMBED_CACHE.pop(oldest_key, None)
-    _EMBED_CACHE[query] = (time.time(), vector)
+    _EMBED_CACHE[normalized] = (time.time(), vector)
 
 
 def _is_valid_http_url(value: str | None) -> bool:
@@ -178,8 +246,15 @@ def search_cases_sync(
     score_threshold: float = 0.50,
 ) -> dict[str, Any]:
     start = time.perf_counter()
-    raw_results = db_connection.search_cases(
-        query=problema,
+    cached = _cache_get(problema)
+    if cached is not None:
+        query_vector = cached
+    else:
+        query_vector = db_connection.embed_query(problema)
+        _cache_set(problema, query_vector)
+
+    raw_results = db_connection.search_cases_by_vector(
+        query_vector=query_vector,
         switch=switch,
         limit=limit,
         score_threshold=score_threshold,
@@ -212,7 +287,7 @@ async def search_cases_with_sla(
         except asyncio.TimeoutError:
             fallback = _cache_get(problema)
             if fallback is None:
-                raise TimeoutError("Gemini timeout > 2s")
+                raise ExternalDependencyTimeout("Gemini", 2.0)
             query_vector = fallback
     embedding_ms = int((time.perf_counter() - embed_start) * 1000)
 
@@ -230,7 +305,7 @@ async def search_cases_with_sla(
             timeout=1.0,
         )
     except asyncio.TimeoutError as exc:
-        raise TimeoutError("Qdrant timeout > 1s") from exc
+        raise ExternalDependencyTimeout("Qdrant", 1.0) from exc
     qdrant_ms = int((time.perf_counter() - qdrant_start) * 1000)
 
     latencia_ms = int((time.perf_counter() - start) * 1000)

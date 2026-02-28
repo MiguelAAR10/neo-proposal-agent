@@ -47,6 +47,7 @@ builder.add_edge("draft_node", END)
 
 # Configuración del Checkpointer (Persistencia)
 settings = get_settings()
+is_non_local_env = settings.is_non_local_env
 
 if HAS_REDIS and settings.redis_url:
     try:
@@ -55,9 +56,17 @@ if HAS_REDIS and settings.redis_url:
         checkpointer = RedisSaver(conn)
         print(f"🚀 Persistencia V2 activada: Usando Redis en {settings.redis_url}")
     except Exception as e:
+        if is_non_local_env:
+            raise RuntimeError(
+                f"Redis obligatorio en entorno '{settings.app_env}' y no disponible: {e}"
+            ) from e
         print(f"⚠️ Error conectando a Redis, usando memoria temporal: {e}")
         checkpointer = MemorySaver()
 else:
+    if is_non_local_env:
+        raise RuntimeError(
+            f"Redis obligatorio en entorno '{settings.app_env}' para persistencia de sesiones."
+        )
     print("ℹ️ Redis no configurado o no instalado. Usando MemorySaver (Sesiones no persistentes).")
     checkpointer = MemorySaver()
 

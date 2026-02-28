@@ -10,6 +10,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from pydantic import ValidationError
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
+import requests
 
 from src.config import get_settings
 from src.models.case import CaseInput, CaseQdrant
@@ -309,6 +310,74 @@ class QdrantConnection:
                 )
             ],
         )
+
+    @staticmethod
+    def _classify_link_status(url: str | None) -> str:
+        if not url:
+            return "unknown"
+
+        try:
+            resp = requests.head(url, allow_redirects=True, timeout=5)
+            if resp.status_code == 405:
+                resp = requests.get(url, allow_redirects=True, timeout=5)
+            if 200 <= resp.status_code < 400:
+                return "verified"
+            if resp.status_code in {401, 403, 404, 410}:
+                return "inaccessible"
+            return "unknown"
+        except requests.RequestException:
+            return "unknown"
+
+    def verify_links_status(
+        self,
+        collection_name: str | None = None,
+        batch_size: int = 64,
+    ) -> dict[str, int]:
+        client = self._ensure_client()
+        target_collection = collection_name or self._settings.qdrant_collection_cases
+
+        offset = None
+        updated = 0
+        verified = 0
+        inaccessible = 0
+        unknown = 0
+
+        while True:
+            points, next_offset = client.scroll(
+                collection_name=target_collection,
+                offset=offset,
+                limit=batch_size,
+                with_payload=True,
+            )
+            if not points:
+                break
+
+            for point in points:
+                payload = point.payload or {}
+                status = self._classify_link_status(payload.get("url_slide"))
+                client.set_payload(
+                    collection_name=target_collection,
+                    payload={"link_status": status},
+                    points=[point.id],
+                )
+                updated += 1
+                if status == "verified":
+                    verified += 1
+                elif status == "inaccessible":
+                    inaccessible += 1
+                else:
+                    unknown += 1
+
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        return {
+            "updated": updated,
+            "verified": verified,
+            "inaccessible": inaccessible,
+            "unknown": unknown,
+        }
 
 
 # Instancia global para ser usada en nodos y API

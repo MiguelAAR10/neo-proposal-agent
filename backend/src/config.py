@@ -17,12 +17,23 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_embedding_model: str = "models/gemini-embedding-001"
     admin_token: str | None = None
+    app_env: str = "development"
+    allowed_origins_raw: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent.parent / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def is_non_local_env(self) -> bool:
+        return self.app_env.strip().lower() in {"prod", "production", "staging"}
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        values = [v.strip() for v in self.allowed_origins_raw.split(",") if v.strip()]
+        return values or ["http://localhost:3000"]
 
 
 @lru_cache(maxsize=1)

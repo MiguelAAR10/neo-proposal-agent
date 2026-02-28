@@ -1,123 +1,171 @@
-# BITACORA MVP V2 - NEO PROPOSAL AGENT
+# BITACORA MVP V2 - ESTADO REAL, ERRORES Y TRAZABILIDAD
 
-Fecha de corte de este registro: **2026-02-28**
+Fecha de corte: 2026-02-28  
+Version objetivo activa: `MVP V2.1 (estable)`  
+Commit baseline operativo: `15bfc20b`
 
-## 1. Proposito de esta bitacora
+## 1) Proposito
 
-Esta bitacora documenta decisiones, aprendizajes y deuda tecnica de MVP V2 con una mirada arquitectonica. No reemplaza commits: los complementa explicando el razonamiento tecnico y de producto.
+Esta bitacora es la referencia operativa de V2.  
+Cada entrada conecta: objetivo de version, cambio tecnico, error cometido y aprendizaje.
 
-## 2. Donde esta hoy el MVP V2
+No reemplaza commits; los vuelve auditables.
 
-### 2.1 Implementado
+## 2) Estado real actual (rama vigente)
 
-- Backend FastAPI con LangGraph y flujo HITL funcional.
-- Persistencia de estado via checkpointer (MemorySaver y opcion Redis).
-- Recuperacion de casos desde Qdrant con filtro por `switch` (`neo`, `ai`, `both`).
-- Recuperacion de perfil cliente por empresa + area.
-- Generacion de propuesta final con Gemini en `draft_node`.
-- Frontend Next.js integrado al flujo principal `start -> select -> propuesta`.
+Implementado:
+- Backend FastAPI con endpoints V2 productivos.
+- Primitiva de busqueda `/api/search` con SLA defensivo.
+- Orquestacion HITL `/agent/start -> /agent/{thread_id}/select`.
+- Refinamiento `/agent/{thread_id}/refine` con versionado en estado.
+- Frontend Next.js en pantalla unica con seleccion de casos y propuesta.
+- Segmentacion visual NEO/AI y `top_match_global`.
 
-### 2.2 Incompleto o desalineado
+En progreso / pendiente:
+- Chat de frontend aun mock (`ChatPanel.tsx`), no conectado a endpoint real.
+- Falta tablero de metricas p95/p99 persistente.
+- Falta pipeline de validacion asincronica de links (`link_status`) fuera de ingesta.
 
-- El chat en `frontend-web/src/components/chat/ChatPanel.tsx` esta simulado, no integrado a un endpoint real.
-- `frontend/app.py` (Streamlit legado) usa endpoints `/search` y `/chat` que no existen en la API V2 actual.
-- Documentacion de arranque historicamente mezclada entre V1 y V2.
+## 3) Matriz de trazabilidad por commit (V2 reciente)
 
-## 3. Arquitectura aplicada (real, no idealizada)
+| Commit | Tipo | Objetivo declarado | Error detectado posteriormente | Aprendizaje tecnico | Estado |
+|---|---|---|---|---|---|
+| `15bfc20b` | feat(ui) | Mostrar busqueda segmentada por evidencia en una pantalla | Chat panel continuo mock y no conectado | No cerrar UI sin endpoint real del chat | Vigente |
+| `f4e86857` | docs | Publicar arquitectura/ejecucion de MVP2.1 | Varias secciones quedaron mas aspiracionales que ejecutables | Documentar siempre con "estado real" + "estado objetivo" separados | Parcial |
+| `9944520d` | feat | Primitiva `/api/search`, SLA, ingesta determinista y refine | Reglas de required/optional no quedaron igual de claras en todos los docs | Definir contrato de datos unico y repetirlo en requirements+skills | Vigente |
+| `7f983784` | docs | Sincronizar docs V2 con stack actual | Persistio mezcla de naming y rutas antiguas | El index debe apuntar archivos reales del repo, no nombres ideales | Corregido |
+| `22cb46a3` | docs(runtime) | Alinear arranque V2 FastAPI+Next.js | Aun existia ruido de V1/Streamlit en otras piezas | Marcar legacy explicitamente y evitar dualidad de ruta oficial | Corregido |
+| `19c4facc` | feat | Migracion fuerte a Next.js + refactor backend | Cambios grandes sin trazabilidad granular de riesgos por modulo | Para refactors grandes: dividir en fases con check de regresion | Vigente con deuda |
+| `6fe6b081` | feat | Base estable V2 (Redis/profiles/switch/seeding) | Se asumio persistencia sin validar todos los escenarios de falla | Definir fallback formal MemorySaver vs Redis y documentarlo | Vigente |
+| `64346670` | chore | Checkpoint base V2 | Checkpoint sin contrato funcional explicito | Todo checkpoint debe incluir criterios de salida verificables | Historico |
 
-### 3.1 Principio rector
+Nota: los "errores detectados" son post-mortem tecnico (no juicio personal), para prevenir repeticion.
 
-**Backend-First**: toda logica de negocio vive en backend; frontend solo orquesta interaccion de usuario y rendering.
+## 4) Errores sistemicos repetidos y accion correctiva
 
-### 3.2 Flujo operativo actual
+1. Error: documentacion adelantada al codigo.
+- Accion: toda spec debe tener columna de estado (`implementado/en progreso/backlog`).
 
-1. `POST /agent/start`
-2. LangGraph ejecuta `intake_node` y `retrieve_node`
-3. Grafo se interrumpe antes de `draft_node`
-4. Usuario selecciona casos
-5. `POST /agent/{thread_id}/select`
-6. Grafo reanuda y ejecuta `draft_node`
-7. Propuesta final disponible en estado de sesion
+2. Error: contratos mezclados entre V1/V2.
+- Accion: declarar API oficial V2 y marcar V1 como legacy no soportado.
 
-### 3.3 Tradeoffs asumidos
+3. Error: commit sin razonamiento arquitectonico.
+- Accion: mensaje + bitacora con problema, decision, tradeoff, riesgo.
 
-- Se uso `MemorySaver` como fallback para reducir friccion local.
-- Redis queda como camino de persistencia real para sesiones multi-instancia.
-- Se priorizo cerrar el happy-path de propuesta antes del chat de refinamiento.
+4. Error: UX avanzada con backend incompleto (chat mock).
+- Accion: no considerar feature cerrada hasta conectar extremo a extremo.
 
-## 4. Aprendizajes tecnicos relevantes
+## 5) Regla obligatoria para cada commit de V2
 
-### 4.1 Lo que funciono
-
-- Separar nodos (`intake`, `retrieve`, `draft`) redujo acoplamiento.
-- `interrupt_before=["draft_node"]` habilita HITL simple y controlable.
-- Modelar request/response con Pydantic estabilizo contratos entre frontend y backend.
-
-### 4.2 Lo que genero friccion
-
-- Mantener dos frontends activos (Next.js y Streamlit) genero deriva de contratos.
-- Documentacion sin fecha de corte facilito mezclar estado deseado vs estado real.
-- Pruebas E2E dependen de servicios externos (Qdrant/Gemini), afectando reproducibilidad local.
-
-### 4.3 Decisiones para evitar repeticion del problema
-
-- Toda decision de arquitectura debe quedar en esta bitacora con fecha y contexto.
-- README y scripts de arranque deben representar el flujo principal vigente, no el historico.
-- Cambios de API deben incluir actualizacion explicita de clientes y docs en el mismo ciclo.
-
-## 5. Plan de desarrollo V2 (arquitectonico-tecnico-creativo)
-
-## Fase A - Alineacion de contrato (corto plazo)
-
-- Consolidar API publica V2 como unica fuente de verdad para UI productiva.
-- Marcar Streamlit como legacy en docs y evitar que parezca ruta oficial.
-- Incorporar pruebas de contrato para endpoints `start/select/state`.
-
-## Fase B - Conversacional real (valor diferencial)
-
-- Diseñar endpoint de chat contextual por `thread_id`.
-- Reusar estado LangGraph para responder sobre casos seleccionados y propuesta activa.
-- Reemplazar mock de `ChatPanel` por integracion real con manejo de errores y loading states.
-
-## Fase C - Robustez operativa (escalabilidad)
-
-- Mover persistencia a Redis en entornos compartidos.
-- Agregar health checks reales (Qdrant/Redis/Gemini) y telemetria basica.
-- Definir estrategia de timeouts/retries por dependencia externa.
-
-## Fase D - Calidad de propuesta (ventaja competitiva)
-
-- Versionado de propuestas (`v1`, `v2`, ...) con historial y rollback.
-- Refinamientos guiados por prompts estructurados (tono, longitud, enfoque).
-- Metricas de calidad: claridad ejecutiva, evidencia de casos, impacto de negocio.
-
-## 6. Riesgos vigentes y mitigacion
-
-- Riesgo: deuda por doble frontend.
-  - Mitigacion: foco en Next.js como canal primario y legacy explicitado.
-- Riesgo: fallas silenciosas en servicios externos.
-  - Mitigacion: health checks y errores tipificados en API.
-- Riesgo: drift documental.
-  - Mitigacion: fecha de corte y seccion "estado real" obligatoria en docs V2.
-
-## 7. Regla para commits con pensamiento arquitectonico
-
-Cada commit de impacto tecnico debe responder, en el mensaje o PR:
-
-1. Que problema sistemico corrige.
-2. Que decision de arquitectura materializa.
-3. Que tradeoff acepta.
-4. Que deuda abre o cierra.
+Cada commit que cambie comportamiento debe registrar una entrada en bitacora con:
+1. Objetivo de negocio/tactico.
+2. Cambio tecnico exacto.
+3. Riesgo principal.
+4. Error introducido o evitado.
+5. Criterio de validacion.
+6. Estado (`implementado`, `parcial`, `revertido`).
 
 Plantilla sugerida:
 
-`tipo(scope): cambio`
+```text
+[YYYY-MM-DD] tipo(scope): resumen
+- objetivo:
+- cambio:
+- tradeoff:
+- error detectado/evitado:
+- validacion:
+- estado:
+```
 
-- problema: ...
-- decision: ...
-- tradeoff: ...
-- deuda: ...
+## 6) Mapa de versiones y objetivo
 
-## 8. Registro de actualizacion de esta bitacora
+- `MVP V2.1 (actual)`: busqueda + curation + propuesta en una sola pantalla con segmentacion NEO/AI.
+- `MVP V2.2 (objetivo siguiente)`: chat contextual real, telemetria SLA y calidad de datos operativa.
 
-- **2026-02-28**: Se actualiza estado real del MVP V2, se documenta desalineacion Streamlit/Next.js y se fija plan por fases.
+## 7) Definicion de terminado por version
+
+V2.1 se considera estable cuando:
+- `/agent/start`, `/agent/select`, `/agent/refine`, `/agent/state` funcionan E2E.
+- Seleccion de casos impacta realmente la propuesta.
+- Propuesta incluye evidencia (casos + KPI + URL cuando exista).
+
+V2.2 se considera cerrada cuando:
+- Chat deja de ser mock y usa contexto de thread real.
+- Se exponen metricas p50/p95/p99 en tablero o logs estructurados persistentes.
+- Existe job de verificacion de links y se actualiza `link_status`.
+
+## 8) Registro de actualizaciones de esta bitacora
+
+- 2026-02-28: se agrega matriz de trazabilidad por commit y registro explicito de errores/aprendizajes para control de versiones V2.
+- 2026-02-28: backend plan fase inicial ejecutada.
+  - objetivo: reducir deriva entre `/api/search` y flujo `/agent/*`, y eliminar duplicacion de mapeo de estado.
+  - cambio:
+    - `search_cases_sync` ahora usa el mismo camino semantico (embed + search_by_vector) que el flujo con SLA.
+    - se introdujo mapper unico `_map_state_response` en API para `start/select/refine/state`.
+    - se introdujeron errores de dominio tipificados (`ExternalDependencyTimeout`, `SessionNotFoundError`, `BusinessRuleError`).
+    - se agregaron tests unitarios en `backend/tests/`.
+  - tradeoff:
+    - se mantiene fallback en memoria para entorno local, evitando forzar redis en desarrollo.
+    - se tipifica timeout externo sin reestructurar aun toda la jerarquia de errores del proyecto.
+  - error detectado y corregido:
+    - tests iniciales fallaron por import path (`ModuleNotFoundError: src`); se corrigio agregando `backend/` al `sys.path` en tests.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (4 tests).
+- 2026-02-28: backend plan fase 2 (robustez operativa y seguridad base) ejecutada.
+  - objetivo tecnico:
+    - endurecer despliegue por entorno para evitar sesiones perdidas y operacion admin insegura.
+  - cambio:
+    - `Settings` ahora incluye `app_env`, `allowed_origins_raw`, `allowed_origins` e `is_non_local_env`.
+    - CORS pasa de wildcard a allowlist configurable.
+    - Redis queda obligatorio en `staging/prod` (fail-fast en graph si no esta disponible).
+    - `/api/ingest` exige `ADMIN_TOKEN` en `staging/prod`; en local mantiene flexibilidad.
+    - health expone `environment` y `redis_required`.
+  - por que negocio (breve):
+    - si se pierde estado de sesion en una licitacion, el consultor pierde seleccion/propuesta y retrabaja.
+    - si ingest admin queda abierto en produccion, puede contaminar evidencia y bajar calidad comercial.
+    - estos controles mejoran continuidad operativa y confianza en la propuesta generada.
+  - tradeoff:
+    - mas estrictos en no-local (puede fallar arranque si Redis/token no estan bien configurados).
+    - se acepta para evitar riesgos silenciosos en produccion.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (6 tests).
+- 2026-02-28: backend plan fase 3A (performance de busqueda) ejecutada.
+  - objetivo tecnico:
+    - mejorar latencia y estabilidad de embeddings en escenarios de alta repeticion de consultas.
+  - cambio:
+    - cache de embeddings evoluciona a Redis (si disponible) con fallback local en memoria.
+    - normalizacion de query para mejorar hit-rate (`"Mejorar   scoring"` == `"mejorar scoring"`).
+  - por que negocio (breve):
+    - reduce tiempos de respuesta en busquedas repetidas durante una misma oportunidad comercial.
+    - mejora continuidad de experiencia para el consultor bajo presion de tiempo.
+  - tradeoff:
+    - se agrega complejidad operativa ligera por capa de cache distribuida.
+  - validacion:
+    - suite backend paso a 7 tests OK.
+
+- 2026-02-28: backend plan fase 3B (calidad de evidencia) ejecutada.
+  - objetivo tecnico:
+    - separar verificacion de links del runtime para no afectar SLA de busqueda.
+  - cambio:
+    - nuevo job `verify_links_job.py` para actualizar `link_status` en Qdrant por lotes.
+    - clasificador de link (`verified`, `inaccessible`, `unknown`) en tool de Qdrant.
+  - por que negocio (breve):
+    - mejora confiabilidad de evidencia que ve el consultor (menos links rotos/no verificables).
+    - evita que propuestas se apoyen en casos sin respaldo accesible.
+  - tradeoff:
+    - job de mantenimiento adicional a operar (batch).
+  - validacion:
+    - suite backend paso a 9 tests OK.
+- 2026-02-28: backend plan fase 4 (coordinacion de contrato y observabilidad) ejecutada.
+  - objetivo tecnico:
+    - asegurar contrato API estable y trazabilidad del flujo sin levantar servidor real en tests.
+  - cambio:
+    - se agregaron contract tests async para `/api/search` y `/agent/{thread_id}/state` (exito y errores tipificados).
+    - logging de nodos HITL paso de `print` a `logger` estructurado.
+  - por que negocio (breve):
+    - reduce riesgo de romper frontend en medio de una oportunidad comercial.
+    - mejora capacidad de diagnostico rapido cuando una propuesta falla bajo presion de tiempo.
+  - tradeoff:
+    - mayor disciplina de testing y logs, con leve costo de mantenimiento.
+  - validacion:
+    - suite backend paso a 12 tests OK.

@@ -1,10 +1,14 @@
 from datetime import datetime
+import logging
 from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.agent.state import ProposalState
 from src.config import get_settings
 from src.services.search_service import search_cases_sync
 from src.tools.qdrant_tool import db_connection
+
+logger = logging.getLogger(__name__)
+
 
 def intake_node(state: ProposalState) -> ProposalState:
     """Valida los inputs iniciales y prepara el estado."""
@@ -48,7 +52,7 @@ def retrieve_node(state: ProposalState) -> ProposalState:
         perfil = db_connection.get_profile(state["empresa"], state["area"])
         if perfil:
             state["perfil_cliente"] = perfil
-            print(f"✅ Perfil encontrado para {state['empresa']}")
+            logger.info("Perfil encontrado para empresa=%s area=%s", state["empresa"], state["area"])
         else:
             # Si no existe, podemos crear un placeholder o dejarlo vacío
             state["perfil_cliente"] = {
@@ -93,9 +97,9 @@ def _format_profile_for_prompt(perfil: dict | None) -> str:
 
 def draft_node(state: ProposalState) -> ProposalState:
     """Genera la propuesta final usando los casos y el perfil del cliente."""
-    print(f"DEBUG: Entrando a draft_node para {state.get('empresa')}")
+    logger.info("Entrando a draft_node empresa=%s", state.get("empresa"))
     if state.get("error"):
-        print(f"DEBUG: draft_node saltado por error previo: {state.get('error')}")
+        logger.warning("draft_node omitido por error previo: %s", state.get("error"))
         return state
 
     selected_ids = set(state.get("casos_seleccionados_ids", []))
@@ -103,12 +107,12 @@ def draft_node(state: ProposalState) -> ProposalState:
 
     filtered_cases = [c for c in found_cases if str(c.get("id")) in selected_ids]
     if not filtered_cases:
-        print("DEBUG: draft_node - No hay casos filtrados")
+        logger.warning("draft_node sin casos filtrados para selected_case_ids=%s", list(selected_ids))
         state["error"] = "Debes seleccionar al menos un caso antes de generar la propuesta."
         return state
 
     try:
-        print(f"DEBUG: draft_node - Llamando a Gemini con {len(filtered_cases)} casos...")
+        logger.info("draft_node llamando a Gemini con %s casos", len(filtered_cases))
         settings = get_settings()
         llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",
