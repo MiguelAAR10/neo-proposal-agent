@@ -1,10 +1,13 @@
 # 📚 ÍNDICE DE DOCUMENTACIÓN - NEO PROPOSAL AGENT
 
+> Estado actualizado de esta documentación: **2026-02-28**
+
 ## Estructura de Carpetas
 
 ```
 neo-proposal-agent-docs/
 ├── 00-INDEX-DOCUMENTACION.md          ← Estás aquí
+├── BITACORA_MVP_V2.md                 ← Estado real, decisiones y aprendizajes
 │
 ├── REQUIREMENTS/ (Lógica del Proyecto)
 │   ├── 01-VISION-NEGOCIO.md
@@ -20,7 +23,22 @@ neo-proposal-agent-docs/
 
 ---
 
+## ⚠️ Estado Real de Implementación (MVP V2)
+
+Este índice resume objetivos y diseño, pero la fuente de verdad del avance real está en `BITACORA_MVP_V2.md`.
+
+Resumen rápido:
+
+* Backend V2 operativo en endpoints `/agent/start`, `/agent/{thread_id}/select`, `/agent/{thread_id}/state`.
+* Frontend principal V2: `frontend-web/` (Next.js).
+* `frontend/app.py` (Streamlit) es legado de V1 y no está alineado al contrato API actual de V2.
+* Brecha activa: chat de Next.js sigue mockeado y falta endpoint de chat productivo.
+
+---
+
 ## 📖 Guía de Lectura por Rol
+
+**Lectura base obligatoria para cualquier rol:** `BITACORA_MVP_V2.md` (estado real, decisiones y deuda activa).
 
 ### 👨‍💼 Product Manager / Stakeholder
 
@@ -282,9 +300,9 @@ Un sistema que triangula:
 
 **Frontend:**
 
-* Next.js 14 (SSR, SEO)
+* Next.js 16 (SSR, SEO)
 
-* React 18 (componentes)
+* React 19 (componentes)
 
 * Tailwind CSS (estilos)
 

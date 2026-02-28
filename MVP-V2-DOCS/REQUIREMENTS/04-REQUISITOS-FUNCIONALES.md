@@ -70,7 +70,7 @@
 
 **Criterios de aceptación:**
 
-* \[ \] Generar embedding del problema con Gemini text-embedding-004
+* \[ \] Generar embedding del problema con el modelo `gemini-embedding-001`
 
 * \[ \] Buscar en Qdrant colección `neo_cases_v1` con filtro según switch
 
@@ -88,7 +88,7 @@
 
 **Notas técnicas:**
 
-* Usar Gemini text-embedding-004 (768 dimensiones)
+* Usar `gemini-embedding-001` (768 dimensiones)
 
 * Implementar retry con exponential backoff para Gemini
 
@@ -190,7 +190,7 @@
 
 **Notas técnicas:**
 
-* Usar Gemini 1.5 Flash (temperatura 0.3 para determinismo)
+* Usar Gemini 2.0 Flash (temperatura 0.3 para determinismo)
 
 * Implementar timeout de 20 segundos
 

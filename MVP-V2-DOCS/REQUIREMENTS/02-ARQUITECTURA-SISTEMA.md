@@ -43,8 +43,8 @@
 
 | Capa | Tecnología | Versión | Justificación |
 |------|-----------|---------|---------------|
-| **Frontend** | Next.js | 14+ | SSR, SEO, componentes reutilizables |
-| **Frontend** | React | 18+ | Componentes, hooks, estado |
+| **Frontend** | Next.js | 16+ | SSR, SEO, componentes reutilizables |
+| **Frontend** | React | 19+ | Componentes, hooks, estado |
 | **Frontend** | Tailwind CSS | 3.4+ | Estilos rápidos, responsive |
 | **Frontend** | Zustand | Latest | Estado global ligero |
 | **Frontend** | TanStack Query | 5+ | Data fetching, caching |
@@ -52,7 +52,7 @@
 | **Agente** | LangGraph | 0.1+ | Ciclos, memoria, HITL |
 | **Vector DB** | Qdrant | 1.9+ | Self-hostable, filtrado payload |
 | **Cache** | Redis | 7+ | Sector intel, sesiones |
-| **LLM** | Gemini 1.5 Flash/Pro | Latest | Embeddings 768d, costo-efectivo |
+| **LLM** | Gemini 2.0 Flash/Pro | Latest | Embeddings 768d, costo-efectivo |
 | **Deploy** | Docker | Latest | Contenerización |
 | **Orquestación** | Docker Compose | Latest | MVP local |
 
@@ -67,7 +67,7 @@
 **Configuración:**
 ```
 Nombre: neo_cases_v1
-Dimensión vectores: 768 (Gemini text-embedding-004)
+Dimensión vectores: 768 (modelo gemini-embedding-001)
 Distancia: Cosine
 Tamaño esperado: 500-1000 puntos (MVP)
 ```
@@ -133,7 +133,7 @@ Tamaño esperado: 500-1000 puntos (MVP)
 **Configuración:**
 ```
 Nombre: neo_profiles_v1
-Dimensión vectores: 768 (Gemini text-embedding-004)
+Dimensión vectores: 768 (modelo gemini-embedding-001)
 Distancia: Cosine
 Tamaño esperado: 100-300 puntos (MVP)
 ```
