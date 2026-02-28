@@ -20,6 +20,7 @@ from src.services.errors import (
     ExternalDependencyTimeout,
     SessionNotFoundError,
 )
+from src.services.metrics import search_metrics
 from src.services.search_service import search_cases_with_sla
 from src.tools.qdrant_tool import db_connection
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -154,19 +155,52 @@ async def api_search(data: SearchRequest):
     Stateless y reutilizable por orquestadores (/agent/*).
     """
     try:
-        return await search_cases_with_sla(
+        payload = await search_cases_with_sla(
             problema=data.problema.strip(),
             switch=data.switch,
             limit=6,
             score_threshold=0.50,
         )
+        search_metrics.record_success(
+            total_ms=payload.get("latencia_ms", 0),
+            embedding_ms=payload.get("embedding_ms"),
+            qdrant_ms=payload.get("qdrant_ms"),
+            cache_hit=payload.get("cache_hit"),
+        )
+        return payload
     except ExternalDependencyTimeout as exc:
+        search_metrics.record_error(exc.code)
         _raise_domain_http(exc)
     except BackendDomainError as exc:
+        search_metrics.record_error(exc.code)
         _raise_domain_http(exc)
     except Exception as exc:
+        search_metrics.record_error("UNHANDLED_ERROR")
         logger.exception("Error in /api/search: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/ops/metrics")
+async def get_ops_metrics(authorization: str | None = Header(default=None)):
+    """
+    Métricas operativas livianas para seguimiento de SLA de búsqueda.
+    En no-local exige ADMIN_TOKEN.
+    """
+    if settings.is_non_local_env and not settings.admin_token:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "MISCONFIGURATION", "message": "ADMIN_TOKEN obligatorio en staging/prod."},
+        )
+    if settings.admin_token:
+        expected = f"Bearer {settings.admin_token}"
+        if authorization != expected:
+            raise HTTPException(status_code=401, detail={"code": "UNAUTHORIZED", "message": "Unauthorized"})
+
+    return {
+        "status": "ok",
+        "environment": settings.app_env,
+        "search": search_metrics.snapshot(),
+    }
 
 @app.post("/agent/start", response_model=AgentStateResponse)
 async def start_agent(data: StartRequest):

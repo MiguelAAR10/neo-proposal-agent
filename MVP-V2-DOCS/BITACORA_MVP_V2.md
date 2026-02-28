@@ -169,3 +169,17 @@ V2.2 se considera cerrada cuando:
     - mayor disciplina de testing y logs, con leve costo de mantenimiento.
   - validacion:
     - suite backend paso a 12 tests OK.
+- 2026-02-28: backend plan fase 5 (SLA y metricas operativas) ejecutada.
+  - objetivo tecnico:
+    - medir latencia real de busqueda (p50/p95/p99) y errores por categoria para control operativo.
+  - cambio:
+    - nuevo store de metricas en memoria (`SearchMetricsStore`).
+    - `/api/search` ahora registra exitos y errores en metricas.
+    - nuevo endpoint `GET /ops/metrics` (protegido por `ADMIN_TOKEN` en no-local).
+  - por que negocio (breve):
+    - permite detectar degradacion antes de afectar una propuesta en proceso comercial.
+    - da visibilidad para decidir si escalar, reintentar o degradar de forma controlada.
+  - tradeoff:
+    - metricas locales (in-memory) se pierden en reinicio; suficiente para MVP, luego mover a observabilidad persistente.
+  - validacion:
+    - suite backend paso a 14 tests OK.
