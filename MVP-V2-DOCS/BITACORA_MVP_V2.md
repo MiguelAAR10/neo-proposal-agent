@@ -289,3 +289,36 @@ V2.2 se considera cerrada cuando:
   - validacion:
     - `npm --prefix frontend-web run lint` => OK.
     - `npm --prefix frontend-web run build` => OK.
+- 2026-02-28 01:51:34 -05: decision de enfoque (arquitectura de datos - Caso I: Casos) registrada.
+  - contexto:
+    - se elimina documento separado `MVD-ERRORES-ARQUITECTURA-DATOS.md` para evitar dispersion.
+    - el analisis y plan se centraliza en esta bitacora.
+  - problema principal:
+    - sintomas de "score magico", casos sin URL, propuesta generica y seleccion HITL inconsistente.
+    - causa raiz: boundary debil entre ingesta, retrieval y generacion; metadata incompleta.
+  - decision arquitectonica (sin overengineering):
+    - foco inmediato solo en Entrada I (Casos), dejando Perfil/Sector para siguiente fase.
+    - mantener 2 fuentes CSV (AI y NEO legacy), con schema unificado en runtime de ingesta.
+    - NO vectorizar URL ni metadatos de evidencia.
+    - vectorizar solo `embedding_context` (problema+solucion+beneficios+industria+area).
+    - guardar URL/KPI/empresa/tipo como payload intacto en Qdrant.
+  - ids y retrieval:
+    - `point_id = case_id` (determinista, sin hash modulo).
+    - retorno siempre con `with_payload=true` para recuperar URL y metadata original.
+  - scoring transparente:
+    - exponer `score_raw` + `score_label` + `confidence` + `score_breakdown`.
+    - eliminar etiquetas ambiguas sin explicacion de fuente.
+  - priorizacion clientes (requisito negocio):
+    - ejecutar EDA rapido sobre CSV para obtener top clientes por frecuencia.
+    - seleccionar top 12 priorizados y exponer dropdown fijo en frontend para MVP.
+    - preparar "memoria de negocio" por cada cliente priorizado (dummy inicial) para fase siguiente.
+  - contrato de flujo (HITL):
+    - fase 0: intake+search devuelve casos con evidencia.
+    - fase 1: user selecciona casos explicitos.
+    - fase 2: backend genera propuesta solo con `selected_case_ids`.
+    - fase 3: refine versionado sobre propuesta actual.
+  - criterios de salida p0 (para juniors):
+    - no mostrar casos sin URL/KPI critico en top resultados.
+    - no permitir generar propuesta con 0 seleccionados.
+    - propuesta debe citar casos seleccionados y beneficios asociados.
+    - endpoint de busqueda debe devolver score explicable por caso.
