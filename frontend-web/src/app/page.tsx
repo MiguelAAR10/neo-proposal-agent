@@ -23,7 +23,9 @@ export default function Home() {
     threadId, 
     proposal,
     perfilCliente,
+    error,
     setProposal, 
+    setError,
     setLoading, 
     reset 
   } = useAgentStore()
@@ -38,10 +40,17 @@ export default function Home() {
     },
     onSuccess: (data) => {
       setProposal(data.propuesta_final)
+      setError(null)
       setLoading(false)
     },
     onError: (error: any) => {
-      console.error(error)
+      const detail = error?.response?.data?.detail
+      const message =
+        (typeof detail === 'object' && detail?.message) ||
+        (typeof detail === 'string' && detail) ||
+        error?.message ||
+        'No se pudo generar la propuesta.'
+      setError(message)
       setLoading(false)
     }
   })
@@ -125,6 +134,12 @@ export default function Home() {
               </div>
             </div>
 
+            {error && (
+              <div className="mx-4 mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
+                {error}
+              </div>
+            )}
+
             {/* Split Layout */}
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Main Content (Cards) */}
@@ -166,10 +181,10 @@ export default function Home() {
                 {effectiveNeoCases.length > 0 && (
                   <section className="mt-8">
                     <div className="mb-3 flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-700">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-emerald-200/20 text-emerald-100">
                         NEO
                       </span>
-                      <h3 className="text-sm font-semibold text-gray-900">Casos ya ejecutados</h3>
+                      <h3 className="text-sm font-semibold text-slate-100">Casos ya ejecutados</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {effectiveNeoCases.map((c) => (
@@ -182,10 +197,10 @@ export default function Home() {
                 {effectiveAiCases.length > 0 && (
                   <section className="mt-8">
                     <div className="mb-3 flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-100 text-blue-700">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-200/20 text-blue-100">
                         AI
                       </span>
-                      <h3 className="text-sm font-semibold text-gray-900">Referencias externas</h3>
+                      <h3 className="text-sm font-semibold text-slate-100">Referencias externas</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {effectiveAiCases.map((c) => (
@@ -243,6 +258,12 @@ export default function Home() {
                 </button>
               </div>
             </div>
+
+            {error && (
+              <div className="mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
+                {error}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
               <div className="neo-glass-card p-10 shadow-xl prose prose-invert max-w-none">

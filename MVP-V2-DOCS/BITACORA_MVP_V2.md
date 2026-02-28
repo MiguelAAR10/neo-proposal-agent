@@ -199,3 +199,17 @@ V2.2 se considera cerrada cuando:
     - mayor complejidad visual y de estado en frontend, pero sin romper contratos backend.
   - validacion:
     - `npm --prefix frontend-web run build` => OK.
+- 2026-02-28: frontend fase 2 (consistencia premium + feedback operativo) ejecutada.
+  - objetivo tecnico:
+    - unificar formulario y cards al mismo sistema visual y hacer visibles errores API en flujo usuario.
+  - cambio:
+    - `InitialForm` migrado a glass/premium tokens con manejo de errores backend mas claro.
+    - `CaseCard` migrado a estilo institucional dark + motion suave consistente.
+    - `page.tsx` ahora muestra banners de error en fases `curating` y `complete`.
+  - por que negocio (breve):
+    - mejora legibilidad y confianza en momentos de decision comercial.
+    - reduce friccion al diagnosticar fallos de generacion/refinamiento en vivo.
+  - tradeoff:
+    - mayor complejidad visual de estilos y estados en UI.
+  - validacion:
+    - `npm --prefix frontend-web run build` => OK.
