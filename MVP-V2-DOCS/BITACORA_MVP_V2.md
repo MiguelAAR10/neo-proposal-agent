@@ -322,3 +322,24 @@ V2.2 se considera cerrada cuando:
     - no permitir generar propuesta con 0 seleccionados.
     - propuesta debe citar casos seleccionados y beneficios asociados.
     - endpoint de busqueda debe devolver score explicable por caso.
+- 2026-02-28 02:02:00 -05: fase arquitectura de datos (Caso I) + sincronizacion UI contextual ejecutada.
+  - objetivo tecnico:
+    - estabilizar flujo de casos con score transparente, estado de perfil explicitado y contexto sectorial utilizable en chat.
+  - cambio backend:
+    - `search_service` agrega `score_breakdown`, `score_final` y filtro de evidencia critica (`has_critical_evidence`).
+    - `retrieve_node` agrega `profile_status` (`found/not_found/incomplete`) e `inteligencia_sector` estructurada.
+    - `draft_node` usa perfil + sector + casos seleccionados con KPI/URL en prompt de generacion.
+    - `AgentStateResponse` expone `profile_status` e `inteligencia_sector` para frontend.
+  - cambio frontend:
+    - store/session sincroniza `profileStatus` e `inteligenciaSector`.
+    - sidebar de curacion agrega paneles de Perfil + Mercado con items arrastrables.
+    - `ChatPanel` acepta drop de contexto y lo inserta en instruccion de refine.
+    - formulario agrega sugerencias de clientes priorizados (top 12) via datalist.
+    - tarjetas muestran mini-explicacion de score (semantica/fuente).
+  - por que negocio (breve):
+    - reduce propuesta generica al forzar evidencia seleccionada y contexto visible/accionable.
+    - mejora confianza comercial al explicar por que un caso aparece y con que calidad.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK.
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.

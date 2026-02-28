@@ -52,6 +52,9 @@ def retrieve_node(state: ProposalState) -> ProposalState:
         perfil = db_connection.get_profile(state["empresa"], state["area"])
         if perfil:
             state["perfil_cliente"] = perfil
+            has_objectives = bool(perfil.get("objetivos"))
+            has_pains = bool(perfil.get("pain_points"))
+            state["profile_status"] = "found" if (has_objectives and has_pains) else "incomplete"
             logger.info("Perfil encontrado para empresa=%s area=%s", state["empresa"], state["area"])
         else:
             # Si no existe, podemos crear un placeholder o dejarlo vacío
@@ -60,6 +63,13 @@ def retrieve_node(state: ProposalState) -> ProposalState:
                 "area": state["area"],
                 "notas": "Empresa nueva sin historial previo."
             }
+            state["profile_status"] = "not_found"
+
+        # 3. Contexto sectorial (placeholder estructurado para el layout lateral)
+        state["inteligencia_sector"] = _build_sector_intel(
+            rubro=state.get("rubro", ""),
+            area=state.get("area", ""),
+        )
 
         if not state["casos_encontrados"]:
             state["error"] = "No se encontraron casos para el problema ingresado."
@@ -69,18 +79,48 @@ def retrieve_node(state: ProposalState) -> ProposalState:
 
     return state
 
+
+def _build_sector_intel(rubro: str, area: str) -> dict:
+    rubro_norm = (rubro or "General").strip()
+    area_norm = (area or "General").strip()
+    return {
+        "industria": rubro_norm,
+        "area": area_norm,
+        "tendencias": [
+            f"Automatización inteligente aplicada a {area_norm}",
+            f"Uso de IA generativa para productividad en {rubro_norm}",
+            "Gobierno de datos y trazabilidad como ventaja competitiva",
+        ],
+        "benchmarks": {
+            "ahorro_potencial": "15-30% en eficiencias operativas",
+            "time_to_value": "8-16 semanas para pilotos controlados",
+        },
+        "oportunidades": [
+            "Priorización de quick wins con casos comparables",
+            "Escalado modular por unidades de negocio",
+        ],
+        "source": "placeholder_v2",
+    }
+
 def _format_cases_for_prompt(cases: list[dict]) -> str:
     if not cases:
         return "No hay casos seleccionados."
 
     blocks: list[str] = []
     for idx, case in enumerate(cases, start=1):
+        beneficios = case.get("beneficios", [])
+        if isinstance(beneficios, list):
+            beneficios_txt = ", ".join(str(v) for v in beneficios if str(v).strip()) or "N/A"
+        else:
+            beneficios_txt = str(beneficios or "N/A")
         blocks.append(
             f"--- CASO {idx} ---\n"
             f"TITULO: {case.get('titulo', 'Sin titulo')}\n"
             f"PROBLEMA: {case.get('resumen', case.get('problema', 'N/A'))}\n"
             f"SOLUCION: {case.get('solucion', 'Ver slide original')}\n"
-            f"BENEFICIOS: {case.get('beneficios', 'N/A')}"
+            f"BENEFICIOS: {beneficios_txt}\n"
+            f"KPI: {case.get('kpi_impacto', 'N/A')}\n"
+            f"URL: {case.get('url_slide', 'N/A')}"
         )
     return "\n\n".join(blocks)
 
@@ -93,6 +133,17 @@ def _format_profile_for_prompt(perfil: dict | None) -> str:
         f"- Objetivos: {perfil.get('objetivos', 'N/A')}\n"
         f"- Pain Points: {perfil.get('pain_points', 'N/A')}\n"
         f"- Estilo/Cultura: {perfil.get('notas', 'N/A')}"
+    )
+
+
+def _format_sector_for_prompt(sector: dict | None) -> str:
+    if not sector:
+        return "No hay inteligencia sectorial disponible."
+    return (
+        f"Sector: {sector.get('industria', 'N/A')} / Área: {sector.get('area', 'N/A')}\n"
+        f"- Tendencias: {sector.get('tendencias', [])}\n"
+        f"- Benchmarks: {sector.get('benchmarks', {})}\n"
+        f"- Oportunidades: {sector.get('oportunidades', [])}"
     )
 
 def draft_node(state: ProposalState) -> ProposalState:
@@ -130,6 +181,9 @@ def draft_node(state: ProposalState) -> ProposalState:
             f"Área: {state['area']}\n"
             f"Problema actual: {state['problema']}\n"
             f"{_format_profile_for_prompt(state.get('perfil_cliente'))}\n\n"
+
+            "--- INTELIGENCIA DE MERCADO / SECTOR ---\n"
+            f"{_format_sector_for_prompt(state.get('inteligencia_sector'))}\n\n"
             
             "--- CASOS DE ÉXITO SELECCIONADOS (BASE TECNOLÓGICA) ---\n"
             f"{_format_cases_for_prompt(filtered_cases)}\n\n"
@@ -138,8 +192,9 @@ def draft_node(state: ProposalState) -> ProposalState:
             "1. Usa el 'Enfoque Propuesto' basado en los casos de éxito, pero ADÁPTALO a los objetivos del cliente.\n"
             "2. Si el cliente es adverso al riesgo (ver perfil), propón una implementación modular.\n"
             "3. Resalta el IMPACTO de negocio, no solo la tecnología.\n"
-            "4. Mantén un tono ejecutivo, profesional y persuasivo.\n"
-            "5. Máximo 500 palabras."
+            "4. Incluye al menos 2 KPI/impactos cuantificables cuando la evidencia lo permita.\n"
+            "5. Mantén un tono ejecutivo, profesional y persuasivo.\n"
+            "6. Máximo 500 palabras."
         )
 
         response = llm.invoke(prompt)

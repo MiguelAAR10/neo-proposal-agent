@@ -132,11 +132,13 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
     empresa = raw.get("empresa")
     industria = raw.get("industria") or raw.get("rubro")
     area = raw.get("area")
+    has_valid_url = _is_valid_http_url(raw.get("url_slide"))
+    has_kpi = bool(raw.get("kpi_impacto")) or bool(beneficios)
 
     quality = 0.0
-    if _is_valid_http_url(raw.get("url_slide")):
+    if has_valid_url:
         quality += 0.25
-    if beneficios or raw.get("kpi_impacto"):
+    if has_kpi:
         quality += 0.25
     if stack:
         quality += 0.2
@@ -146,6 +148,19 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
     if semantic_quality == "good":
         quality += 0.15
     link_status = raw.get("link_status") or "unknown"
+
+    similitud_semantica = max(0.0, min(1.0, score_raw))
+    match_industria = 1.0 if industria and industria != "No mapeado" else 0.6
+    match_area = 1.0 if area and area != "No mapeado" else 0.6
+    confianza_fuente = float(raw.get("confianza_fuente", 1.0 if tipo == "NEO" else 0.85))
+    recencia = 0.8
+    final_score = (
+        0.40 * similitud_semantica
+        + 0.20 * match_industria
+        + 0.15 * match_area
+        + 0.15 * confianza_fuente
+        + 0.10 * recencia
+    )
 
     return {
         "case_id": case_id,
@@ -162,15 +177,24 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
         "stack": stack,
         "tecnologias": stack,
         "kpi_impacto": raw.get("kpi_impacto") or "No mapeado",
-        "url_slide": raw.get("url_slide") if _is_valid_http_url(raw.get("url_slide")) else None,
+        "url_slide": raw.get("url_slide") if has_valid_url else None,
         "score": score_raw,
         "score_raw": score_raw,
         "score_label": score_label,
         "confidence": confidence,
-        "confianza_fuente": raw.get("confianza_fuente", 1.0 if tipo == "NEO" else 0.85),
+        "score_final": round(final_score, 4),
+        "score_breakdown": {
+            "similitud_semantica": round(similitud_semantica, 4),
+            "match_industria": round(match_industria, 4),
+            "match_area": round(match_area, 4),
+            "confianza_fuente": round(confianza_fuente, 4),
+            "recencia": round(recencia, 4),
+        },
+        "confianza_fuente": confianza_fuente,
         "origen": raw.get("origen") or "unknown",
         "semantic_quality": semantic_quality,
         "link_status": link_status,
+        "has_critical_evidence": has_valid_url and has_kpi,
         "data_quality_score": round(min(1.0, quality), 3),
     }
 
@@ -195,7 +219,9 @@ def _build_search_payload(
     qdrant_ms: int | None = None,
     cache_hit: bool | None = None,
 ) -> dict[str, Any]:
-    normalized = [_normalize_case(c) for c in raw_results]
+    normalized_all = [_normalize_case(c) for c in raw_results]
+    with_evidence = [c for c in normalized_all if c.get("has_critical_evidence")]
+    normalized = with_evidence if with_evidence else normalized_all
     global_top = max(normalized, key=lambda c: c.get("score_raw", 0.0), default=None)
 
     if switch == "both":
@@ -214,8 +240,9 @@ def _build_search_payload(
         "problema_user": problema,
         "switch_usado": switch,
         "total": len(casos),
+        "total_with_critical_evidence": len(with_evidence),
         "latencia_ms": latencia_ms,
-        "nota": "NEO cases mostrados primero por confianza; score de relevancia siempre visible.",
+        "nota": "NEO cases mostrados primero por confianza; score de relevancia siempre visible y desglosado.",
         "neo_cases": neo_cases,
         "ai_cases": ai_cases,
         "casos": casos,

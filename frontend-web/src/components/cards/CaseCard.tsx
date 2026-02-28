@@ -59,6 +59,12 @@ export function CaseCard({ caseData }: CaseCardProps) {
               </span>
             )}
           </div>
+          {caseData.score_breakdown && (
+            <p className="text-[10px] text-slate-300 mt-1">
+              Semántica {Math.round((caseData.score_breakdown.similitud_semantica ?? 0) * 100)}% •
+              Fuente {Math.round((caseData.score_breakdown.confianza_fuente ?? 0) * 100)}%
+            </p>
+          )}
           <h3 className="font-bold text-[var(--foreground)] leading-tight group-hover:text-[var(--accent)] transition-colors">
             {caseData.titulo}
           </h3>

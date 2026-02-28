@@ -19,6 +19,11 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>
 
+const PRIORITIZED_CLIENTS = [
+  'BCP', 'Interbank', 'BBVA', 'Alicorp', 'Rimac', 'Pacífico',
+  'Scotiabank', 'MiBanco', 'Credicorp', 'Plaza Vea', 'Falabella', 'Sodimac'
+]
+
 export function InitialForm() {
   const { setSession, setLoading, setError } = useAgentStore()
 
@@ -47,7 +52,9 @@ export function InitialForm() {
         aiCases: data.ai_cases ?? [],
         topMatchGlobal: data.top_match_global ?? null,
         topMatchGlobalReason: data.top_match_global_reason ?? null,
-        perfil: data.perfil_cliente
+        perfil: data.perfil_cliente,
+        profileStatus: data.profile_status ?? null,
+        inteligenciaSector: data.inteligencia_sector ?? null,
       })
       setError(null)
       setLoading(false)
@@ -97,11 +104,18 @@ export function InitialForm() {
               {...register('empresa')}
               placeholder="Ej: BCP, Alicorp..."
               autoComplete="organization"
+              list="prioritized-clients"
               aria-invalid={Boolean(errors.empresa)}
               aria-describedby={errors.empresa ? 'empresa-error' : undefined}
               className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
             />
+            <datalist id="prioritized-clients">
+              {PRIORITIZED_CLIENTS.map((client) => (
+                <option key={client} value={client} />
+              ))}
+            </datalist>
             {errors.empresa && <p id="empresa-error" className="mt-1 text-xs text-rose-300">{errors.empresa.message}</p>}
+            <p className="mt-1 text-[11px] text-slate-300">Sugerencias de clientes priorizados (top 12) habilitadas.</p>
           </div>
 
           {/* Rubro */}

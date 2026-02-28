@@ -144,11 +144,22 @@ export function ChatPanel() {
       {/* Input */}
       <form
         className="p-4 border-t border-white/10"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          const dropped = e.dataTransfer.getData('text/plain')?.trim()
+          if (!dropped) return
+          setInput((prev) => (prev ? `${prev}\n${dropped}` : dropped))
+          inputRef.current?.focus()
+        }}
         onSubmit={(e) => {
           e.preventDefault()
           handleSend()
         }}
       >
+        <p className="mb-2 text-[11px] text-slate-300">
+          Tip: arrastra contexto de perfil/mercado hacia este input para incluirlo en la instrucción.
+        </p>
         <div className="mb-2 flex flex-wrap gap-2" aria-label="Sugerencias rápidas de refinamiento">
           {quickPrompts.map((prompt) => (
             <button

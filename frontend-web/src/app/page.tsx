@@ -24,6 +24,8 @@ export default function Home() {
     threadId, 
     proposal,
     perfilCliente,
+    profileStatus,
+    inteligenciaSector,
     error,
     setProposal, 
     setError,
@@ -52,6 +54,28 @@ export default function Home() {
 
   const effectiveNeoCases = neoCases.length > 0 ? neoCases : cases.filter((c) => c.tipo === 'NEO')
   const effectiveAiCases = aiCases.length > 0 ? aiCases : cases.filter((c) => c.tipo === 'AI')
+  const profileSnippets: string[] = []
+  if (perfilCliente?.objetivos && Array.isArray(perfilCliente.objetivos)) {
+    for (const o of perfilCliente.objetivos) profileSnippets.push(`Objetivo cliente: ${String(o)}`)
+  }
+  if (perfilCliente?.pain_points && Array.isArray(perfilCliente.pain_points)) {
+    for (const p of perfilCliente.pain_points) profileSnippets.push(`Pain point cliente: ${String(p)}`)
+  }
+  if (typeof perfilCliente?.notas === 'string' && perfilCliente.notas.trim()) {
+    profileSnippets.push(`Nota cliente: ${perfilCliente.notas.trim()}`)
+  }
+  const sectorSnippets: string[] = []
+  if (inteligenciaSector?.tendencias && Array.isArray(inteligenciaSector.tendencias)) {
+    for (const t of inteligenciaSector.tendencias) sectorSnippets.push(`Tendencia sector: ${String(t)}`)
+  }
+  if (inteligenciaSector?.oportunidades && Array.isArray(inteligenciaSector.oportunidades)) {
+    for (const o of inteligenciaSector.oportunidades) sectorSnippets.push(`Oportunidad mercado: ${String(o)}`)
+  }
+  if (inteligenciaSector?.benchmarks && typeof inteligenciaSector.benchmarks === 'object') {
+    for (const [k, v] of Object.entries(inteligenciaSector.benchmarks)) {
+      sectorSnippets.push(`Benchmark ${k}: ${String(v)}`)
+    }
+  }
   const phaseLabel =
     phase === 'idle'
       ? 'Intake'
@@ -276,9 +300,53 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Sidebar (Chat) */}
+              {/* Sidebar (Context + Chat) */}
               <aside className="w-full lg:w-[400px] px-4" aria-label="Panel de refinamiento conversacional">
-                <div className="sticky top-24">
+                <div className="sticky top-24 space-y-4">
+                  <div className="neo-glass-card p-4">
+                    <h4 className="text-sm font-semibold text-slate-100 mb-2">Perfil del cliente</h4>
+                    <p className="text-[11px] text-slate-300 mb-2">
+                      Estado: {profileStatus ?? 'no_mapeado'}
+                    </p>
+                    <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                      {profileSnippets.length > 0 ? profileSnippets.map((snippet, idx) => (
+                        <button
+                          key={`profile-${idx}`}
+                          type="button"
+                          draggable
+                          onDragStart={(e) => e.dataTransfer.setData('text/plain', snippet)}
+                          className="w-full text-left text-xs rounded-lg border border-white/15 bg-white/8 text-slate-100 px-2.5 py-2 hover:bg-white/12"
+                        >
+                          {snippet}
+                        </button>
+                      )) : (
+                        <p className="text-xs text-slate-300">Sin datos mapeados aún para este cliente/área.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="neo-glass-card p-4">
+                    <h4 className="text-sm font-semibold text-slate-100 mb-2">Inteligencia de mercado</h4>
+                    <p className="text-[11px] text-slate-300 mb-2">
+                      {(inteligenciaSector?.industria ?? 'General')} / {(inteligenciaSector?.area ?? 'General')}
+                    </p>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {sectorSnippets.length > 0 ? sectorSnippets.map((snippet, idx) => (
+                        <button
+                          key={`sector-${idx}`}
+                          type="button"
+                          draggable
+                          onDragStart={(e) => e.dataTransfer.setData('text/plain', snippet)}
+                          className="w-full text-left text-xs rounded-lg border border-white/15 bg-white/8 text-slate-100 px-2.5 py-2 hover:bg-white/12"
+                        >
+                          {snippet}
+                        </button>
+                      )) : (
+                        <p className="text-xs text-slate-300">Sin intel sectorial disponible.</p>
+                      )}
+                    </div>
+                  </div>
+
                   <ChatPanel />
                 </div>
               </aside>

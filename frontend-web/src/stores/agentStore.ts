@@ -19,6 +19,13 @@ export interface Case {
   score_raw?: number
   score_label?: string
   confidence?: string
+  score_breakdown?: {
+    similitud_semantica?: number
+    match_industria?: number
+    match_area?: number
+    confianza_fuente?: number
+    recencia?: number
+  }
   badge?: string
   data_quality_score?: number
   link_status?: 'verified' | 'inaccessible' | 'unknown' | string
@@ -31,6 +38,15 @@ export interface Case {
 export interface PerfilCliente {
   notas?: string
   [key: string]: unknown
+}
+
+export interface InteligenciaSector {
+  industria?: string
+  area?: string
+  tendencias?: string[]
+  oportunidades?: string[]
+  benchmarks?: Record<string, unknown>
+  source?: string
 }
 
 export interface ProposalState {
@@ -53,6 +69,8 @@ export interface ProposalState {
   topMatchGlobalReason: string | null
   selectedCaseIds: string[]
   perfilCliente: PerfilCliente | null
+  profileStatus: 'found' | 'not_found' | 'incomplete' | null
+  inteligenciaSector: InteligenciaSector | null
   proposal: string | null
   
   // UI
@@ -71,6 +89,8 @@ export interface ProposalState {
     topMatchGlobal?: Case | null
     topMatchGlobalReason?: string | null
     perfil: PerfilCliente | null
+    profileStatus?: 'found' | 'not_found' | 'incomplete' | null
+    inteligenciaSector?: InteligenciaSector | null
   }) => void
   selectCase: (id: string) => void
   unselectCase: (id: string) => void
@@ -97,6 +117,8 @@ export const useAgentStore = create<ProposalState>()(
       topMatchGlobalReason: null,
       selectedCaseIds: [],
       perfilCliente: null,
+      profileStatus: null,
+      inteligenciaSector: null,
       proposal: null,
       loading: false,
       error: null,
@@ -112,6 +134,8 @@ export const useAgentStore = create<ProposalState>()(
         topMatchGlobal: data.topMatchGlobal ?? null,
         topMatchGlobalReason: data.topMatchGlobalReason ?? null,
         perfilCliente: data.perfil,
+        profileStatus: data.profileStatus ?? null,
+        inteligenciaSector: data.inteligenciaSector ?? null,
         phase: 'curating'
       }),
 
@@ -148,6 +172,8 @@ export const useAgentStore = create<ProposalState>()(
         topMatchGlobalReason: null,
         selectedCaseIds: [],
         perfilCliente: null,
+        profileStatus: null,
+        inteligenciaSector: null,
         proposal: null,
         loading: false,
         error: null,

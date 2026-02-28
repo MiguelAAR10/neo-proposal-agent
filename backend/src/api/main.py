@@ -97,6 +97,8 @@ class AgentStateResponse(BaseModel):
     top_match_global_reason: Optional[str] = None
     casos_seleccionados_ids: List[str]
     perfil_cliente: Optional[dict] = None
+    profile_status: Optional[Literal["found", "not_found", "incomplete"]] = None
+    inteligencia_sector: Optional[dict] = None
     propuesta_final: Optional[str] = None
     status: str
     error: Optional[str] = None
@@ -130,6 +132,8 @@ def _map_state_response(
         top_match_global_reason=state_values.get("top_match_global_reason"),
         casos_seleccionados_ids=state_values.get("casos_seleccionados_ids", []),
         perfil_cliente=state_values.get("perfil_cliente"),
+        profile_status=state_values.get("profile_status"),
+        inteligencia_sector=state_values.get("inteligencia_sector"),
         propuesta_final=state_values.get("propuesta_final"),
         status=resolved_status,
         error=state_values.get("error"),
