@@ -1,14 +1,20 @@
+from __future__ import annotations
+
 import csv
-import hashlib
-import json
+import logging
+import re
 from pathlib import Path
 from typing import Any, Literal
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from pydantic import ValidationError
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
 from src.config import get_settings
+from src.models.case import CaseInput, CaseQdrant
+
+logger = logging.getLogger(__name__)
 
 
 class QdrantConnection:
@@ -16,7 +22,6 @@ class QdrantConnection:
         self._settings = get_settings()
         self._client: QdrantClient | None = None
         self._embeddings: GoogleGenerativeAIEmbeddings | None = None
-        # Usamos el modelo configurado o el default de V1
         self._embedding_model: str = self._settings.gemini_embedding_model
 
     def _ensure_client(self) -> QdrantClient:
@@ -36,7 +41,7 @@ class QdrantConnection:
 
         if not self._settings.gemini_api_key:
             raise ValueError("Falta configurar GEMINI_API_KEY")
-            
+
         try:
             self._embeddings = GoogleGenerativeAIEmbeddings(
                 model=self._embedding_model,
@@ -46,19 +51,167 @@ class QdrantConnection:
         except Exception as exc:
             raise RuntimeError(f"Fallo crítico al inicializar Gemini Embeddings: {exc}")
 
-    def search_cases(
-        self, 
-        query: str, 
-        switch: Literal["neo", "ai", "both"] = "both", 
-        limit: int = 6
-    ) -> list[dict]:
-        """Busca casos en Qdrant con filtro por tipo (Switch)."""
+    def _ensure_cases_collection(self, collection_name: str) -> None:
+        client = self._ensure_client()
+        existing = {c.name for c in client.get_collections().collections}
+        if collection_name in existing:
+            return
+
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=models.VectorParams(size=768, distance=models.Distance.COSINE),
+        )
+
+    def reset_cases_collection(self, collection_name: str) -> None:
+        client = self._ensure_client()
+        existing = {c.name for c in client.get_collections().collections}
+        if collection_name in existing:
+            client.delete_collection(collection_name=collection_name)
+        self._ensure_cases_collection(collection_name)
+
+    @staticmethod
+    def _parse_list(raw: str | None) -> list[str]:
+        if raw is None:
+            return []
+        text = str(raw).strip()
+        if not text:
+            return []
+
+        parts = re.split(r"\s*//\s*|\s*,\s*|\s*;\s*", text)
+        return [p.strip() for p in parts if p.strip()]
+
+    @staticmethod
+    def _clean_text(value: str | None) -> str:
+        return (value or "").strip()
+
+    def _normalize_ai_row(self, row: dict[str, str], source_name: str) -> CaseInput:
+        case = CaseInput(
+            case_id=self._clean_text(row.get("id_caso")),
+            tipo="AI",
+            titulo=self._clean_text(row.get("trigger_comercial_detectado"))
+            or self._clean_text(row.get("solucion_detectada"))[:120],
+            empresa=self._clean_text(row.get("nombre_empresa_crudo")) or None,
+            industria=self._clean_text(row.get("industria_detectada")) or None,
+            area=self._clean_text(row.get("area_detectada")) or None,
+            problema=self._clean_text(row.get("tipo_problema_detectado")),
+            solucion=self._clean_text(row.get("solucion_detectada")),
+            beneficios=self._parse_list(row.get("resultados_detectados")),
+            stack=self._parse_list(row.get("tecnologias_mencionadas")),
+            kpi_impacto=self._clean_text(row.get("resultados_detectados")) or None,
+            url_slide=self._clean_text(row.get("url_slide")),
+            origen=source_name,
+        )
+        return case
+
+    def _normalize_neo_row(self, row: dict[str, str], source_name: str) -> CaseInput:
+        url = self._clean_text(row.get("url_slide")) or self._clean_text(row.get("google_slides_url"))
+        case = CaseInput(
+            case_id=self._clean_text(row.get("id_caso")),
+            tipo="NEO",
+            titulo=self._clean_text(row.get("titulo_caso")),
+            empresa=self._clean_text(row.get("cliente_mencionado")) or None,
+            industria=self._clean_text(row.get("industria_pdf")) or None,
+            area=self._clean_text(row.get("area_funcional_mencionada")) or None,
+            problema=self._clean_text(row.get("descripcion_reto")),
+            solucion=self._clean_text(row.get("descripcion_solucion")),
+            beneficios=self._parse_list(row.get("resultados_mencionados")),
+            stack=self._parse_list(row.get("tecnologias_mencionadas")),
+            kpi_impacto=self._clean_text(row.get("resultados_mencionados")) or None,
+            url_slide=url,
+            origen=source_name,
+        )
+        return case
+
+    def _build_embedding_text(self, payload: dict[str, Any]) -> str:
+        beneficios = ", ".join(payload.get("beneficios", []))
+        stack = ", ".join(payload.get("stack", []))
+        return (
+            f"Titulo: {payload.get('titulo', '')}\n"
+            f"Industria: {payload.get('industria') or 'No mapeado'}\n"
+            f"Area: {payload.get('area') or 'No mapeado'}\n"
+            f"Problema: {payload.get('problema', '')}\n"
+            f"Solucion: {payload.get('solucion', '')}\n"
+            f"Beneficios: {beneficios or 'No mapeado'}\n"
+            f"Tecnologias: {stack or 'No mapeado'}"
+        )
+
+    def load_csv_files(self, csv_files: list[str], collection_name: str = "neo_cases_v1") -> int:
+        self._ensure_cases_collection(collection_name)
         client = self._ensure_client()
         embeddings = self._ensure_embeddings()
-        
-        query_vector = embeddings.embed_query(query)
-        
-        # Construir filtro según switch
+
+        points: list[models.PointStruct] = []
+        seen_ids: set[str] = set()
+        valid_count = 0
+        rejected_count = 0
+
+        for csv_path in csv_files:
+            source = Path(csv_path).name
+            with Path(csv_path).open("r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        if "ai_cases" in source:
+                            case_input = self._normalize_ai_row(row, source)
+                        elif "neo_legacy" in source:
+                            case_input = self._normalize_neo_row(row, source)
+                        else:
+                            rejected_count += 1
+                            logger.warning("CSV no soportado para normalizacion: %s", source)
+                            continue
+
+                        if case_input.case_id in seen_ids:
+                            raise ValueError(f"case_id duplicado detectado: {case_input.case_id}")
+                        seen_ids.add(case_input.case_id)
+
+                        case_payload = CaseQdrant.from_input(case_input).model_dump()
+                        embedding_text = self._build_embedding_text(case_payload)
+                        vector = embeddings.embed_query(embedding_text)
+
+                        points.append(
+                            models.PointStruct(
+                                id=case_payload["case_id"],
+                                vector=vector,
+                                payload=case_payload,
+                            )
+                        )
+                        valid_count += 1
+                    except (ValidationError, ValueError) as exc:
+                        rejected_count += 1
+                        logger.warning("Fila rechazada en %s: %s", source, exc)
+                    except Exception as exc:
+                        rejected_count += 1
+                        logger.exception("Error inesperado en ingesta %s: %s", source, exc)
+
+                    if len(points) >= 32:
+                        client.upsert(collection_name=collection_name, points=points)
+                        points.clear()
+
+        if points:
+            client.upsert(collection_name=collection_name, points=points)
+
+        logger.info(
+            "Ingesta completada: valid=%s rejected=%s collection=%s",
+            valid_count,
+            rejected_count,
+            collection_name,
+        )
+        return valid_count
+
+    def embed_query(self, query: str) -> list[float]:
+        embeddings = self._ensure_embeddings()
+        return embeddings.embed_query(query)
+
+    def search_cases_by_vector(
+        self,
+        query_vector: list[float],
+        switch: Literal["neo", "ai", "both"] = "both",
+        limit: int = 6,
+        score_threshold: float = 0.50,
+        timeout_sec: float = 1.0,
+    ) -> list[dict[str, Any]]:
+        client = self._ensure_client()
+
         search_filter = None
         if switch == "neo":
             search_filter = models.Filter(
@@ -74,24 +227,41 @@ class QdrantConnection:
             query_vector=query_vector,
             query_filter=search_filter,
             limit=limit,
-            with_payload=True
+            score_threshold=score_threshold,
+            timeout=max(1, int(timeout_sec)),
+            with_payload=True,
         )
 
         return [
             {
-                "id": hit.id,
-                "score": hit.score,
-                **(hit.payload or {})
+                "id": str(hit.id),
+                "score": float(hit.score),
+                **(hit.payload or {}),
             }
             for hit in results
         ]
 
-    def get_profile(self, empresa: str, area: str) -> dict | None:
-        """Recupera el perfil del cliente (Dummy o Real) desde Qdrant."""
+    def search_cases(
+        self,
+        query: str,
+        switch: Literal["neo", "ai", "both"] = "both",
+        limit: int = 6,
+        score_threshold: float = 0.50,
+        timeout_sec: float = 1.0,
+    ) -> list[dict[str, Any]]:
+        query_vector = self.embed_query(query)
+        return self.search_cases_by_vector(
+            query_vector=query_vector,
+            switch=switch,
+            limit=limit,
+            score_threshold=score_threshold,
+            timeout_sec=timeout_sec,
+        )
+
+    def get_profile(self, empresa: str, area: str) -> dict[str, Any] | None:
         client = self._ensure_client()
-        
-        # Búsqueda exacta por empresa y área en el payload
-        results = client.scroll(
+
+        exact_results = client.scroll(
             collection_name=self._settings.qdrant_collection_profiles,
             scroll_filter=models.Filter(
                 must=[
@@ -100,33 +270,46 @@ class QdrantConnection:
                 ]
             ),
             limit=1,
-            with_payload=True
+            with_payload=True,
         )
-        
-        points = results[0]
+
+        points = exact_results[0]
         if points:
             return points[0].payload
+
+        company_only = client.scroll(
+            collection_name=self._settings.qdrant_collection_profiles,
+            scroll_filter=models.Filter(
+                must=[models.FieldCondition(key="empresa", match=models.MatchValue(value=empresa))]
+            ),
+            limit=1,
+            with_payload=True,
+        )
+        points = company_only[0]
+        if points:
+            payload = dict(points[0].payload or {})
+            payload.setdefault("notas", "Perfil parcial por empresa (area no mapeada)")
+            return payload
         return None
 
-    def upsert_profile(self, profile_data: dict) -> None:
-        """Guarda o actualiza un perfil de cliente."""
+    def upsert_profile(self, profile_data: dict[str, Any]) -> None:
         client = self._ensure_client()
-        
-        # Generar un ID determinista basado en empresa y área
+
         empresa = profile_data.get("empresa", "unknown")
         area = profile_data.get("area", "general")
-        point_id = hashlib.md5(f"{empresa}-{area}".lower().encode()).hexdigest()
-        
+        point_id = f"{empresa}-{area}".strip().lower().replace(" ", "_")
+
         client.upsert(
             collection_name=self._settings.qdrant_collection_profiles,
             points=[
                 models.PointStruct(
                     id=point_id,
-                    vector=[0.0] * 768, # Placeholder si no vectorizamos el perfil aún
-                    payload=profile_data
+                    vector=[0.0] * 768,
+                    payload=profile_data,
                 )
-            ]
+            ],
         )
 
-# Instancia global para ser usada en los nodos
+
+# Instancia global para ser usada en nodos y API
 db_connection = QdrantConnection()

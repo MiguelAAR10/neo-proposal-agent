@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     
     gemini_api_key: str | None = None
     gemini_embedding_model: str = "models/gemini-embedding-001"
+    admin_token: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent.parent / ".env"),

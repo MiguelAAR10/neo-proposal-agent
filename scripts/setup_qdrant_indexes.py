@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 # Añadir el backend al path
-sys.path.append(str(Path(__file__).parent / "backend"))
+sys.path.append(str(Path(__file__).parent.parent / "backend"))
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
@@ -23,8 +23,28 @@ def setup_indexes():
     )
     client.create_payload_index(
         collection_name=settings.qdrant_collection_cases,
-        field_name="rubro",
+        field_name="industria",
         field_schema=models.PayloadSchemaType.KEYWORD,
+    )
+    client.create_payload_index(
+        collection_name=settings.qdrant_collection_cases,
+        field_name="area",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+    )
+    client.create_payload_index(
+        collection_name=settings.qdrant_collection_cases,
+        field_name="case_id",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+    )
+    client.create_payload_index(
+        collection_name=settings.qdrant_collection_cases,
+        field_name="origen",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+    )
+    client.create_payload_index(
+        collection_name=settings.qdrant_collection_cases,
+        field_name="data_quality_score",
+        field_schema=models.PayloadSchemaType.FLOAT,
     )
     
     # 2. Índices para neo_profiles_v1

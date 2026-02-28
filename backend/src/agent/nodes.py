@@ -3,6 +3,7 @@ from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.agent.state import ProposalState
 from src.config import get_settings
+from src.services.search_service import search_cases_sync
 from src.tools.qdrant_tool import db_connection
 
 def intake_node(state: ProposalState) -> ProposalState:
@@ -29,14 +30,15 @@ def retrieve_node(state: ProposalState) -> ProposalState:
         return state
 
     try:
-        # 1. Buscar casos técnicos/comerciales
-        results = db_connection.search_cases(
-            state["problema"], 
-            switch=state["switch"], 
-            limit=6
+        # 1. Buscar casos via primitiva compartida (/api/search)
+        search_payload = search_cases_sync(
+            problema=state["problema"],
+            switch=state["switch"],
+            limit=6,
+            score_threshold=0.50,
         )
-        state["casos_encontrados"] = results
-        
+        state["casos_encontrados"] = search_payload.get("casos", [])
+
         # 2. Buscar perfil del cliente (Insights de negocio)
         perfil = db_connection.get_profile(state["empresa"], state["area"])
         if perfil:
@@ -50,7 +52,7 @@ def retrieve_node(state: ProposalState) -> ProposalState:
                 "notas": "Empresa nueva sin historial previo."
             }
 
-        if not results:
+        if not state["casos_encontrados"]:
             state["error"] = "No se encontraron casos para el problema ingresado."
             
     except Exception as exc:

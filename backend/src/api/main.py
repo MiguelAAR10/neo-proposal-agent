@@ -5,15 +5,18 @@ Refactored to support LangGraph HITL flow, Redis persistence, and Peru profiles.
 import uuid
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional, Literal, List
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src.agent.graph import graph
 from src.config import get_settings
+from src.services.search_service import search_cases_with_sla
 from src.tools.qdrant_tool import db_connection
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -50,8 +53,29 @@ class StartRequest(BaseModel):
     problema: str = Field(..., min_length=20, example="Automatización de conciliaciones bancarias...")
     switch: Literal["neo", "ai", "both"] = "both"
 
+    @field_validator("switch", mode="before")
+    @classmethod
+    def normalize_switch(cls, value: str) -> str:
+        return str(value).strip().lower()
+
 class SelectRequest(BaseModel):
     case_ids: List[str] = Field(..., min_items=1)
+
+class SearchRequest(BaseModel):
+    problema: str = Field(..., min_length=10, example="Mejorar decisiones en credit scoring con IA")
+    switch: Literal["neo", "ai", "both"] = "both"
+
+    @field_validator("switch", mode="before")
+    @classmethod
+    def normalize_switch(cls, value: str) -> str:
+        return str(value).strip().lower()
+
+class RefineRequest(BaseModel):
+    instruction: str = Field(..., min_length=5, example="Hazla más corta y enfatiza ROI")
+
+class IngestRequest(BaseModel):
+    csv_files: List[str] = Field(default_factory=lambda: ["ai_cases.csv", "neo_legacy.csv"])
+    force_rebuild: bool = False
 
 class AgentStateResponse(BaseModel):
     thread_id: str
@@ -75,6 +99,27 @@ async def health():
         "version": "2.0.0",
         "qdrant": "connected" # Podríamos añadir un ping real aquí
     }
+
+@app.post("/api/search")
+async def api_search(data: SearchRequest):
+    """
+    Primitiva de búsqueda semántica.
+    Stateless y reutilizable por orquestadores (/agent/*).
+    """
+    try:
+        return await search_cases_with_sla(
+            problema=data.problema.strip(),
+            switch=data.switch,
+            limit=6,
+            score_threshold=0.50,
+        )
+    except TimeoutError as exc:
+        detail = str(exc)
+        status = 503 if "Qdrant" in detail else 504
+        raise HTTPException(status_code=status, detail=detail)
+    except Exception as exc:
+        logger.exception("Error in /api/search: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/agent/start", response_model=AgentStateResponse)
 async def start_agent(data: StartRequest):
@@ -115,6 +160,42 @@ async def start_agent(data: StartRequest):
         logger.exception(f"Error starting agent: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/ingest")
+async def ingest_cases(data: IngestRequest, authorization: str | None = Header(default=None)):
+    """
+    Endpoint administrativo de ingesta de casos hacia Qdrant.
+    Si ADMIN_TOKEN está configurado, exige header Authorization Bearer.
+    """
+    settings = get_settings()
+    if settings.admin_token:
+        expected = f"Bearer {settings.admin_token}"
+        if authorization != expected:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    base = Path(__file__).resolve().parents[3] / "data"
+    csv_paths = [str(base / name) for name in data.csv_files]
+    missing = [p for p in csv_paths if not Path(p).exists()]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"CSV no encontrados: {missing}")
+
+    try:
+        import asyncio
+        if data.force_rebuild:
+            await asyncio.to_thread(db_connection.reset_cases_collection, "neo_cases_v1")
+        inserted = await asyncio.to_thread(db_connection.load_csv_files, csv_paths, "neo_cases_v1")
+    except Exception as exc:
+        logger.exception("Error en /api/ingest: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return {
+        "status": "success",
+        "summary": {
+            "csv_files": data.csv_files,
+            "inserted": inserted,
+            "collection": "neo_cases_v1",
+        },
+    }
+
 @app.post("/agent/{thread_id}/select", response_model=AgentStateResponse)
 async def select_cases(thread_id: str, data: SelectRequest):
     """
@@ -149,6 +230,66 @@ async def select_cases(thread_id: str, data: SelectRequest):
     except Exception as e:
         logger.exception(f"Error in select_cases: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/agent/{thread_id}/refine", response_model=AgentStateResponse)
+async def refine_proposal(thread_id: str, data: RefineRequest):
+    """
+    Refina la propuesta existente manteniendo contexto de sesión.
+    """
+    config = {"configurable": {"thread_id": thread_id}}
+    state = await graph.aget_state(config)
+    if not state.values:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada.")
+
+    v = state.values
+    if not v.get("propuesta_final"):
+        raise HTTPException(status_code=400, detail="No hay propuesta previa para refinar.")
+
+    try:
+        settings = get_settings()
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            temperature=0.3,
+            google_api_key=settings.gemini_api_key,
+        )
+        prompt = (
+            "Refina la siguiente propuesta comercial manteniendo precisión y tono ejecutivo.\n"
+            "Aplica estrictamente la instrucción del usuario.\n\n"
+            f"INSTRUCCION: {data.instruction}\n\n"
+            "PROPUESTA ACTUAL:\n"
+            f"{v['propuesta_final']}\n"
+        )
+        response = llm.invoke(prompt)
+        refined = str(response.content).strip()
+
+        versions = list(v.get("propuesta_versiones") or [])
+        versions.append(refined)
+        await graph.aupdate_state(
+            config,
+            {
+                "propuesta_final": refined,
+                "propuesta_versiones": versions,
+                "error": "",
+            },
+        )
+
+        new_state = await graph.aget_state(config)
+        latest = new_state.values
+        return AgentStateResponse(
+            thread_id=thread_id,
+            empresa=latest.get("empresa", ""),
+            area=latest.get("area", ""),
+            problema=latest.get("problema", ""),
+            casos_encontrados=latest.get("casos_encontrados", []),
+            casos_seleccionados_ids=latest.get("casos_seleccionados_ids", []),
+            perfil_cliente=latest.get("perfil_cliente"),
+            propuesta_final=latest.get("propuesta_final"),
+            status="completed",
+            error=latest.get("error"),
+        )
+    except Exception as exc:
+        logger.exception("Error refining proposal: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 @app.get("/agent/{thread_id}/state", response_model=AgentStateResponse)
 async def get_agent_state(thread_id: str):
