@@ -55,10 +55,72 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             limit=6,
             score_threshold=0.50,
         )
+        reranked_all = _rerank_cases_for_client(
+            search_payload.get("casos", []),
+            empresa=state.get("empresa", ""),
+            area=state.get("area", ""),
+            rubro=state.get("rubro", ""),
+        )
+        reranked_neo = _rerank_cases_for_client(
+            search_payload.get("neo_cases", []),
+            empresa=state.get("empresa", ""),
+            area=state.get("area", ""),
+            rubro=state.get("rubro", ""),
+        )
+        reranked_ai = _rerank_cases_for_client(
+            search_payload.get("ai_cases", []),
+            empresa=state.get("empresa", ""),
+            area=state.get("area", ""),
+            rubro=state.get("rubro", ""),
+        )
         # Para cards seleccionables exigimos evidencia URL.
-        filtered_cases = [c for c in search_payload.get("casos", []) if c.get("url_slide")]
-        filtered_neo = [c for c in search_payload.get("neo_cases", []) if c.get("url_slide")]
-        filtered_ai = [c for c in search_payload.get("ai_cases", []) if c.get("url_slide")]
+        filtered_cases = [c for c in reranked_all if c.get("url_slide")]
+        filtered_neo = [c for c in reranked_neo if c.get("url_slide")]
+        filtered_ai = [c for c in reranked_ai if c.get("url_slide")]
+
+        # Fallback comercial: nunca dejar la UI sin fichas; ampliar búsqueda por rubro/área.
+        if not filtered_cases:
+            fallback_query = (
+                f"Iniciativas de alto impacto para {state.get('rubro', 'negocio')} "
+                f"en el área {state.get('area', 'operaciones')} con evidencia verificable"
+            )
+            fallback_payload = search_cases_sync(
+                problema=fallback_query,
+                switch="both",
+                limit=8,
+                score_threshold=0.35,
+            )
+            fallback_cases = _rerank_cases_for_client(
+                fallback_payload.get("casos", []),
+                empresa=state.get("empresa", ""),
+                area=state.get("area", ""),
+                rubro=state.get("rubro", ""),
+            )
+            fallback_neo = _rerank_cases_for_client(
+                fallback_payload.get("neo_cases", []),
+                empresa=state.get("empresa", ""),
+                area=state.get("area", ""),
+                rubro=state.get("rubro", ""),
+            )
+            fallback_ai = _rerank_cases_for_client(
+                fallback_payload.get("ai_cases", []),
+                empresa=state.get("empresa", ""),
+                area=state.get("area", ""),
+                rubro=state.get("rubro", ""),
+            )
+            filtered_cases = [c for c in fallback_cases if c.get("url_slide")]
+            filtered_neo = [c for c in fallback_neo if c.get("url_slide")]
+            filtered_ai = [c for c in fallback_ai if c.get("url_slide")]
+
+            # Etiquetar explícitamente como relacionados/inspiracionales para transparencia UX.
+            for item in filtered_cases:
+                item.setdefault("match_type", "inspiracional")
+                item.setdefault("match_reason", "Sugerencia por afinidad de industria/área")
+            for item in filtered_neo:
+                item.setdefault("match_type", "inspiracional")
+            for item in filtered_ai:
+                item.setdefault("match_type", "inspiracional")
+
         state["casos_encontrados"] = filtered_cases
         state["neo_cases"] = filtered_neo
         state["ai_cases"] = filtered_ai
@@ -92,12 +154,58 @@ def retrieve_node(state: ProposalState) -> ProposalState:
         )
 
         if not state["casos_encontrados"]:
-            state["error"] = "No se encontraron casos con URL verificable para el problema ingresado."
+            state["error"] = (
+                "No se encontraron casos con evidencia suficiente para el problema ingresado. "
+                "Intenta reformular en términos de industria/área."
+            )
             
     except Exception as exc:
         state["error"] = f"Error en retrieve_node: {exc}"
 
     return state
+
+
+def _rerank_cases_for_client(
+    cases: list[dict[str, Any]],
+    empresa: str,
+    area: str,
+    rubro: str,
+) -> list[dict[str, Any]]:
+    empresa_norm = (empresa or "").strip().lower()
+    area_norm = (area or "").strip().lower()
+    rubro_norm = (rubro or "").strip().lower()
+
+    rescored: list[dict[str, Any]] = []
+    for case in cases:
+        score_raw = float(case.get("score_raw", case.get("score", 0.0)))
+        bonus = 0.0
+
+        case_empresa = str(case.get("empresa") or "").strip().lower()
+        case_area = str(case.get("area") or "").strip().lower()
+        case_industria = str(case.get("industria") or "").strip().lower()
+
+        if empresa_norm and case_empresa and (empresa_norm in case_empresa or case_empresa in empresa_norm):
+            bonus += 0.12
+        if area_norm and case_area and (area_norm == case_area):
+            bonus += 0.05
+        if rubro_norm and case_industria and (rubro_norm in case_industria or case_industria in rubro_norm):
+            bonus += 0.03
+
+        rescored_case = dict(case)
+        rescored_case["score_client_fit"] = round(min(1.0, score_raw + bonus), 4)
+        if bonus >= 0.12:
+            rescored_case["match_type"] = "exacto"
+            rescored_case["match_reason"] = "Coincidencia directa con empresa/área objetivo"
+        elif bonus > 0:
+            rescored_case["match_type"] = "relacionado"
+            rescored_case["match_reason"] = "Coincidencia parcial por industria/área"
+        else:
+            rescored_case["match_type"] = "inspiracional"
+            rescored_case["match_reason"] = "Referencia útil por similitud de problema"
+        rescored.append(rescored_case)
+
+    rescored.sort(key=lambda c: c.get("score_client_fit", c.get("score_raw", 0.0)), reverse=True)
+    return rescored
 
 
 def _build_sector_intel(rubro: str, area: str) -> dict:

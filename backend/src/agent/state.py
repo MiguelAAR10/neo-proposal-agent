@@ -26,6 +26,7 @@ class ProposalState(TypedDict):
     # Resultados
     propuesta_final: str
     propuesta_versiones: list[str]  # Para manejar v1, v2, etc.
+    chat_messages: NotRequired[list[dict[str, str]]]
     
     # Control
     error: NotRequired[str]

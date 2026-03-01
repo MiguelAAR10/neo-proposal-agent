@@ -81,6 +81,21 @@ _PRIORITIZED_CLIENT_CONTEXT: dict[str, dict[str, Any]] = {
     },
 }
 
+_DISPLAY_NAME: dict[str, str] = {
+    "BCP": "BCP",
+    "INTERBANK": "Interbank",
+    "BBVA": "BBVA",
+    "ALICORP": "Alicorp",
+    "RIMAC": "Rimac",
+    "PACIFICO": "Pacifico",
+    "SCOTIABANK": "Scotiabank",
+    "MIBANCO": "MiBanco",
+    "CREDICORP": "Credicorp",
+    "PLAZA VEA": "Plaza Vea",
+    "FALABELLA": "Falabella",
+    "SODIMAC": "Sodimac",
+}
+
 
 def normalize_company_name(value: str) -> str:
     raw = (value or "").strip()
@@ -93,6 +108,22 @@ def normalize_company_name(value: str) -> str:
 
 def get_prioritized_clients() -> list[str]:
     return list(_PRIORITIZED_CLIENTS)
+
+
+def get_prioritized_clients_catalog() -> list[dict[str, Any]]:
+    catalog: list[dict[str, Any]] = []
+    for key in _PRIORITIZED_CLIENTS:
+        ctx = _PRIORITIZED_CLIENT_CONTEXT.get(key, {})
+        catalog.append(
+            {
+                "name": key,
+                "display_name": _DISPLAY_NAME.get(key, key.title()),
+                "vertical": ctx.get("vertical", "N/A"),
+                "priorities": list(ctx.get("priorities", [])),
+                "constraints": list(ctx.get("constraints", [])),
+            }
+        )
+    return catalog
 
 
 def is_prioritized_client(company_name: str) -> bool:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import logging
 import re
+import uuid
 from pathlib import Path
 from typing import Any, Literal
 
@@ -58,9 +59,14 @@ class QdrantConnection:
         if collection_name in existing:
             return
 
+        vector_size = self._settings.qdrant_vector_size
+        if not vector_size or vector_size <= 0:
+            probe = self.embed_query("dimension probe")
+            vector_size = len(probe)
+
         client.create_collection(
             collection_name=collection_name,
-            vectors_config=models.VectorParams(size=768, distance=models.Distance.COSINE),
+            vectors_config=models.VectorParams(size=vector_size, distance=models.Distance.COSINE),
         )
 
     def reset_cases_collection(self, collection_name: str) -> None:
@@ -95,6 +101,15 @@ class QdrantConnection:
     @staticmethod
     def _clean_text(value: str | None) -> str:
         return (value or "").strip()
+
+    @staticmethod
+    def _point_uuid_from_text(raw: str) -> str:
+        """
+        Qdrant Cloud in this environment accepts numeric/UUID point IDs.
+        We keep deterministic IDs by hashing business IDs into UUIDv5.
+        """
+        normalized = (raw or "").strip().lower()
+        return str(uuid.uuid5(uuid.NAMESPACE_URL, f"neo-case::{normalized}"))
 
     def _normalize_ai_row(self, row: dict[str, str], source_name: str) -> CaseInput:
         case = CaseInput(
@@ -192,7 +207,7 @@ class QdrantConnection:
 
                         points.append(
                             models.PointStruct(
-                                id=case_payload["case_id"],
+                                id=self._point_uuid_from_text(case_payload["case_id"]),
                                 vector=vector,
                                 payload=case_payload,
                             )
@@ -251,15 +266,16 @@ class QdrantConnection:
                 must=[models.FieldCondition(key="tipo", match=models.MatchValue(value="AI"))]
             )
 
-        results = client.search(
+        query_result = client.query_points(
             collection_name=self._settings.qdrant_collection_cases,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=search_filter,
             limit=limit,
             score_threshold=score_threshold,
             timeout=max(1, int(timeout_sec)),
             with_payload=True,
         )
+        results = getattr(query_result, "points", query_result) or []
 
         return [
             {
@@ -327,12 +343,13 @@ class QdrantConnection:
         empresa = profile_data.get("empresa", "unknown")
         area = profile_data.get("area", "general")
         point_id = f"{empresa}-{area}".strip().lower().replace(" ", "_")
+        point_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"neo-profile::{point_id}"))
 
         client.upsert(
             collection_name=self._settings.qdrant_collection_profiles,
             points=[
                 models.PointStruct(
-                    id=point_id,
+                    id=point_uuid,
                     vector=[0.0] * 768,
                     payload=profile_data,
                 )

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     qdrant_api_key: str | None = None
     qdrant_collection_cases: str = "neo_cases_v1"
     qdrant_collection_profiles: str = "neo_profiles_v1"
+    qdrant_vector_size: int = 3072
     
     redis_url: str = "redis://localhost:6379"
     
@@ -19,6 +20,21 @@ class Settings(BaseSettings):
     admin_token: str | None = None
     app_env: str = "development"
     allowed_origins_raw: str = "http://localhost:3000,http://127.0.0.1:3000"
+    chat_audit_max_events: int = 2000
+    chat_audit_retention_days: int = 7
+    chat_audit_redis_key: str = "ops:chat_audit:v1"
+    chat_alert_min_events: int = 20
+    chat_alert_block_rate_warning: float = 0.20
+    chat_alert_block_rate_critical: float = 0.35
+    chat_alert_no_case_usage_warning: float = 0.40
+    chat_alert_company_concentration_warning: float = 0.75
+    rate_limit_window_sec: int = 60
+    rate_limit_start_per_window: int = 20
+    rate_limit_select_per_window: int = 30
+    rate_limit_refine_per_window: int = 40
+    rate_limit_chat_per_window: int = 60
+    rate_limit_redis_key_prefix: str = "ops:rate_limit:v1"
+    session_funnel_redis_key: str = "ops:session_funnel:v1"
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent.parent / ".env"),
