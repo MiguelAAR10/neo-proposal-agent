@@ -1,43 +1,120 @@
 'use client'
 
-import { useAgentStore } from '@/stores/agentStore'
-import { InitialForm } from '@/components/forms/InitialForm'
-import { CaseCard } from '@/components/cards/CaseCard'
-import { ChatPanel } from '@/components/chat/ChatPanel'
+import Link from 'next/link'
+import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { Loader2, WandSparkles, RefreshCcw, AlertCircle, Copy, Check, LayoutDashboard, Sparkles } from 'lucide-react'
+import { InitialForm } from '@/components/forms/InitialForm'
+import { ChatPanel } from '@/components/chat/ChatPanel'
 import { apiClient } from '@/lib/api'
 import { getErrorMessage } from '@/lib/error'
-import { Loader2, FileText, ArrowLeft, Sparkles } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useAgentStore, type Case } from '@/stores/agentStore'
+import { CaseFlashCard } from '@/components/cards/CaseFlashCard'
+
+function extractContextSnippets(
+  perfilCliente: Record<string, unknown> | null,
+  inteligenciaSector: Record<string, unknown> | null,
+): string[] {
+  const snippets: string[] = []
+
+  const objetivos = perfilCliente?.objetivos
+  if (Array.isArray(objetivos)) {
+    for (const item of objetivos) snippets.push(`Objetivo cliente: ${String(item)}`)
+  }
+
+  const painPoints = perfilCliente?.pain_points
+  if (Array.isArray(painPoints)) {
+    for (const item of painPoints) snippets.push(`Pain point: ${String(item)}`)
+  }
+
+  const notas = perfilCliente?.notas
+  if (typeof notas === 'string' && notas.trim()) snippets.push(`Nota cliente: ${notas.trim()}`)
+
+  const tendencias = inteligenciaSector?.tendencias
+  if (Array.isArray(tendencias)) {
+    for (const item of tendencias) snippets.push(`Tendencia sector: ${String(item)}`)
+  }
+
+  return snippets.slice(0, 10)
+}
+
+function hashToHue(input: string): number {
+  let hash = 0
+  for (let i = 0; i < input.length; i += 1) {
+    hash = input.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return Math.abs(hash) % 360
+}
+
+function initials(name: string): string {
+  const raw = (name || 'Cliente').trim()
+  const parts = raw.split(/\s+/).slice(0, 2)
+  return parts.map((p) => p[0]?.toUpperCase() || '').join('') || 'CL'
+}
 
 export default function Home() {
-  const { 
-    phase, 
-    cases, 
-    neoCases,
-    aiCases,
-    topMatchGlobal,
-    topMatchGlobalReason,
-    selectedCaseIds, 
-    empresa, 
-    area, 
-    threadId, 
+  const {
+    threadId,
+    phase,
+    empresa,
+    area,
+    error,
+    cases,
+    selectedCaseIds,
     proposal,
     perfilCliente,
-    profileStatus,
     inteligenciaSector,
-    error,
-    setProposal, 
+    setProposal,
     setError,
-    setLoading, 
-    reset 
+    setLoading,
+    selectCase,
+    unselectCase,
+    reset,
   } = useAgentStore()
+
+  const [copied, setCopied] = useState(false)
+  const [companyQuery, setCompanyQuery] = useState('')
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'NEO' | 'AI'>('all')
+
+  const visibleCases = useMemo(() => {
+    const q = companyQuery.trim().toLowerCase()
+    return cases.filter((c) => {
+      const sourceOk = sourceFilter === 'all' || c.tipo === sourceFilter
+      const text = `${c.titulo} ${c.empresa} ${c.problema}`.toLowerCase()
+      const searchOk = !q || text.includes(q)
+      return sourceOk && searchOk
+    })
+  }, [cases, companyQuery, sourceFilter])
+
+  const selectableWithUrlIds = useMemo(
+    () => visibleCases.filter((c) => !!c.url_slide).map((c) => c.id),
+    [visibleCases],
+  )
+
+  const unselectedWithUrlIds = useMemo(() => {
+    const selected = new Set(selectedCaseIds)
+    return selectableWithUrlIds.filter((id) => !selected.has(id))
+  }, [selectedCaseIds, selectableWithUrlIds])
+
+  const snippets = useMemo(
+    () => extractContextSnippets(perfilCliente as Record<string, unknown> | null, inteligenciaSector as Record<string, unknown> | null),
+    [perfilCliente, inteligenciaSector],
+  )
+
+  const logoHue = useMemo(() => hashToHue(empresa || 'NEO'), [empresa])
+  const logoStyle = useMemo(
+    () => ({
+      background: `radial-gradient(circle at 30% 30%, hsla(${logoHue}, 92%, 72%, 0.5), hsla(${(logoHue + 40) % 360}, 88%, 60%, 0.22))`,
+    }),
+    [logoHue],
+  )
 
   const generateMutation = useMutation({
     mutationFn: async () => {
+      if (!threadId) throw new Error('No hay thread activo')
       setLoading(true)
       const response = await apiClient.post(`/agent/${threadId}/select`, {
-        case_ids: selectedCaseIds
+        case_ids: selectedCaseIds,
       })
       return response.data
     },
@@ -46,371 +123,215 @@ export default function Home() {
       setError(null)
       setLoading(false)
     },
-    onError: (error: unknown) => {
-      setError(getErrorMessage(error, 'No se pudo generar la propuesta.'))
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, 'No se pudo generar la propuesta.'))
       setLoading(false)
-    }
+    },
   })
 
-  const effectiveNeoCases = neoCases.length > 0 ? neoCases : cases.filter((c) => c.tipo === 'NEO')
-  const effectiveAiCases = aiCases.length > 0 ? aiCases : cases.filter((c) => c.tipo === 'AI')
-  const profileSnippets: string[] = []
-  if (perfilCliente?.objetivos && Array.isArray(perfilCliente.objetivos)) {
-    for (const o of perfilCliente.objetivos) profileSnippets.push(`Objetivo cliente: ${String(o)}`)
-  }
-  if (perfilCliente?.pain_points && Array.isArray(perfilCliente.pain_points)) {
-    for (const p of perfilCliente.pain_points) profileSnippets.push(`Pain point cliente: ${String(p)}`)
-  }
-  if (typeof perfilCliente?.notas === 'string' && perfilCliente.notas.trim()) {
-    profileSnippets.push(`Nota cliente: ${perfilCliente.notas.trim()}`)
-  }
-  const sectorSnippets: string[] = []
-  if (inteligenciaSector?.tendencias && Array.isArray(inteligenciaSector.tendencias)) {
-    for (const t of inteligenciaSector.tendencias) sectorSnippets.push(`Tendencia sector: ${String(t)}`)
-  }
-  if (inteligenciaSector?.oportunidades && Array.isArray(inteligenciaSector.oportunidades)) {
-    for (const o of inteligenciaSector.oportunidades) sectorSnippets.push(`Oportunidad mercado: ${String(o)}`)
-  }
-  if (inteligenciaSector?.benchmarks && typeof inteligenciaSector.benchmarks === 'object') {
-    for (const [k, v] of Object.entries(inteligenciaSector.benchmarks)) {
-      sectorSnippets.push(`Benchmark ${k}: ${String(v)}`)
+  const handleSelectTop = (count: number) => {
+    for (const id of unselectedWithUrlIds.slice(0, count)) {
+      selectCase(id)
     }
   }
-  const phaseLabel =
-    phase === 'idle'
-      ? 'Intake'
-      : phase === 'curating'
-        ? 'Curación'
-        : phase === 'complete'
-          ? 'Propuesta'
-          : 'Flujo'
+
+  const handleClearSelection = () => {
+    for (const id of selectedCaseIds) {
+      unselectCase(id)
+    }
+  }
+
+  const handleCopyProposal = async () => {
+    if (!proposal) return
+    try {
+      await navigator.clipboard.writeText(proposal)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setError('No se pudo copiar la propuesta al portapapeles.')
+    }
+  }
+
+  const canGenerate = !!threadId && selectedCaseIds.length > 0
 
   return (
-    <main className="neo-shell min-h-screen pt-24 pb-12 px-4 md:px-8">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only fixed top-2 left-2 z-50 neo-pill bg-[var(--accent-soft)] text-white px-3 py-2 text-xs font-semibold"
-      >
-        Saltar al contenido principal
-      </a>
-      <div className="neo-content">
-      <motion.nav
-        initial={{ opacity: 0, y: -8, filter: 'blur(6px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-40 w-[min(96%,1080px)] neo-glass-card px-4 py-3"
-        aria-label="Navegación de estado de propuesta"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-[rgba(108,140,255,0.2)] border border-white/20 text-[var(--foreground)] flex items-center justify-center text-xs font-semibold">
-              {phase === 'idle' ? '01' : phase === 'curating' ? '02' : '03'}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-300">NEO Proposal Agent</p>
-              <p className="text-sm text-[var(--foreground)] font-medium truncate">Fase activa: {phaseLabel}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {phase !== 'idle' && (
-              <button
-                onClick={reset}
-                aria-label="Reiniciar flujo y comenzar nueva búsqueda"
-                className="neo-pill px-3 py-1.5 text-xs font-semibold text-slate-100 bg-white/10 border border-white/20 hover:bg-white/15 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-              >
-                Nueva búsqueda
-              </button>
-            )}
-            {(phase === 'curating' || phase === 'complete') && (
-              <span
-                className="text-xs text-slate-200 bg-[rgba(108,140,255,0.16)] border border-[rgba(108,140,255,0.35)] px-3 py-1.5 rounded-full"
-                aria-live="polite"
-              >
-                {selectedCaseIds.length} seleccionados
-              </span>
-            )}
-          </div>
-        </div>
-      </motion.nav>
-      <AnimatePresence mode="wait">
-        {/* PHASE: IDLE (Formulario inicial) */}
-        {phase === 'idle' && (
-          <motion.div
-            id="main-content"
-            key="form"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="flex flex-col items-center justify-center min-h-[80vh]"
-          >
-            <div className="text-center mb-12">
-              <h1 className="text-4xl font-semibold text-[var(--foreground)] mb-4 tracking-tight">
-                NEO <span className="text-[var(--accent)]">Proposal</span> Agent
-              </h1>
-              <p className="text-lg text-slate-200/85 max-w-xl">
-                Convierte oportunidades en propuestas ejecutivas con evidencia real en minutos.
-              </p>
-            </div>
-            <InitialForm />
-          </motion.div>
-        )}
-
-        {/* PHASE: CURATING (Selección de casos) */}
-        {phase === 'curating' && (
-          <motion.div
-            id="main-content"
-            key="results"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-[1600px] mx-auto"
-          >
-            {/* Header de resultados */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 px-4">
-              <div>
-                <button 
-                  onClick={reset}
-                  aria-label="Volver al formulario para nueva búsqueda"
-                  className="flex items-center text-sm text-slate-200 hover:text-white mb-2 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-md"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-1" />
-                  Nueva búsqueda
-                </button>
-                <h2 className="text-3xl font-semibold text-[var(--foreground)]">Casos Sugeridos</h2>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <p className="text-slate-300">Para: <span className="font-semibold text-white">{empresa}</span></p>
-                  <span className="text-slate-500">|</span>
-                  <p className="text-slate-300">Área: <span className="font-semibold text-white">{area}</span></p>
-                </div>
-                <p className="text-xs text-slate-200 mt-2">Selecciona casos con mejor evidencia para generar una propuesta más defendible.</p>
+    <main className="neo-shell min-h-screen px-3 md:px-6 py-4 md:py-6">
+      <div className="neo-content max-w-[1700px] mx-auto space-y-4">
+        <section className="neo-glass-card p-4 md:p-5 relative overflow-hidden">
+          <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full blur-3xl" style={logoStyle} />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3 relative z-10">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-10 w-10 rounded-2xl border border-white/20 flex items-center justify-center text-xs font-semibold text-white" style={logoStyle}>
+                {initials(empresa || 'Cliente')}
               </div>
-
-              <div className="flex items-center gap-4">
-                <p className="text-sm font-medium text-slate-200" aria-live="polite">
-                  <span className="text-[var(--accent)] font-bold">{selectedCaseIds.length}</span> seleccionados
+              <div className="min-w-0">
+                <h1 className="text-2xl md:text-3xl font-semibold text-[var(--foreground)] tracking-tight">
+                  NEO Proposal Agent
+                </h1>
+                <p className="text-xs md:text-sm text-slate-200 truncate">
+                  {empresa || 'Cliente priorizado'}{area ? ` • ${area}` : ''} • Flujo visual 2 paneles
                 </p>
-                <button
-                  onClick={() => generateMutation.mutate()}
-                  disabled={selectedCaseIds.length === 0 || generateMutation.isPending}
-                  aria-label="Generar propuesta basada en casos seleccionados"
-                  className="neo-pill flex items-center bg-[var(--accent-soft)] text-white px-6 py-2.5 font-semibold hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-900/50 focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                >
-                  {generateMutation.isPending ? (
-                    <>
-                      <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                      Generando...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="w-4 h-4 mr-2" />
-                      Generar Propuesta
-                    </>
-                  )}
-                </button>
               </div>
             </div>
-            {selectedCaseIds.length === 0 && (
-              <p className="px-4 -mt-4 mb-4 text-xs text-slate-200" aria-live="polite">
-                Elige al menos 1 caso para habilitar la generación.
-              </p>
-            )}
-
-            {error && (
-              <div role="alert" className="mx-4 mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
-                {error}
-              </div>
-            )}
-
-            {/* Split Layout */}
-            <div className="flex flex-col lg:flex-row gap-8">
-              {/* Main Content (Cards) */}
-              <div className="flex-1 px-4">
-                {/* Banner de Perfil (Si existe) */}
-                {perfilCliente && perfilCliente.notas !== "Empresa nueva sin historial previo." && (
-                  <div className="mb-8 p-4 bg-amber-200/15 border border-amber-200/30 rounded-xl flex items-start gap-3">
-                    <div className="bg-amber-200/20 p-2 rounded-lg text-amber-200">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-amber-100">Conocimiento Institucional Detectado</h4>
-                      <p className="text-xs text-amber-100/90 mt-0.5">{perfilCliente.notas}</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {topMatchGlobal && (
-                    <div className="md:col-span-2 p-4 rounded-2xl border border-[rgba(108,140,255,0.34)] bg-[rgba(108,140,255,0.12)]" role="note" aria-label="Top match global de relevancia">
-                      <div className="flex items-start gap-3">
-                        <div className="bg-[rgba(108,140,255,0.18)] p-2 rounded-lg text-[var(--accent)]">
-                          <Sparkles className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-[var(--foreground)]">Top Match Global</h4>
-                          <p className="text-xs text-slate-200 mt-0.5">
-                            {topMatchGlobal.titulo} • {topMatchGlobal.score_label ?? 'Muy relevante'} ({topMatchGlobal.confidence ?? `${Math.round((topMatchGlobal.score ?? 0) * 100)}% match`})
-                          </p>
-                          {topMatchGlobalReason && (
-                            <p className="text-[11px] text-slate-300 mt-1">{topMatchGlobalReason}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {effectiveNeoCases.length > 0 && (
-                  <section className="mt-8">
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-emerald-200/20 text-emerald-100">
-                        NEO
-                      </span>
-                      <h3 className="text-sm font-semibold text-slate-100">Casos ya ejecutados</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {effectiveNeoCases.map((c) => (
-                        <CaseCard key={c.id} caseData={c} />
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {effectiveAiCases.length > 0 && (
-                  <section className="mt-8">
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-200/20 text-blue-100">
-                        AI
-                      </span>
-                      <h3 className="text-sm font-semibold text-slate-100">Referencias externas</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {effectiveAiCases.map((c) => (
-                        <CaseCard key={c.id} caseData={c} />
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {effectiveNeoCases.length === 0 && effectiveAiCases.length === 0 && (
-                  <div className="mt-8 rounded-xl border border-dashed border-white/20 p-6 text-sm text-slate-200">
-                    No encontramos casos con suficiente evidencia para este problema. Prueba con un problema más específico o cambia el switch a &quot;Ambos&quot;.
-                  </div>
-                )}
-              </div>
-
-              {/* Sidebar (Context + Chat) */}
-              <aside className="w-full lg:w-[400px] px-4" aria-label="Panel de refinamiento conversacional">
-                <div className="sticky top-24 space-y-4">
-                  <div className="neo-glass-card p-4">
-                    <h4 className="text-sm font-semibold text-slate-100 mb-2">Perfil del cliente</h4>
-                    <p className="text-[11px] text-slate-300 mb-2">
-                      Estado: {profileStatus ?? 'no_mapeado'}
-                    </p>
-                    <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                      {profileSnippets.length > 0 ? profileSnippets.map((snippet, idx) => (
-                        <button
-                          key={`profile-${idx}`}
-                          type="button"
-                          draggable
-                          onDragStart={(e) => e.dataTransfer.setData('text/plain', snippet)}
-                          className="w-full text-left text-xs rounded-lg border border-white/15 bg-white/8 text-slate-100 px-2.5 py-2 hover:bg-white/12"
-                        >
-                          {snippet}
-                        </button>
-                      )) : (
-                        <p className="text-xs text-slate-300">Sin datos mapeados aún para este cliente/área.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="neo-glass-card p-4">
-                    <h4 className="text-sm font-semibold text-slate-100 mb-2">Inteligencia de mercado</h4>
-                    <p className="text-[11px] text-slate-300 mb-2">
-                      {(inteligenciaSector?.industria ?? 'General')} / {(inteligenciaSector?.area ?? 'General')}
-                    </p>
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                      {sectorSnippets.length > 0 ? sectorSnippets.map((snippet, idx) => (
-                        <button
-                          key={`sector-${idx}`}
-                          type="button"
-                          draggable
-                          onDragStart={(e) => e.dataTransfer.setData('text/plain', snippet)}
-                          className="w-full text-left text-xs rounded-lg border border-white/15 bg-white/8 text-slate-100 px-2.5 py-2 hover:bg-white/12"
-                        >
-                          {snippet}
-                        </button>
-                      )) : (
-                        <p className="text-xs text-slate-300">Sin intel sectorial disponible.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <ChatPanel />
-                </div>
-              </aside>
-            </div>
-          </motion.div>
-        )}
-
-        {/* PHASE: COMPLETE (Propuesta final) */}
-        {phase === 'complete' && (
-          <motion.div
-            id="main-content"
-            key="proposal"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-4xl mx-auto"
-          >
-            <div className="flex justify-between items-center mb-8">
-              <button 
-                onClick={() => useAgentStore.setState({ phase: 'curating' })}
-                aria-label="Volver a la curación de casos"
-                className="flex items-center text-sm text-slate-200 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-md"
+            <div className="flex items-center gap-2">
+              <Link
+                href="/ops"
+                className="neo-pill inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-100 border border-white/20 bg-white/10 hover:bg-white/15"
               >
-                <ArrowLeft className="w-4 h-4 mr-1" />
-                Editar selección
+                <LayoutDashboard className="w-3.5 h-3.5" /> Panel Ops
+              </Link>
+              <button
+                type="button"
+                onClick={reset}
+                className="neo-pill inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-100 border border-white/20 bg-white/10 hover:bg-white/15"
+              >
+                <RefreshCcw className="w-3.5 h-3.5" /> Reiniciar
               </button>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => window.print()}
-                  aria-label="Exportar propuesta en PDF usando impresión"
-                  className="px-4 py-2 text-sm font-medium text-slate-100 bg-white/10 border border-white/20 rounded-lg hover:bg-white/15 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                >
-                  Exportar PDF
-                </button>
-                <button 
-                  onClick={reset}
-                  aria-label="Iniciar una nueva propuesta desde cero"
-                  className="px-4 py-2 text-sm font-medium text-white bg-[var(--accent-soft)] rounded-lg hover:brightness-110 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                >
-                  Nueva Propuesta
-                </button>
-              </div>
+            </div>
+          </div>
+          <InitialForm compact />
+        </section>
+
+        {error && (
+          <section className="neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5" />
+            <span>{error}</span>
+          </section>
+        )}
+
+        <section className="grid grid-cols-1 xl:grid-cols-[1.25fr_1fr] gap-4 items-start">
+          <article className="neo-glass-card p-4 md:p-5">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="text-sm md:text-base font-semibold text-[var(--foreground)]">Fichas dinámicas de casos</h2>
+              <span className="text-[11px] md:text-xs text-slate-200">{selectedCaseIds.length} seleccionados</span>
             </div>
 
-            {error && (
-              <div role="alert" className="mb-6 neo-glass-card rounded-2xl border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-100">
-                {error}
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 mb-3">
+              <input
+                value={companyQuery}
+                onChange={(e) => setCompanyQuery(e.target.value)}
+                placeholder="Buscar por empresa, título o problema..."
+                className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              />
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value as 'all' | 'NEO' | 'AI')}
+                className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-slate-100 outline-none"
+              >
+                <option value="all">Todos</option>
+                <option value="NEO">Solo NEO</option>
+                <option value="AI">Solo AI</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => handleSelectTop(4)}
+                className="neo-pill px-3 py-2 text-xs border border-white/20 bg-white/10 text-slate-100"
+              >
+                Top 4
+              </button>
+            </div>
+
+            <div className="mb-3 flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleSelectTop(8)}
+                className="neo-pill px-3 py-1.5 text-[11px] border border-white/20 bg-white/10 text-slate-100"
+              >
+                Seleccionar top 8
+              </button>
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                disabled={selectedCaseIds.length === 0}
+                className="neo-pill px-3 py-1.5 text-[11px] border border-white/20 bg-white/10 text-slate-100 disabled:opacity-50"
+              >
+                Limpiar selección
+              </button>
+              <span className="text-[11px] text-slate-300 inline-flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" /> Hover/tap para voltear ficha
+              </span>
+            </div>
+
+            {visibleCases.length === 0 ? (
+              <div className="rounded-2xl border border-white/12 bg-white/6 p-5 text-sm text-slate-300">
+                No hay casos visibles con esos filtros. Ajusta búsqueda o fuente.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[68vh] overflow-y-auto pr-1">
+                {visibleCases.map((caseData: Case) => (
+                  <CaseFlashCard key={caseData.id} caseData={caseData} />
+                ))}
               </div>
             )}
+          </article>
 
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
-              <div className="neo-glass-card p-6 md:p-10 shadow-xl prose prose-invert max-w-none" role="region" aria-label="Texto de propuesta generado">
-                <p className="mb-4 text-xs text-slate-200">Versión activa para revisión comercial. Puedes refinarla desde el panel derecho.</p>
-                <div className="whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
-                  {proposal}
+          <article className="space-y-3">
+            <div className="neo-glass-card p-4">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h2 className="text-sm md:text-base font-semibold text-[var(--foreground)]">Propuesta de valor viva</h2>
+                <button
+                  type="button"
+                  onClick={handleCopyProposal}
+                  disabled={!proposal}
+                  className="text-[11px] inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-white/15 bg-white/8 text-slate-100 hover:bg-white/12 disabled:opacity-50"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'Copiada' : 'Copiar'}
+                </button>
+              </div>
+              <p className="text-xs text-slate-300 mb-3">Genera con casos seleccionados y luego refina por chat.</p>
+              <button
+                type="button"
+                onClick={() => generateMutation.mutate()}
+                disabled={!canGenerate || generateMutation.isPending}
+                className="neo-pill w-full h-10 inline-flex items-center justify-center gap-2 text-sm font-semibold text-white bg-[var(--accent-soft)] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generateMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Generando...
+                  </>
+                ) : (
+                  <>
+                    <WandSparkles className="w-4 h-4" /> Generar propuesta
+                  </>
+                )}
+              </button>
+              {phase === 'complete' && proposal && (
+                <p className="mt-2 text-[11px] text-emerald-200">Propuesta lista para refinamiento.</p>
+              )}
+            </div>
+
+            <ChatPanel />
+
+            <div className="neo-glass-card p-4 md:p-5 space-y-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3 min-h-[240px] max-h-[38vh] overflow-y-auto">
+                {proposal ? (
+                  <pre className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100 font-sans">{proposal}</pre>
+                ) : (
+                  <p className="text-xs text-slate-300">Aquí aparecerá la propuesta generada.</p>
+                )}
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 mb-2">Contexto arrastrable</h3>
+                <div className="flex flex-wrap gap-2">
+                  {snippets.length === 0 && <p className="text-xs text-slate-400">Sin contexto adicional aún.</p>}
+                  {snippets.map((snippet) => (
+                    <button
+                      key={snippet}
+                      type="button"
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData('text/plain', snippet)}
+                      className="text-[11px] px-2.5 py-1.5 rounded-full border border-white/15 bg-white/8 text-slate-100 hover:bg-white/12 text-left"
+                      title="Arrastra este contexto al chat"
+                    >
+                      {snippet}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="xl:sticky xl:top-24 h-fit" aria-label="Chat para refinar propuesta">
-                <ChatPanel />
-              </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </article>
+        </section>
       </div>
     </main>
   )

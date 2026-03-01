@@ -16,6 +16,9 @@ export interface Case {
   tecnologias: string[]
   url_slide?: string
   score: number
+  score_client_fit?: number
+  match_type?: 'exacto' | 'relacionado' | 'inspiracional' | string
+  match_reason?: string
   score_raw?: number
   score_label?: string
   confidence?: string

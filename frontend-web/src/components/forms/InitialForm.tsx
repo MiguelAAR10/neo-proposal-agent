@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -19,21 +20,76 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>
 
-const PRIORITIZED_CLIENTS = [
-  'BCP', 'Interbank', 'BBVA', 'Alicorp', 'Rimac', 'Pacífico',
-  'Scotiabank', 'MiBanco', 'Credicorp', 'Plaza Vea', 'Falabella', 'Sodimac'
-]
+interface PrioritizedClientCatalogEntry {
+  name: string
+  display_name: string
+  vertical: string
+}
 
-export function InitialForm() {
+interface InitialFormProps {
+  compact?: boolean
+}
+
+export function InitialForm({ compact = false }: InitialFormProps) {
   const { setSession, setLoading, setError } = useAgentStore()
+  const [catalog, setCatalog] = useState<PrioritizedClientCatalogEntry[]>([])
+  const [catalogError, setCatalogError] = useState<string | null>(null)
+  const [catalogLoading, setCatalogLoading] = useState(true)
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       switch: 'both',
-    }
+    },
   })
+
+  const empresaValue = useWatch({ control, name: 'empresa', defaultValue: '' })
   const problemaValue = useWatch({ control, name: 'problema', defaultValue: '' })
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadCatalog() {
+      setCatalogLoading(true)
+      try {
+        const response = await apiClient.get('/api/prioritized-clients')
+        const entries = Array.isArray(response.data?.catalog)
+          ? (response.data.catalog as PrioritizedClientCatalogEntry[])
+          : []
+        if (!cancelled) {
+          setCatalog(entries)
+          setCatalogError(null)
+          if (entries.length > 0 && !empresaValue) {
+            setValue('empresa', entries[0].name, { shouldValidate: true })
+            setValue('rubro', entries[0].vertical, { shouldValidate: true })
+          }
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setCatalogError(getErrorMessage(error, 'No se pudo cargar el catálogo de clientes priorizados.'))
+        }
+      } finally {
+        if (!cancelled) setCatalogLoading(false)
+      }
+    }
+    loadCatalog()
+    return () => {
+      cancelled = true
+    }
+  }, [setValue, empresaValue])
+
+  useEffect(() => {
+    if (!empresaValue || catalog.length === 0) return
+    const found = catalog.find((item) => item.name === empresaValue || item.display_name === empresaValue)
+    if (found?.vertical) {
+      setValue('empresa', found.name, { shouldValidate: true })
+      setValue('rubro', found.vertical, { shouldValidate: true })
+    }
+  }, [empresaValue, catalog, setValue])
+
+  const areaOptions = useMemo(
+    () => ['Operaciones', 'Marketing', 'TI', 'Finanzas', 'Ventas', 'RRHH', 'Innovación'],
+    [],
+  )
 
   const mutation = useMutation({
     mutationFn: async (values: FormData) => {
@@ -62,138 +118,111 @@ export function InitialForm() {
     onError: (error: unknown) => {
       setError(getErrorMessage(error, 'Error al iniciar el agente'))
       setLoading(false)
-    }
+    },
   })
 
   const onSubmit = (data: FormData) => {
     mutation.mutate(data)
   }
 
-  return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="neo-glass-card space-y-6 max-w-2xl mx-auto p-6 md:p-8 shadow-2xl"
-      aria-label="Formulario inicial de propuesta"
-    >
-      <div className="space-y-2">
-        <h2 className="text-3xl font-semibold text-[var(--foreground)]">Iniciar Propuesta</h2>
-        <p className="text-slate-200/85 text-sm">Cuéntanos sobre el cliente y el desafío para buscar la mejor solución.</p>
-      </div>
-
-      <div className="space-y-4">
-        {/* Switch */}
-        <div>
-          <label htmlFor="switch" className="block text-sm font-medium text-slate-100 mb-1">¿Qué tipo de casos buscas?</label>
-          <select 
-            id="switch"
-            {...register('switch')}
-            className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
-          >
-            <option value="both">Ambos (Recomendado)</option>
-            <option value="neo">Solo casos NEO</option>
-            <option value="ai">Solo benchmarks AI</option>
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Empresa */}
-          <div>
-            <label htmlFor="empresa" className="block text-sm font-medium text-slate-100 mb-1">Empresa Cliente</label>
-            <input 
+  if (compact) {
+    return (
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="neo-glass-card p-4 md:p-5 space-y-3"
+        aria-label="Formulario compacto de búsqueda"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div className="md:col-span-3">
+            <label htmlFor="empresa" className="block text-[11px] font-semibold text-slate-200 mb-1">Empresa priorizada</label>
+            <select
               id="empresa"
               {...register('empresa')}
-              placeholder="Ej: BCP, Alicorp..."
-              autoComplete="organization"
-              list="prioritized-clients"
-              aria-invalid={Boolean(errors.empresa)}
-              aria-describedby={errors.empresa ? 'empresa-error' : undefined}
-              className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
-            />
-            <datalist id="prioritized-clients">
-              {PRIORITIZED_CLIENTS.map((client) => (
-                <option key={client} value={client} />
+              disabled={catalogLoading}
+              className="w-full rounded-xl border border-white/15 bg-white/10 text-[var(--foreground)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            >
+              <option value="">Selecciona empresa...</option>
+              {catalog.map((entry) => (
+                <option key={entry.name} value={entry.name}>{entry.display_name}</option>
               ))}
-            </datalist>
-            {errors.empresa && <p id="empresa-error" className="mt-1 text-xs text-rose-300">{errors.empresa.message}</p>}
-            <p className="mt-1 text-[11px] text-slate-300">Sugerencias de clientes priorizados (top 12) habilitadas.</p>
+            </select>
+            {catalogLoading && <p className="mt-1 text-xs text-slate-300">Cargando empresas priorizadas...</p>}
+            {errors.empresa && <p className="mt-1 text-xs text-rose-300">{errors.empresa.message}</p>}
           </div>
 
-          {/* Rubro */}
-          <div>
-            <label htmlFor="rubro" className="block text-sm font-medium text-slate-100 mb-1">Industria/Rubro</label>
-            <input 
+          <div className="md:col-span-2">
+            <label htmlFor="rubro" className="block text-[11px] font-semibold text-slate-200 mb-1">Industria</label>
+            <input
               id="rubro"
               {...register('rubro')}
-              placeholder="Ej: Banca, Retail..."
-              autoComplete="organization-title"
-              aria-invalid={Boolean(errors.rubro)}
-              aria-describedby={errors.rubro ? 'rubro-error' : undefined}
-              className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              readOnly
+              className="w-full rounded-xl border border-white/10 bg-white/5 text-slate-100 px-3 py-2 text-sm outline-none"
             />
-            {errors.rubro && <p id="rubro-error" className="mt-1 text-xs text-rose-300">{errors.rubro.message}</p>}
+            {errors.rubro && <p className="mt-1 text-xs text-rose-300">{errors.rubro.message}</p>}
+          </div>
+
+          <div className="md:col-span-2">
+            <label htmlFor="area" className="block text-[11px] font-semibold text-slate-200 mb-1">Área</label>
+            <select
+              id="area"
+              {...register('area')}
+              className="w-full rounded-xl border border-white/15 bg-white/10 text-[var(--foreground)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            >
+              <option value="">Selecciona...</option>
+              {areaOptions.map((area) => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </select>
+            {errors.area && <p className="mt-1 text-xs text-rose-300">{errors.area.message}</p>}
+          </div>
+
+          <div className="md:col-span-3">
+            <label htmlFor="switch" className="block text-[11px] font-semibold text-slate-200 mb-1">Fuente</label>
+            <select
+              id="switch"
+              {...register('switch')}
+              className="w-full rounded-xl border border-white/15 bg-white/10 text-[var(--foreground)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            >
+              <option value="both">Ambos</option>
+              <option value="neo">Solo NEO</option>
+              <option value="ai">Solo AI</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-2 flex items-end">
+            <button
+              type="submit"
+              disabled={mutation.isPending || catalogLoading || catalog.length === 0}
+              className="neo-pill w-full h-[38px] flex items-center justify-center text-sm font-semibold text-white bg-[var(--accent-soft)] hover:brightness-110 disabled:opacity-50"
+            >
+              {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="h-4 w-4 mr-1.5" /> Buscar</>}
+            </button>
           </div>
         </div>
 
-        {/* Área */}
         <div>
-          <label htmlFor="area" className="block text-sm font-medium text-slate-100 mb-1">Área de la Empresa</label>
-          <select 
-            id="area"
-            {...register('area')}
-            aria-invalid={Boolean(errors.area)}
-            aria-describedby={errors.area ? 'area-error' : undefined}
-            className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
-          >
-            <option value="">Selecciona un área...</option>
-            <option value="Operaciones">Operaciones</option>
-            <option value="Marketing">Marketing</option>
-            <option value="TI">TI</option>
-            <option value="Finanzas">Finanzas</option>
-            <option value="Ventas">Ventas</option>
-            <option value="RRHH">RRHH</option>
-            <option value="Innovación">Innovación</option>
-          </select>
-          {errors.area && <p id="area-error" className="mt-1 text-xs text-rose-300">{errors.area.message}</p>}
-        </div>
-
-        {/* Problema */}
-        <div>
-          <div className="mb-1 flex items-center justify-between gap-3">
-            <label htmlFor="problema" className="block text-sm font-medium text-slate-100">Describe el Problema</label>
-            <span className="text-xs text-slate-300">{problemaValue.trim().length}/500</span>
+          <div className="mb-1 flex items-center justify-between">
+            <label htmlFor="problema" className="block text-[11px] font-semibold text-slate-200">Problema de negocio</label>
+            <span className="text-[11px] text-slate-300">{problemaValue.trim().length}/500</span>
           </div>
-          <textarea 
+          <textarea
             id="problema"
             {...register('problema')}
-            rows={4}
+            rows={2}
             maxLength={500}
-            placeholder="Describe el dolor del cliente y lo que busca resolver..."
-            aria-invalid={Boolean(errors.problema)}
-            aria-describedby={errors.problema ? 'problema-error' : 'problema-help'}
-            className="w-full rounded-2xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-4 py-2.5 outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            placeholder="Describe el dolor, impacto y urgencia..."
+            className="w-full rounded-xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
           />
-          <p id="problema-help" className="mt-1 text-xs text-slate-300">Mínimo 20 caracteres. Enfócate en dolor, impacto y urgencia.</p>
-          {errors.problema && <p id="problema-error" className="mt-1 text-xs text-rose-300">{errors.problema.message}</p>}
+          {errors.problema && <p className="mt-1 text-xs text-rose-300">{errors.problema.message}</p>}
         </div>
-      </div>
+        {catalogError && <p className="text-xs text-amber-200">{catalogError}</p>}
+      </form>
+    )
+  }
 
-      <button
-        type="submit"
-        disabled={mutation.isPending}
-        className="neo-pill w-full flex items-center justify-center py-3 px-4 border border-transparent text-sm font-medium text-white bg-[var(--accent-soft)] hover:brightness-110 disabled:opacity-50 transition-colors"
-      >
-        {mutation.isPending ? (
-          <>
-            <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-            Buscando casos relevantes...
-          </>
-        ) : (
-          <>
-            <Search className="-ml-1 mr-2 h-4 w-4" />
-            Buscar Casos
-          </>
-        )}
-      </button>
-    </form>
+  return (
+    <div className="neo-glass-card p-6 text-sm text-slate-200">
+      Usa el modo compacto para la pantalla única.
+    </div>
   )
 }
