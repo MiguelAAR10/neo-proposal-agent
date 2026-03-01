@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.services.prioritized_clients import (  # noqa: E402
+    get_prioritized_clients_catalog,
     get_prioritized_client_context,
     is_prioritized_client,
     normalize_company_name,
@@ -24,6 +25,15 @@ class PrioritizedClientsTests(unittest.TestCase):
         self.assertEqual(context["client_name"], "BCP")
         self.assertIn("priorities", context)
         self.assertIn("constraints", context)
+        self.assertTrue(str(context.get("logo_path", "")).startswith("/logos/companies/"))
+
+    def test_catalog_includes_logo_and_brand_fields(self) -> None:
+        catalog = get_prioritized_clients_catalog()
+        bcp = next((item for item in catalog if item["name"] == "BCP"), None)
+        self.assertIsNotNone(bcp)
+        assert bcp is not None
+        self.assertIn("logo_path", bcp)
+        self.assertIn("brand_color", bcp)
 
 
 if __name__ == "__main__":

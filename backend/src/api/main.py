@@ -134,6 +134,7 @@ class AgentStateResponse(BaseModel):
     inteligencia_sector: Optional[dict] = None
     propuesta_final: Optional[str] = None
     status: str
+    warning: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -182,6 +183,7 @@ def _map_state_response(
         inteligencia_sector=state_values.get("inteligencia_sector"),
         propuesta_final=state_values.get("propuesta_final"),
         status=resolved_status,
+        warning=state_values.get("warning"),
         error=state_values.get("error"),
     )
 
@@ -756,16 +758,22 @@ async def select_cases(thread_id: str, data: SelectRequest):
 
         selected_cases = filter_selected_cases(all_cases, data.case_ids)
         has_url, missing_url_ids = validate_selected_cases_have_url(selected_cases)
+        warning_message = ""
         if not has_url:
-            _raise_domain_http(
-                BusinessRuleError(
-                    "Cada ficha seleccionada debe tener URL de evidencia. "
-                    f"Faltan URL en: {', '.join(missing_url_ids)}"
-                )
+            warning_message = (
+                "Se seleccionaron casos sin URL de evidencia: "
+                f"{', '.join(missing_url_ids)}. "
+                "Se usarán como inspiración y se recomienda validación adicional."
             )
 
         # 2. Actualizar el estado con los IDs seleccionados
-        await graph.aupdate_state(config, {"casos_seleccionados_ids": data.case_ids})
+        await graph.aupdate_state(
+            config,
+            {
+                "casos_seleccionados_ids": data.case_ids,
+                "warning": warning_message,
+            },
+        )
         
         # 3. Continuar la ejecución del grafo
         final_state = await graph.ainvoke(None, config=config)
@@ -805,7 +813,7 @@ async def refine_proposal(thread_id: str, data: RefineRequest):
     try:
         app_settings = get_settings()
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model=app_settings.gemini_chat_model,
             temperature=0.3,
             google_api_key=app_settings.gemini_api_key,
         )
@@ -928,7 +936,7 @@ async def contextual_chat(thread_id: str, data: ChatRequest):
     try:
         app_settings = get_settings()
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model=app_settings.gemini_chat_model,
             temperature=0.3,
             google_api_key=app_settings.gemini_api_key,
         )
