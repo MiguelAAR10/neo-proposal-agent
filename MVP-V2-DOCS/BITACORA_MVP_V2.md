@@ -861,3 +861,34 @@ V2.2 se considera cerrada cuando:
     - frontend: `npm --prefix frontend-web run build` => OK.
   - estado:
     - implementado.
+- 2026-02-28 20:42:54 -05: correccion critica mvp2 (fallback de casos + sidebar desplegable + guia logos/backend).
+  - objetivo:
+    - recuperar consistencia de datos en fichas, evitar estado sin casos y mejorar usabilidad con panel lateral controlable.
+  - razon_negocio:
+    - reducir friccion comercial por "pantalla vacia" en problemas especificos y asegurar insumos minimos para generar propuesta de valor.
+  - cambio:
+    - backend `retrieve_node`:
+      - busqueda con umbrales progresivos (`0.50 -> 0.20`) para no perder casos por excesiva especificidad.
+      - fallback adicional por industria/area con umbrales (`0.40 -> 0.0`) para garantizar casos relacionados/inspiracionales.
+      - priorizacion de casos con URL sin excluir casos sin URL (se muestran como inspiracion).
+    - backend `select` y `draft`:
+      - deja de bloquear cuando hay casos sin URL y emite `warning` de evidencia para trazabilidad.
+      - mantiene generacion para no romper el flujo HITL del MVP.
+    - backend catalogo clientes priorizados:
+      - agrega `logo_file`, `logo_path`, `brand_color` para consumo frontend.
+      - nuevo test de contrato de catalogo/logos.
+    - frontend:
+      - pantalla principal reestructurada con barra lateral de casos desplegable (mostrar/ocultar) + workspace central.
+      - fichas muestran etiquetas recuperadas (`badge`, `match_type`, `score_label`) y estado de evidencia/URL visible.
+      - alerta visual de `warning` cuando la propuesta usa casos sin URL verificable.
+      - preview de logo en selector de empresa y cabecera (fallback a iniciales).
+    - documentacion:
+      - nueva guia `MVP-V2-DOCS/REQUIREMENTS/06-GUIA-DATOS-LOGOS-EMPRESA.md`.
+      - ruta operativa de assets: `frontend-web/public/logos/companies/README.md`.
+      - README actualizado con nueva UX y configuracion de modelo `GEMINI_CHAT_MODEL`.
+  - tradeoff:
+    - permitir casos sin URL mejora continuidad comercial, pero exige validacion posterior de evidencia para cerrar propuesta final.
+  - error detectado/evitado:
+    - se evita el bloqueo por filtros estrictos y perdida de contexto cuando el problema es muy especifico.
+  - estado:
+    - implementado (pendiente validacion smoke local de puertos fuera de sandbox).

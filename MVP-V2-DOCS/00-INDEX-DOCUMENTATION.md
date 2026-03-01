@@ -35,6 +35,7 @@ P1 (alineacion de producto/arquitectura):
 1. `MVP-V2-DOCS/MVP-2.1-ARQUITECTURA-Y-LOGICA.md`
 2. `MVP-V2-DOCS/REQUIREMENTS/01-VISION-NEGOCIO.md`
 3. `MVP-V2-DOCS/REQUIREMENTS/03-JOURNEY-MAPS.md`
+4. `MVP-V2-DOCS/REQUIREMENTS/06-GUIA-DATOS-LOGOS-EMPRESA.md`
 
 P2 (estandares de ejecucion):
 1. `MVP-V2-DOCS/SKILLS/SKILL_BACKEND_EXPERT.md`
@@ -54,4 +55,3 @@ Si se requiere limpiar en siguiente ciclo:
 1. Mantener `MVP-2.1-ARQUITECTURA-Y-LOGICA.md` como puente operativo de V2.1.
 2. Evitar crear otro archivo paralelo de arquitectura V2.x; extender este mismo.
 3. Consolidar cualquier nota suelta en bitacora en lugar de nuevos markdowns.
-
