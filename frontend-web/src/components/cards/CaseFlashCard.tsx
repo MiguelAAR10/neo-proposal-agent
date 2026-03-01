@@ -62,6 +62,11 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100 uppercase tracking-wider">{caseData.tipo}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100">{(caseData.match_type || 'relacionado').toUpperCase()}</span>
+                {caseData.badge ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100 line-clamp-1">
+                    {caseData.badge}
+                  </span>
+                ) : null}
               </div>
               <h4 className="text-sm font-semibold text-white leading-snug line-clamp-2">{caseData.titulo}</h4>
               <p className="text-[11px] text-slate-200 mt-1 line-clamp-1">{caseData.match_reason || 'Referencia útil para la propuesta'}</p>
@@ -75,6 +80,7 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
             <p className="text-[11px] text-slate-100 line-clamp-2">{caseData.problema}</p>
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] text-slate-200">Score {Math.round((caseData.score_client_fit ?? caseData.score ?? 0) * 100)}%</span>
+              <span className="text-[10px] text-slate-300 line-clamp-1">{caseData.score_label || caseData.confidence || 'Afinidad estimada'}</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -119,6 +125,8 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
             <p className="line-clamp-2"><span className="text-slate-300">Solución:</span> {caseData.solucion}</p>
             <p className="line-clamp-1"><span className="text-slate-300">Impacto:</span> {caseData.kpi_impacto || 'Impacto estimado por caso relacionado'}</p>
             <p className="line-clamp-1"><span className="text-slate-300">Stack:</span> {(caseData.tecnologias || []).slice(0, 3).join(' · ') || 'N/A'}</p>
+            <p className="line-clamp-1"><span className="text-slate-300">Empresa:</span> {caseData.empresa || 'N/A'}</p>
+            <p className="line-clamp-1"><span className="text-slate-300">Evidencia:</span> {caseData.url_slide || 'Pendiente de URL verificable'}</p>
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-2">

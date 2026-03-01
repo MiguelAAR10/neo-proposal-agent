@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -24,6 +25,8 @@ interface PrioritizedClientCatalogEntry {
   name: string
   display_name: string
   vertical: string
+  logo_path?: string | null
+  brand_color?: string | null
 }
 
 interface InitialFormProps {
@@ -90,6 +93,10 @@ export function InitialForm({ compact = false }: InitialFormProps) {
     () => ['Operaciones', 'Marketing', 'TI', 'Finanzas', 'Ventas', 'RRHH', 'Innovación'],
     [],
   )
+  const selectedEntry = useMemo(
+    () => catalog.find((item) => item.name === empresaValue),
+    [catalog, empresaValue],
+  )
 
   const mutation = useMutation({
     mutationFn: async (values: FormData) => {
@@ -134,7 +141,23 @@ export function InitialForm({ compact = false }: InitialFormProps) {
       >
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           <div className="md:col-span-3">
-            <label htmlFor="empresa" className="block text-[11px] font-semibold text-slate-200 mb-1">Empresa priorizada</label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="empresa" className="block text-[11px] font-semibold text-slate-200">Empresa priorizada</label>
+              {selectedEntry?.logo_path ? (
+                <span
+                  className="h-7 w-7 rounded-md border border-white/20 bg-white/10 overflow-hidden flex items-center justify-center"
+                  style={{ boxShadow: selectedEntry.brand_color ? `0 0 0 1px ${selectedEntry.brand_color}44 inset` : undefined }}
+                >
+                  <Image
+                    src={selectedEntry.logo_path}
+                    alt={`Logo ${selectedEntry.display_name}`}
+                    width={20}
+                    height={20}
+                    className="object-contain"
+                  />
+                </span>
+              ) : null}
+            </div>
             <select
               id="empresa"
               {...register('empresa')}

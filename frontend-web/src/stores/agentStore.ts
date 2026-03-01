@@ -30,6 +30,7 @@ export interface Case {
     recencia?: number
   }
   badge?: string
+  evidence_label?: string
   data_quality_score?: number
   link_status?: 'verified' | 'inaccessible' | 'unknown' | string
   semantic_quality?: 'good' | 'basic' | string
@@ -79,6 +80,7 @@ export interface ProposalState {
   // UI
   loading: boolean
   error: string | null
+  warning: string | null
   
   // Actions
   setSession: (data: {
@@ -94,12 +96,14 @@ export interface ProposalState {
     perfil: PerfilCliente | null
     profileStatus?: 'found' | 'not_found' | 'incomplete' | null
     inteligenciaSector?: InteligenciaSector | null
+    warning?: string | null
   }) => void
   selectCase: (id: string) => void
   unselectCase: (id: string) => void
   setProposal: (proposal: string) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  setWarning: (warning: string | null) => void
   reset: () => void
 }
 
@@ -125,6 +129,7 @@ export const useAgentStore = create<ProposalState>()(
       proposal: null,
       loading: false,
       error: null,
+      warning: null,
 
       setSession: (data) => set({
         threadId: data.threadId,
@@ -139,6 +144,7 @@ export const useAgentStore = create<ProposalState>()(
         perfilCliente: data.perfil,
         profileStatus: data.profileStatus ?? null,
         inteligenciaSector: data.inteligenciaSector ?? null,
+        warning: data.warning ?? null,
         phase: 'curating'
       }),
 
@@ -159,6 +165,7 @@ export const useAgentStore = create<ProposalState>()(
 
       setLoading: (loading) => set({ loading }),
       setError: (error) => set({ error }),
+      setWarning: (warning) => set({ warning }),
 
       reset: () => set({
         threadId: null,
@@ -180,6 +187,7 @@ export const useAgentStore = create<ProposalState>()(
         proposal: null,
         loading: false,
         error: null,
+        warning: null,
       }),
     }),
     {
