@@ -51,6 +51,25 @@ Para cada issue:
 5. Refinamiento real conectado a `/agent/{thread_id}/refine`.
 6. No romper contrato API/backend.
 
+## 4.1 Regla UX actual MVP2 (obligatoria)
+
+1. Composicion principal en **2 paneles**:
+- panel izquierdo: casos y selección,
+- panel derecho: chat + propuesta.
+2. Reducir texto visible por defecto:
+- resumen corto,
+- detalle on-demand (flip/expand).
+3. Mantener siempre opciones útiles:
+- si no hay match exacto, mostrar relacionados/inspiracionales.
+4. Percepción de valor en <60s:
+- score claro,
+- evidencia URL visible,
+- CTA de selección inmediato.
+5. Interfaz amigable y entendible por primera vez:
+- filtros simples,
+- acciones rápidas,
+- estados vacíos explicativos.
+
 ## 5) NEO Corporate AI Premium Design System (obligatorio)
 
 ### 5.1 Direccion
@@ -133,4 +152,3 @@ Soporte:
 - generar,
 - refinar.
 4. Actualizar bitacora con objetivo, cambio, tradeoff e impacto negocio.
-

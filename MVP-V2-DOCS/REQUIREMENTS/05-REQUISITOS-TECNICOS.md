@@ -22,11 +22,17 @@ Orquestacion:
 - `POST /agent/start`
 - `POST /agent/{thread_id}/select`
 - `POST /agent/{thread_id}/refine`
+- `POST /agent/{thread_id}/chat`
 - `GET /agent/{thread_id}/state`
 
 Operaciones:
 - `GET /health`
 - `GET /ops/metrics`
+- `GET /ops/chat-audit`
+- `GET /ops/chat-audit/export`
+- `GET /ops/chat-analytics`
+- `GET /ops/chat-alerts`
+- `GET /ops/chat-alerts/history`
 - `POST /api/ingest`
 
 ## 3) Requisitos de arquitectura
@@ -73,9 +79,31 @@ Implementado:
   - `cache_hit_rate`
   - errores por categoria
 - exposicion via `GET /ops/metrics`.
+- auditoria in-memory de chat:
+  - persistencia Redis opcional + fallback memoria
+  - status (`ok|guardrail_blocked`)
+  - `guardrail_code`
+  - `used_case_ids`/`used_case_count`
+  - `message_preview` (sin texto completo)
+  - exposicion via `GET /ops/chat-audit`.
+  - exportacion `json/csv` via `GET /ops/chat-audit/export`.
+  - KPIs via `GET /ops/chat-analytics`:
+    - `guardrail_block_rate`
+    - `top_guardrail_codes`
+    - `top_case_ids`
+    - `top_threads`
+    - `top_companies`
+  - alertas por umbral via `GET /ops/chat-alerts`:
+    - severidad agregada `ok|warning|critical`
+    - codigos de alerta (`HIGH_GUARDRAIL_BLOCK_RATE`, `LOW_CASE_GROUNDING`, etc.)
+    - control de muestra minima antes de alertado estricto.
+    - playbook operativo embebido (`playbook_hint`, `priority`, `owner`) por tipo de alerta.
+  - historial de alertas via `GET /ops/chat-alerts/history`:
+    - agregacion por `hour|day`
+    - series de severidad y codigos por bucket.
 
 Parcial:
-- falta persistencia historica (APM/metrics backend dedicado).
+- falta observabilidad persistente unificada de SLA + chat en backend dedicado (APM/metrics).
 
 ## 7) Seguridad minima
 
@@ -83,6 +111,7 @@ Implementado:
 - CORS por allowlist (`allowed_origins_raw`).
 - `ADMIN_TOKEN` obligatorio en `staging/prod` para admin/ops.
 - validacion Pydantic en requests.
+- guardrails conversacionales base en `/agent/{thread_id}/chat` (policy de entrada + codigo de bloqueo + auditoria de timestamp).
 
 Backlog:
 - rate limiting formal.
@@ -98,7 +127,7 @@ Checklist:
 
 ## 9) Backlog tecnico V2.2
 
-1. endpoint dedicado de chat contextual con memoria conversacional por `thread_id`.
-2. metricas persistentes (Prometheus/Datadog/LangSmith).
-3. health checks profundos por dependencia.
-4. reporte persistente de calidad de ingesta por categoria.
+1. metricas persistentes (Prometheus/Datadog/LangSmith).
+2. health checks profundos por dependencia.
+3. reporte persistente de calidad de ingesta por categoria.
+4. guardrails avanzados conversacionales (clasificacion semantica + auditoria persistente + alertas).

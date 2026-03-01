@@ -18,6 +18,7 @@ Frontend (Next.js)
   -> /agent/start
   -> /agent/{thread_id}/select
   -> /agent/{thread_id}/refine
+  -> /agent/{thread_id}/chat
   -> /agent/{thread_id}/state
 
 Backend (FastAPI + LangGraph)
@@ -25,6 +26,11 @@ Backend (FastAPI + LangGraph)
   - Orquestador HITL: /agent/*
   - Admin: /api/ingest
   - Ops: /ops/metrics
+  - Ops chat audit: /ops/chat-audit
+  - Ops chat audit export: /ops/chat-audit/export
+  - Ops chat analytics: /ops/chat-analytics
+  - Ops chat alerts: /ops/chat-alerts
+  - Ops chat alerts history: /ops/chat-alerts/history
 
 Dependencias
   - Qdrant: neo_cases_v1, neo_profiles_v1
@@ -45,10 +51,16 @@ Dependencias
 - `GET /health`
 - `POST /api/search`
 - `GET /ops/metrics`
+- `GET /ops/chat-audit`
+- `GET /ops/chat-audit/export`
+- `GET /ops/chat-analytics`
+- `GET /ops/chat-alerts`
+- `GET /ops/chat-alerts/history`
 - `POST /api/ingest`
 - `POST /agent/start`
 - `POST /agent/{thread_id}/select`
 - `POST /agent/{thread_id}/refine`
+- `POST /agent/{thread_id}/chat`
 - `GET /agent/{thread_id}/state`
 
 ## 5) Estado por capacidad
@@ -61,13 +73,19 @@ Dependencias
 - cache de embeddings en Redis con fallback local.
 - metricas SLA in-memory (p50/p95/p99) via `/ops/metrics`.
 - job batch de verificacion de links (`link_status`).
+- auditoria de chat/guardrails con persistencia Redis opcional y fallback memoria via `/ops/chat-audit`.
+- export operativo de auditoria (`json/csv`) via `/ops/chat-audit/export`.
+- analitica operativa de chat/guardrails via `/ops/chat-analytics`.
+- alertas automaticas por umbral/severidad via `/ops/chat-alerts`.
+- alertas incluyen playbook accionable por codigo (owner/prioridad/paso sugerido).
+- historial temporal de alertas por bucket (`hour/day`) via `/ops/chat-alerts/history`.
 
 ### Parcial
 - `health` aun no hace verificacion profunda de dependencias (qdrant/redis/gemini real-time).
 - metricas SLA no persistentes (se pierden al reinicio).
+- auditoria de chat depende de Redis para persistencia cross-restart; en fallback memoria se pierde al reinicio.
 
 ### Backlog
-- endpoint dedicado de chat contextual con memoria conversacional.
 - observabilidad persistente (Prometheus/Datadog/LangSmith).
 
 ## 6) Seguridad y entorno
@@ -92,4 +110,4 @@ Control actual:
 
 ## 8) Riesgo principal abierto
 
-El loop conversacional usa hoy `POST /agent/{thread_id}/refine`; falta endpoint dedicado de chat para separar intenciones conversacionales de instrucciones de refinamiento.
+El endpoint dedicado de chat contextual ya existe; riesgo abierto principal es consolidar observabilidad persistente y telemetria historica para operación continua.

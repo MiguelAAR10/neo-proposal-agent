@@ -50,10 +50,17 @@ Estado: `IMPLEMENTADO`
 - estado coherente: `awaiting_selection` o `completed`.
 
 ## RF-08 Chat contextual en curacion/refinamiento
-Estado: `PARCIAL`
-- backend refine existe.
-- UI de chat ya integra `POST /agent/{thread_id}/refine` (sin mock).
-- falta endpoint de chat contextual dedicado para separar flujo conversacional.
+Estado: `IMPLEMENTADO`
+- endpoint dedicado `POST /agent/{thread_id}/chat`.
+- mantiene contexto de cliente priorizado, perfil, sector y casos seleccionados/disponibles.
+- persiste historial reciente por sesion para continuidad conversacional.
+- aplica guardrails de entrada (inyeccion de prompt, solicitud de secretos, intenciones destructivas, longitud maxima).
+- genera trazas de auditoria para operaciones (`GET /ops/chat-audit`).
+- permite exportacion de trazas (`GET /ops/chat-audit/export`) para analisis operativo.
+- expone KPIs de chat/guardrails (`GET /ops/chat-analytics`) para monitoreo continuo.
+- expone alertas automáticas (`GET /ops/chat-alerts`) con severidad `ok|warning|critical`.
+- cada alerta incluye `playbook_hint`, `priority` y `owner` para respuesta operativa inmediata.
+- expone tendencia de alertas por tiempo (`GET /ops/chat-alerts/history`) para analisis evolutivo.
 
 ## RF-09 Ingesta administrativa de casos
 Estado: `IMPLEMENTADO`

@@ -125,3 +125,10 @@ Prohibido:
 4. validacion con `lint` + `build`,
 5. nota corta en bitacora (objetivo, cambio, impacto).
 
+## 7) Patrón visual vigente MVP2
+
+1. Layout principal en 2 paneles (izquierdo discovery, derecho propuesta).
+2. Fichas tipo flashcard con giro suave y doble cara.
+3. Logos/monogramas con halos difuminados de color (baja opacidad, sin ruido).
+4. Texto corto en frente, profundidad en reverso.
+5. Movimiento con vida (stagger + lift + flip) pero sobrio y profesional.

@@ -9,12 +9,18 @@ Este repositorio mantiene artefactos de V1 (Streamlit) por continuidad históric
 - Backend V2 operativo con flujo HITL (Human in the Loop):
   - `POST /agent/start`
   - `POST /agent/{thread_id}/select`
+  - `POST /agent/{thread_id}/chat`
+  - `POST /agent/{thread_id}/refine`
   - `GET /agent/{thread_id}/state`
 - Frontend Next.js integrado para:
   - intake inicial
-  - curación/selección de casos
+  - curación/selección de casos en flashcards dinámicas (2 paneles)
   - generación de propuesta final
-- Pendiente principal: conectar `ChatPanel` del frontend web a endpoint de chat real de backend (hoy está mockeado).
+- chat contextual y refinamiento conectados a backend real.
+- panel operativo `/ops` con:
+  - funnel de conversión por sesión,
+  - analytics/alertas de chat,
+  - filtros server-side, paginación, ordenamiento y export CSV.
 - Streamlit (`frontend/app.py`) se considera **legacy de V1** y no representa el contrato API actual de V2.
 
 ## Estructura del proyecto
@@ -65,8 +71,17 @@ npm run dev
 
 1. Completar formulario inicial (empresa, rubro, área, problema, switch).
 2. Backend ejecuta `intake_node` + `retrieve_node` y devuelve casos sugeridos.
-3. Usuario selecciona casos relevantes.
-4. Backend continúa `draft_node` y genera propuesta final.
+3. UI muestra fichas dinámicas (flashcards) con evidencia y selección explícita (HITL).
+4. Usuario selecciona casos relevantes y genera propuesta.
+5. Chat contextual + refine itera la propuesta sin romper trazabilidad.
+
+## UX actual (Frontend principal)
+
+- Estructura de 2 paneles:
+  - Izquierdo: discovery y selección de casos.
+  - Derecho: generación/refinamiento y propuesta viva.
+- Fichas con modo flashcard (frente/reverso) para reducir densidad textual.
+- Siempre prioriza evidencia URL y badges de afinidad (`exacto`, `relacionado`, `inspiracional`).
 
 ## Pruebas rápidas
 

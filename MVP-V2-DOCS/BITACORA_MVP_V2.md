@@ -385,3 +385,479 @@ V2.2 se considera cerrada cuando:
     - se agregaron tests de contrato para cliente no priorizado y seleccion sin URL.
   - estado:
     - implementado.
+- 2026-02-28 11:32:30 -05: backend fase chat contextual dedicado ejecutada.
+  - objetivo:
+    - separar conversacion contextual del endpoint de refinamiento para mejorar claridad de contrato y continuidad del asesor comercial.
+  - razon_negocio:
+    - habilita conversaciones de alto valor (diagnostico y recomendaciones) sin forzar cambios directos en propuesta, reduciendo riesgo de iteraciones no controladas.
+  - cambio:
+    - nuevo endpoint `POST /agent/{thread_id}/chat` con respuesta tipada (`ChatResponse`).
+    - el chat consume contexto de cliente priorizado, perfil, sector y casos (seleccionados o fallback disponibles).
+    - se persiste historial reciente en sesion (`chat_messages`) para mantener continuidad conversacional.
+    - se agregaron contract tests para `chat` (sesion inexistente y caso exitoso).
+    - se actualizaron requirements (`02/04/05`) para reflejar contrato de chat dedicado implementado.
+  - tradeoff:
+    - se mantiene memoria conversacional corta en estado de sesion (sin almacenamiento historico externo).
+  - error detectado/evitado:
+    - se evita mezclar intenciones de chat exploratorio con refinamiento directo de propuesta en un unico endpoint.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (21 tests).
+  - estado:
+    - implementado.
+- 2026-02-28 11:37:10 -05: backend fase guardrails conversacionales base ejecutada.
+  - objetivo:
+    - reducir riesgo operativo en chat contextual bloqueando solicitudes inseguras y mensajes fuera de policy sin romper continuidad de sesion.
+  - razon_negocio:
+    - protege la operacion comercial de respuestas no gobernadas (solicitud de secretos, inyeccion de instrucciones, intencion destructiva) manteniendo trazabilidad.
+  - cambio:
+    - nuevo modulo `chat_guardrails.py` con evaluacion centralizada de policy.
+    - `POST /agent/{thread_id}/chat` incorpora:
+      - sanitizacion de mensaje,
+      - bloqueo por policy con respuesta controlada,
+      - codigo de guardrail (`guardrail_code`) y timestamp de auditoria (`audit_ts_utc`),
+      - persistencia de historial en bloqueos y respuestas exitosas.
+    - nuevos tests unitarios de guardrails y contract test de chat bloqueado por policy.
+    - requirements funcionales/tecnicos actualizados para reflejar guardrails base implementados.
+  - tradeoff:
+    - policy basada en patrones (rapida y explicable) puede requerir afinacion futura con clasificacion semantica.
+  - error detectado/evitado:
+    - se evita procesar prompts con señales de extraccion de secretos o bypass de instrucciones del sistema.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (26 tests).
+  - estado:
+    - implementado.
+- 2026-02-28 11:41:13 -05: backend fase auditoria operativa de chat/guardrails ejecutada.
+  - objetivo:
+    - habilitar trazabilidad operativa del chat contextual para soporte, control y mejora continua.
+  - razon_negocio:
+    - permite auditar calidad/riesgo de conversaciones sin exponer contenido completo sensible, mejorando gobernanza y respuesta ante incidentes.
+  - cambio:
+    - nuevo `ChatAuditStore` in-memory (`chat_audit.py`) con retencion acotada y filtros.
+    - `/agent/{thread_id}/chat` ahora registra eventos de auditoria en exito y bloqueo.
+    - nuevo endpoint admin `GET /ops/chat-audit` con `limit`/`status`.
+    - se unifico control de acceso admin en helper reutilizable (`_require_admin_access`) para ops/ingest.
+    - se agregaron tests unitarios y de contrato para store y endpoint de auditoria.
+    - requirements `02/04/05` actualizados con nuevo contrato operativo.
+  - tradeoff:
+    - auditoria en memoria local (se pierde en reinicio), suficiente para MVP; siguiente paso es persistencia externa.
+  - error detectado/evitado:
+    - se evita operar chat sin trazas minimas en entorno productivo/supervision.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (30 tests).
+  - estado:
+    - implementado.
+- 2026-02-28 12:31:25 -05: backend fase persistencia/export de auditoria chat ejecutada.
+  - objetivo:
+    - completar trazabilidad operativa de chat con persistencia cross-restart y salida exportable para analisis externo.
+  - razon_negocio:
+    - acelera soporte comercial/técnico y facilita auditorias sin depender de logs manuales ad-hoc.
+  - cambio:
+    - `ChatAuditStore` evoluciona a persistencia Redis opcional (`chat_audit_redis_key`) con fallback en memoria.
+    - se agrega retencion configurable por dias (`chat_audit_retention_days`) y maximo de eventos (`chat_audit_max_events`).
+    - nuevo endpoint `GET /ops/chat-audit/export` con formatos `json|csv`.
+    - `/ops/chat-audit` y export quedan bajo control admin reutilizable.
+    - tests ampliados para contrato de export y retencion del store.
+  - tradeoff:
+    - en entorno sin Redis la auditoria sigue siendo efimera (memoria), aunque ahora con contrato uniforme y export.
+  - error detectado/evitado:
+    - se evita dependencia de inspeccion manual de estado para reconstruir incidentes de chat.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (33 tests).
+  - estado:
+    - implementado.
+- 2026-02-28 12:39:41 -05: backend fase analytics operativos de chat/guardrails ejecutada.
+  - objetivo:
+    - convertir trazas de chat en indicadores accionables para seguimiento continuo de calidad y riesgo.
+  - razon_negocio:
+    - permite detectar degradacion en interacciones (bloqueos altos, bajo uso de evidencia, concentracion por cliente/thread) y priorizar mejoras con datos.
+  - cambio:
+    - nuevo endpoint admin `GET /ops/chat-analytics`.
+    - `ChatAuditStore` agrega agregaciones KPI:
+      - `guardrail_block_rate`
+      - `top_guardrail_codes`
+      - `top_case_ids`
+      - `top_threads`
+      - `top_companies`
+    - eventos de auditoria ahora incluyen `empresa` para analitica comercial por cuenta.
+    - tests de contrato y unitarios ampliados para analytics.
+    - requirements `02/04/05` actualizados con nuevo contrato operativo.
+  - tradeoff:
+    - analytics dependen de ventana retenida (retention_days) y no reemplazan aun un data warehouse historico.
+  - error detectado/evitado:
+    - se evita operar chat “a ciegas” sin metricas de control sobre seguridad y adopcion de casos.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (36 tests).
+  - estado:
+    - implementado.
+- 2026-02-28 12:54:47 -05: backend fase alertas automaticas de chat/guardrails ejecutada.
+  - objetivo:
+    - transformar KPIs de chat en alertas accionables con severidad para operación proactiva.
+  - razon_negocio:
+    - reduce tiempo de deteccion de degradaciones (bloqueos altos, baja ancla en casos, concentración de uso), mejorando confiabilidad del flujo comercial.
+  - cambio:
+    - nuevo endpoint admin `GET /ops/chat-alerts`.
+    - nuevo motor `chat_alerts.py` con umbrales configurables y severidad `ok|warning|critical`.
+    - configuraciones agregadas:
+      - `chat_alert_min_events`
+      - `chat_alert_block_rate_warning`
+      - `chat_alert_block_rate_critical`
+      - `chat_alert_no_case_usage_warning`
+      - `chat_alert_company_concentration_warning`
+    - `ChatAuditStore.analytics` amplía KPIs (`no_case_usage_rate`, `top_company_share`) para alertado.
+    - tests unitarios y de contrato agregados para alertas.
+    - requirements `02/04/05` actualizados con contrato de alertado.
+  - tradeoff:
+    - alertas basadas en umbrales heurísticos iniciales; requieren calibración con uso real de producción.
+  - error detectado/evitado:
+    - se evita monitoreo pasivo sin criterios de severidad, que retrasa reacción ante degradaciones operativas.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (41 tests).
+  - estado:
+    - implementado.
+- 2026-02-28 12:58:48 -05: backend fase historial de alertas chat por tiempo ejecutada.
+  - objetivo:
+    - habilitar lectura de tendencia temporal de alertas para diagnosticar si el riesgo sube, baja o se mantiene.
+  - razon_negocio:
+    - evita decisiones basadas en una sola foto instantanea y mejora priorizacion de acciones operativas por ventana temporal.
+  - cambio:
+    - nuevo endpoint admin `GET /ops/chat-alerts/history`.
+    - `ChatAuditStore` incorpora `analytics_history(bucket=hour|day)` con series por bucket.
+    - cada bucket se evalua con `build_chat_alerts` para obtener severidad/codigos historicos.
+    - tests unitarios y de contrato ampliados para historial (success + unauthorized).
+    - requirements `02/04/05` actualizados con contrato de historial.
+  - tradeoff:
+    - granularidad y exactitud dependen de retencion configurada y volumen de eventos.
+  - error detectado/evitado:
+    - se evita interpretar como incidente una anomalia puntual sin contexto temporal.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (44 tests).
+  - estado:
+    - implementado.
+- 2026-02-28 13:01:03 -05: backend fase playbook accionable en alertas ejecutada.
+  - objetivo:
+    - convertir alertas en acciones concretas para que operaciones actue sin depender de interpretación manual.
+  - razon_negocio:
+    - reduce tiempo de reacción ante degradaciones y estandariza respuesta entre equipos.
+  - cambio:
+    - motor de alertas ahora enriquece cada código con:
+      - `playbook_hint`
+      - `priority` (`p0..p3`)
+      - `owner` sugerido
+    - salida incluye `recommended_actions` deduplicadas para ejecución rápida.
+    - requirements `02/04/05` actualizados con contrato de playbook.
+    - tests unitarios/contrato actualizados para validar estructura accionable.
+  - tradeoff:
+    - mapping de playbook es heurístico inicial y requiere calibración operativa continua.
+  - error detectado/evitado:
+    - se evita tener alertas “descriptivas” sin siguiente paso claro.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (44 tests).
+  - estado:
+    - implementado.
+- 2026-02-28 13:21:05 -05: frontend fase pantalla unica comercial + chat contextual/refinamiento ejecutada.
+  - objetivo:
+    - consolidar flujo MVP en una sola pantalla para acelerar trabajo del consultor: seleccionar cliente priorizado, elegir fichas con evidencia, conversar y generar propuesta.
+  - razon_negocio:
+    - reduce fricción operativa en preventa y asegura consistencia de negocio al exigir evidencia URL en fichas antes de proponer valor.
+  - cambio:
+    - `frontend-web/src/app/page.tsx` reestructurado a layout 3 columnas:
+      - superior: `InitialForm compact` con dropdown de empresas priorizadas e industria auto-derivada.
+      - izquierda: fichas NEO/AI seleccionables.
+      - centro: botón `Generar propuesta` + `ChatPanel`.
+      - derecha: propuesta final + chips de contexto drag-and-drop + listado de URL de fichas seleccionadas.
+    - `frontend-web/src/components/chat/ChatPanel.tsx` actualizado con modos:
+      - `Chat` -> `POST /agent/{thread_id}/chat` (incluye feedback de guardrail).
+      - `Refinar` -> `POST /agent/{thread_id}/refine` (actualiza propuesta en store).
+    - validación visual/funcional de lógica de negocio: si hay fichas seleccionadas sin URL, se bloquea generación y se muestra aviso.
+  - tradeoff:
+    - se prioriza velocidad de operación MVP sobre personalización avanzada de layout por industria/rol.
+  - error detectado/evitado:
+    - se evita generar propuesta con evidencia incompleta (fichas sin URL), alineado con lineamiento de trazabilidad comercial.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-02-28 17:51:51 -05: backend fase hardening qdrant + smoke test end-to-end ejecutada.
+  - objetivo:
+    - cerrar bloqueos de datos para habilitar validacion real del flujo MVP completo (start/select/chat/refine) con casos recuperados desde Qdrant.
+  - razon_negocio:
+    - sin búsqueda e ingesta confiables no hay propuesta defendible ni trazabilidad comercial basada en evidencia.
+  - cambio:
+    - `backend/src/tools/qdrant_tool.py`:
+      - migración de búsqueda de `client.search(...)` a `client.query_points(...)` compatible con `qdrant-client 1.17.0`.
+      - IDs de puntos de casos migrados a UUID determinístico (`uuid5`) para cumplir restricción de Qdrant Cloud (no acepta strings tipo `BENCH-001` como point id).
+      - IDs de perfiles también normalizados a UUID determinístico.
+    - `backend/src/config.py`:
+      - nuevo `qdrant_vector_size` con default `3072`, alineado al embedding activo, evitando error de dimensión (`expected 768, got 3072`).
+  - tradeoff:
+    - el punto de Qdrant usa UUID técnico y el `case_id` de negocio queda en payload para trazabilidad funcional.
+  - error detectado/evitado:
+    - se corrigen 3 fallos operativos críticos:
+      - ingesta rechazada por formato de point ID.
+      - búsqueda rota por método `search` inexistente en versión actual de cliente.
+      - mismatch de dimensión vectorial en colección.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (44 tests).
+    - `POST /api/ingest` (`force_rebuild=true`) => OK: `inserted=95`, `rejected=0`, `with_url=95`.
+    - smoke e2e validado:
+      - `POST /agent/start` => `casos_encontrados=6`, `status=awaiting_selection`.
+      - `POST /agent/{thread}/select` con ficha con URL => `HTTP 200`, `status=completed`, `propuesta_final` generada.
+      - `POST /agent/{thread}/chat` => `status=ok`, `used_case_count>0`.
+      - `POST /agent/{thread}/chat` con prompt injection => `status=guardrail_blocked`, `guardrail_code=PROMPT_INJECTION`.
+      - `POST /agent/{thread}/refine` => `HTTP 200`, propuesta refinada.
+      - frontend `http://127.0.0.1:3000` => `HTTP 200`.
+  - estado:
+    - implementado.
+- 2026-02-28 18:01:20 -05: frontend ux operativo + ranking comercial de retrieval ejecutado.
+  - objetivo:
+    - mejorar usabilidad en validación real del MVP y elevar relevancia de casos para propuestas por cliente priorizado.
+  - razon_negocio:
+    - reduce fricción en preventa (menos clics, más claridad de estado) y aumenta probabilidad de propuestas accionables con casos más alineados al contexto cliente/área.
+  - cambio:
+    - frontend:
+      - `InitialForm`: estado de carga de catálogo, bloqueo de submit hasta catálogo listo y feedback visual de carga.
+      - `page.tsx`: acciones rápidas de selección (`top 3`, `top 6`, `limpiar`), estado vacío explícito cuando no hay fichas, contador de casos con URL, botón de copiar propuesta.
+      - `ChatPanel`: modo `Refinar` deshabilitado sin propuesta y aviso contextual al usuario.
+    - backend:
+      - `retrieve_node` incorpora re-ranking de casos por `empresa`, `area` y `rubro` (`score_client_fit`) antes de poblar cards.
+  - tradeoff:
+    - el re-ranking es heurístico liviano (bonos) para no impactar latencia MVP; se puede evolucionar a modelo de reranking posterior.
+  - error detectado/evitado:
+    - se evita iniciar búsqueda sin catálogo cargado y se evita confusión de usuario al intentar refinar sin propuesta base.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (44 tests).
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-02-28 18:04:28 -05: backend fase hardening operativo (rate limit + funnel conversion) ejecutada.
+  - objetivo:
+    - reforzar estabilidad operativa del MVP y añadir visibilidad de conversión por sesión para seguimiento de valor comercial.
+  - razon_negocio:
+    - evita abuso en endpoints críticos y permite medir avance real del flujo (start -> selección -> propuesta -> refine) para priorizar mejoras con datos.
+  - cambio:
+    - `backend/src/services/rate_limit.py`:
+      - nuevo limiter in-memory por ventana fija con `retry_after_sec`.
+    - `backend/src/services/session_funnel.py`:
+      - nuevo store de sesiones con eventos de `start/select/chat/refine` y métricas de conversión.
+    - `backend/src/api/main.py`:
+      - rate limiting aplicado a:
+        - `POST /agent/start`
+        - `POST /agent/{thread_id}/select`
+        - `POST /agent/{thread_id}/chat`
+        - `POST /agent/{thread_id}/refine`
+      - nuevo endpoint admin `GET /ops/funnel`.
+      - instrumentación de funnel en eventos clave:
+        - inicio de sesión con total de casos,
+        - selección + generación,
+        - interacciones chat (ok/bloqueado),
+        - refinamientos.
+    - `backend/src/config.py`:
+      - nuevos parámetros de control:
+        - `rate_limit_window_sec`
+        - `rate_limit_start_per_window`
+        - `rate_limit_select_per_window`
+        - `rate_limit_chat_per_window`
+        - `rate_limit_refine_per_window`
+  - tradeoff:
+    - limiter y funnel en memoria local (suficiente MVP); en producción conviene mover a Redis para horizontalidad.
+  - error detectado/evitado:
+    - se evita sobrecarga por bursts repetitivos y falta de visibilidad de embudo operativo por thread.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (48 tests).
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-02-28 18:09:37 -05: backend fase persistencia redis para rate-limit y funnel con fallback ejecutada.
+  - objetivo:
+    - asegurar continuidad operativa en escenarios multi-instancia y mantener resiliencia local ante caída de Redis.
+  - razon_negocio:
+    - evita límites inconsistentes y pérdida de señal de conversión cuando el servicio escala; preserva operación en modo degradado si Redis no responde.
+  - cambio:
+    - `backend/src/services/rate_limit.py`:
+      - reemplazo por `RateLimiter` con backend Redis (ventana fija) + fallback memoria.
+      - inicialización por settings (`rate_limit_redis_key_prefix`).
+    - `backend/src/services/session_funnel.py`:
+      - persistencia Redis del estado por `thread_id` (hash + índice zset) + trimming por capacidad.
+      - fallback automático a memoria ante falla de Redis.
+      - snapshot/summary incluyen `source` (`redis|memory`) para trazabilidad operativa.
+    - `backend/src/config.py`:
+      - nuevos settings: `rate_limit_redis_key_prefix`, `session_funnel_redis_key`.
+    - tests:
+      - `test_rate_limit.py` actualizado con fallback Redis caído.
+      - `test_session_funnel.py` actualizado con fallback Redis caído.
+  - tradeoff:
+    - modelo de persistencia prioriza simplicidad MVP (hash/zset) sobre analítica histórica de largo plazo.
+  - error detectado/evitado:
+    - se evita dependencia hard de Redis que rompería operación si el servicio está temporalmente no disponible.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (50 tests).
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-02-28 18:17:29 -05: frontend fase panel ops operativo (art direction skill) ejecutada.
+  - objetivo:
+    - habilitar monitoreo visual del embudo MVP y alertas operativas desde frontend sin salir del producto.
+  - razon_negocio:
+    - permite a liderazgo comercial/operaciones detectar caída de conversión y riesgo de guardrails con acciones concretas en una sola vista.
+  - cambio:
+    - nueva ruta `frontend-web/src/app/ops/page.tsx` con layout premium alineado a sistema visual del skill art direction:
+      - KPIs: conversión final, cobertura con casos, guardrail block rate, severidad de alerta.
+      - tabla de sesiones funnel (`/ops/funnel`).
+      - paneles de top empresas, top case IDs y acciones recomendadas (`/ops/chat-analytics`, `/ops/chat-alerts`).
+      - input de token admin opcional para entornos protegidos.
+    - `frontend-web/src/app/page.tsx` integra acceso directo a `Panel Ops`.
+  - tradeoff:
+    - panel sin paginación/filtrado avanzado en esta iteración; prioriza lectura rápida MVP.
+  - error detectado/evitado:
+    - se evita operación “a ciegas” sin visibilidad consolidada de conversión y riesgo.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (50 tests).
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-02-28 18:36:42 -05: frontend ops fase filtros operativos en tiempo real ejecutada.
+  - objetivo:
+    - habilitar análisis táctico del panel ops por contexto (empresa/tiempo/estado) para decisiones diarias más rápidas.
+  - razon_negocio:
+    - permite detectar degradaciones de conversión o riesgo por segmento sin depender de análisis externo.
+  - cambio:
+    - `frontend-web/src/app/ops/page.tsx` incorpora filtros:
+      - texto por empresa,
+      - rango temporal (`1h`, `24h`, `7d`, `all`) por `last_update_utc`,
+      - toggle `solo completadas`,
+      - umbral de severidad mínima para mostrar acciones.
+    - KPIs principales y tabla de sesiones ahora reaccionan al dataset filtrado en cliente.
+    - `Top empresas` ahora se calcula sobre sesiones filtradas para coherencia analítica local.
+  - tradeoff:
+    - filtrado es client-side sobre la ventana recibida por backend (rápido para MVP, no reemplaza paginación avanzada server-side).
+  - error detectado/evitado:
+    - se evita lectura engañosa de KPIs globales cuando el usuario está evaluando un segmento específico.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-02-28 18:41:26 -05: ops funnel fase filtros server-side + paginación real ejecutada.
+  - objetivo:
+    - escalar el panel operativo para ventanas amplias de sesiones sin degradar UX ni consistencia analítica.
+  - razon_negocio:
+    - evita decisiones sobre datos truncados del cliente y permite segmentar operación por empresa/tiempo/estado directamente en backend.
+  - cambio:
+    - backend `GET /ops/funnel` ahora soporta query params:
+      - `company`
+      - `time_range` (`1h|24h|7d|all`)
+      - `completed_only`
+      - `page`
+      - `page_size`
+    - `session_funnel_store.snapshot/summary` ahora aceptan filtros server-side y responden metadata de paginación:
+      - `offset`, `limit`, `total_available`, `total_filtered`.
+    - frontend `/ops` actualizado para consumir filtros/paginación server-side (sin filtrado local redundante) y controles:
+      - selector de tamaño de página,
+      - navegación anterior/siguiente,
+      - contador de sesiones mostradas vs total filtrado.
+    - tests de store ampliados para filtros/paginación.
+  - tradeoff:
+    - ordenamiento mantiene criterio por `last_update_utc` descendente; no incluye aún ordenamiento configurable por columna.
+  - error detectado/evitado:
+    - se evita sesgo por muestreo parcial al filtrar solo del lado cliente.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (51 tests).
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-02-28 18:44:09 -05: ops funnel fase ordenamiento server-side + export csv/json ejecutada.
+  - objetivo:
+    - habilitar explotación operativa avanzada del panel con ordenamiento consistente y extracción filtrada para análisis externo.
+  - razon_negocio:
+    - mejora lectura táctica de sesiones en operación diaria y facilita auditoría/comunicación de resultados sin trabajo manual.
+  - cambio:
+    - backend:
+      - `session_funnel_store.snapshot/summary` ahora soportan `sort_by` y `sort_dir`.
+      - `GET /ops/funnel` incorpora `sort_by`, `sort_dir` además de filtros/paginación existentes.
+      - nuevo endpoint `GET /ops/funnel/export` con `format=json|csv` y filtros server-side (`company`, `time_range`, `completed_only`, `sort_by`, `sort_dir`).
+    - frontend `/ops`:
+      - nuevos controles de ordenamiento (campo + dirección).
+      - botón `Exportar CSV` que descarga export filtrado actual.
+      - filtros y paginación continúan server-side.
+    - tests:
+      - `test_api_contracts.py` agrega contrato de export funnel CSV.
+      - `test_session_funnel.py` agrega validación de sorting.
+  - tradeoff:
+    - export actual orientado a volumen MVP (hasta ventana store); no reemplaza pipeline BI histórico.
+  - error detectado/evitado:
+    - se evita export manual parcial e inconsistencias de orden entre UI y backend.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (53 tests).
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-02-28 18:49:25 -05: cierre mvp2 fase historial funnel + smoke final e2e ops ejecutada.
+  - objetivo:
+    - completar visibilidad temporal de conversión y confirmar operatividad final de capacidades ops del MVP2.
+  - razon_negocio:
+    - habilita lectura de tendencia (no solo foto actual) para priorizar acciones comerciales/operativas por periodo.
+  - cambio:
+    - backend:
+      - `session_funnel_store.history(bucket=hour|day)` con series y métricas por bucket.
+      - nuevo endpoint `GET /ops/funnel/history` con filtros (`company`, `time_range`, `completed_only`).
+    - frontend `/ops`:
+      - nuevo bloque “Tendencia de conversión” con selector de bucket (`hour/day`) y vista de serie temporal.
+    - documentación:
+      - `README.md` actualizado a estado real (chat/refine conectados + panel ops activo).
+  - validacion:
+    - tests backend: `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (55 tests).
+    - frontend: `npm --prefix frontend-web run lint` => OK; `npm --prefix frontend-web run build` => OK.
+    - smoke ops:
+      - `GET /health` => 200.
+      - `GET /ops/funnel` => 200.
+      - `GET /ops/funnel/history` => 200.
+      - `GET /ops/funnel/export?format=csv` => 200 + cabecera CSV.
+      - `GET /ops` (frontend) => 200.
+  - estado:
+    - implementado (MVP2 listo para validación funcional final).
+- 2026-02-28 20:25:03 -05: inicio fase branch `feat/mvp2-frontend-art-two-panel` para rediseño visual y simplificación UX.
+  - objetivo:
+    - evolucionar la interfaz a 2 paneles minimalistas, dinámicos y más amigables, con foco en escaneo rápido y percepción de valor.
+  - razon_negocio:
+    - reducir rechazo por exceso de texto, aumentar claridad del potencial de casos y acelerar adopción del flujo de propuesta.
+  - alcance planificado:
+    - frontend: flashcards dinámicas con detalle on-hover/tap, logos con tratamiento visual suave, reducción de densidad textual y composición artística profesional.
+    - backend: fallback de retrieval para evitar listas vacías y mostrar siempre casos relacionados/inspiracionales cuando no haya match exacto.
+    - documentación: actualizar README y skills frontend con el nuevo estándar operativo/visual.
+  - estado:
+    - en ejecución.
+- 2026-02-28 20:28:17 -05: cierre fase `feat/mvp2-frontend-art-two-panel` ejecutada (ux/art + fallback de casos).
+  - objetivo:
+    - llevar la experiencia principal a una interfaz más visual, dinámica y minimalista con 2 paneles.
+  - razon_negocio:
+    - reducir fricción por sobrecarga de texto y mejorar comprensión del valor de los casos desde el primer contacto.
+  - cambio:
+    - frontend:
+      - nuevo componente `CaseFlashCard` con frente/reverso, selección clara y evidencia URL.
+      - pantalla principal reestructurada a 2 paneles:
+        - izquierdo: discovery + fichas dinámicas + filtros simples,
+        - derecho: generar/refinar + propuesta viva.
+      - halos de color/logos tipo monograma para reforzar identidad visual sin ruido.
+    - backend:
+      - `retrieve_node` incorpora fallback de búsqueda ampliada por rubro/área cuando no hay match exacto.
+      - clasificación explícita de afinidad en casos: `exacto`, `relacionado`, `inspiracional`.
+    - documentación:
+      - `README.md` actualizado al nuevo patrón UX.
+      - skills frontend (`UX_EXPERT`, `ART_DIRECTION_EXPERT`) actualizadas con estándar visual/operativo vigente.
+  - tradeoff:
+    - flashcard prioriza escaneo rápido; el detalle profundo se mantiene en reverso para no saturar la vista inicial.
+  - error detectado/evitado:
+    - se evita estado de UI vacía sin alternativas al agregar fallback de casos relacionados/inspiracionales.
+  - validacion:
+    - backend tests: `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (55 tests).
+    - frontend: `npm --prefix frontend-web run lint` => OK.
+    - frontend: `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
