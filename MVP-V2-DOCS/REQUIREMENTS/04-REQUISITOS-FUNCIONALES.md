@@ -1,7 +1,7 @@
 # 04 - REQUISITOS FUNCIONALES (MVP V2)
 
-Fecha de corte: 2026-02-28  
-Version objetivo: MVP V2.1 estable + backlog V2.2
+Fecha de corte: 2026-03-02  
+Version objetivo: MVP V2.1 estable + pipeline backend formal (7 fases)
 
 ## Convencion de estado
 
@@ -89,8 +89,24 @@ Estado: `IMPLEMENTADO`
 - `ADMIN_TOKEN` obligatorio en `staging/prod` para ops/admin.
 - CORS por allowlist configurable.
 
+## RF-13 Sales Insight Collector (Human-in-the-Loop)
+Estado: `PARCIAL`
+
+Implementado en documentacion y contrato:
+- nueva entidad `HumanInsight` para capturar texto libre del equipo de ventas.
+- estructuracion asistida por Gemini a JSON array (pain points, decisores, sentimiento).
+- persistencia en tabla `intel_human_insights` vinculada a `company_id`.
+- endpoint objetivo: `POST /intel/company/{company_id}/insights`.
+- regla de storage MVP: SQLite + SQLAlchemy + patron Repository (sin Postgres/Mongo/Firestore).
+
+Pendiente de cierre tecnico:
+- implementacion endpoint + repositorio SQLite en backend.
+- idempotencia basica para evitar duplicados de reunion.
+- integracion de insights humanos en nodo `update_summary` para perfil final de empresa.
+
 ## Referencias
 - `backend/src/api/main.py`
+- `backend/src/api/intel.py` (target aprobado)
 - `backend/src/agent/graph.py`
 - `backend/src/agent/nodes.py`
 - `backend/src/services/search_service.py`

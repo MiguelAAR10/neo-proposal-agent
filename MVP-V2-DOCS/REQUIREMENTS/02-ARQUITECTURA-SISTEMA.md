@@ -1,7 +1,7 @@
 # 02 - ARQUITECTURA DEL SISTEMA (ESTADO REAL + TARGET)
 
-Fecha de corte: 2026-02-28  
-Version objetivo: MVP V2.1 estable
+Fecha de corte: 2026-03-02  
+Version objetivo: MVP V2.1 estable + pipeline backend formal (en ejecucion)
 
 ## 1) Objetivo arquitectonico
 
@@ -33,21 +33,28 @@ Backend (FastAPI + LangGraph)
   - Ops chat alerts history: /ops/chat-alerts/history
 
 Dependencias
-  - Qdrant: neo_cases_v1, neo_profiles_v1
+  - Qdrant: `neo_cases_v1` (busqueda semantica exclusivamente)
+  - SQLite (SQLAlchemy): perfiles e insights humanos relacionales/JSON
   - Redis: sesiones no-local + cache embeddings (fallback local)
-  - Gemini: embeddings y generacion
+  - Gemini: embeddings, generacion y estructuracion de insights humanos
 ```
 
 ## 3) Principios no negociables
 
-1. Single Source of Truth en runtime: Qdrant/Redis (no CSV).
+1. Source of Truth por dominio:
+   - Qdrant para semantica,
+   - SQLite para entidades relacionales y perfiles,
+   - Redis para sesion/cache operativo.
 2. Dominio separado de exposicion HTTP.
 3. Vector semantico separado de metadata.
 4. HITL real: sin seleccion no hay propuesta.
 5. Transparencia: score legible + calidad de evidencia.
+6. Patrón Repository obligatorio en storage para migracion futura a Postgres/pgvector sin tocar logica core.
+7. Restriccion MVP: no usar Postgres, MongoDB ni Firestore.
 
-## 4) Contratos API vigentes (implementado)
+## 4) Contratos API (vigentes + aprobados en ejecucion)
 
+Implementado:
 - `GET /health`
 - `POST /api/search`
 - `GET /ops/metrics`
@@ -62,6 +69,9 @@ Dependencias
 - `POST /agent/{thread_id}/refine`
 - `POST /agent/{thread_id}/chat`
 - `GET /agent/{thread_id}/state`
+
+Aprobado (Fase 4, en implementacion):
+- `POST /intel/company/{company_id}/insights`
 
 ## 5) Estado por capacidad
 
@@ -84,6 +94,7 @@ Dependencias
 - `health` aun no hace verificacion profunda de dependencias (qdrant/redis/gemini real-time).
 - metricas SLA no persistentes (se pierden al reinicio).
 - auditoria de chat depende de Redis para persistencia cross-restart; en fallback memoria se pierde al reinicio.
+- pipeline `Sales Insight Collector` (SQLite + Repository + endpoint + orquestacion `update_summary`) aprobado y en ejecucion.
 
 ### Backlog
 - observabilidad persistente (Prometheus/Datadog/LangSmith).
@@ -110,4 +121,4 @@ Control actual:
 
 ## 8) Riesgo principal abierto
 
-El endpoint dedicado de chat contextual ya existe; riesgo abierto principal es consolidar observabilidad persistente y telemetria historica para operación continua.
+Riesgo principal abierto: consolidar observabilidad persistente y cerrar integracion del collector humano sin aumentar acoplamiento entre API, nodos y storage.

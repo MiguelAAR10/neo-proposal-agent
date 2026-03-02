@@ -1,7 +1,7 @@
 # INDICE DE DOCUMENTACION - NEO PROPOSAL AGENT (MVP V2)
 
-Fecha de corte: 2026-02-28
-Version activa: MVP V2.1 estable + cierre frontend QA
+Fecha de corte: 2026-03-02
+Version activa: MVP V2.1 estable + plan Pipeline Backend Formal (7 fases)
 Baseline recomendado para frontend: `7344c78c`
 Baseline funcional V2.1 (busqueda + HITL): `15bfc20b`
 
@@ -17,6 +17,7 @@ La bitacora define estado real por commit, riesgos y decisiones.
 Backend:
 - API activa: `/health`, `/api/search`, `/api/ingest`, `/agent/start`, `/agent/{thread_id}/select`, `/agent/{thread_id}/refine`, `/agent/{thread_id}/state`, `/ops/metrics`
 - Servicio unificado de busqueda y contrato `/agent/*` alineado.
+- Nuevo alcance aprobado (en implementacion): `Sales Insight Collector` HITL (`POST /intel/company/{company_id}/insights`) con storage SQLite + patron Repository.
 
 Frontend:
 - Pantalla unica (`idle -> curating -> complete`) operativa.
@@ -45,6 +46,7 @@ P2 (estandares de ejecucion):
 1. Se elimina referencia a "ChatPanel mock" (ya esta integrado a backend).
 2. Se elimina mezcla de prompts ajenos en la skill frontend.
 3. Se unifica criterio de estado: `IMPLEMENTADO`, `PARCIAL`, `BACKLOG`.
+4. Se fija decision de storage MVP: SQLite (SQLAlchemy) + Qdrant, sin Postgres/Mongo/Firestore.
 
 ## 5) Candidatos a depuracion
 
@@ -54,4 +56,3 @@ Si se requiere limpiar en siguiente ciclo:
 1. Mantener `MVP-2.1-ARQUITECTURA-Y-LOGICA.md` como puente operativo de V2.1.
 2. Evitar crear otro archivo paralelo de arquitectura V2.x; extender este mismo.
 3. Consolidar cualquier nota suelta en bitacora en lugar de nuevos markdowns.
-

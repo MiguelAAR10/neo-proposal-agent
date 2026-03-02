@@ -1,7 +1,7 @@
 # 05 - REQUISITOS TECNICOS (MVP V2)
 
-Fecha de corte: 2026-02-28  
-Version objetivo: MVP V2.1 estable
+Fecha de corte: 2026-03-02  
+Version objetivo: MVP V2.1 estable + pipeline backend formal
 
 ## 1) Stack real (backend)
 
@@ -9,6 +9,7 @@ Version objetivo: MVP V2.1 estable
 - FastAPI
 - LangGraph
 - LangChain Google Generative AI
+- SQLAlchemy + SQLite
 - Qdrant Client
 - Redis (sesion/cache)
 - Pydantic v2
@@ -17,6 +18,7 @@ Version objetivo: MVP V2.1 estable
 
 Core:
 - `POST /api/search`
+- `POST /intel/company/{company_id}/insights` (aprobado, en implementacion)
 
 Orquestacion:
 - `POST /agent/start`
@@ -41,6 +43,8 @@ Operaciones:
 2. Reuso de logica de busqueda entre primitiva y orquestador.
 3. Estado de sesion por `thread_id`.
 4. Redis obligatorio en `staging/prod`; fallback memoria solo local.
+5. Patron Repository obligatorio para capa de storage.
+6. Restriccion MVP: no Postgres, MongoDB ni Firestore.
 
 ## 4) Requisitos de datos
 
@@ -55,6 +59,14 @@ Operaciones:
 
 ### Calidad de links
 - `link_status` (`verified|inaccessible|unknown`) actualizado por job batch.
+
+### Human insights (nuevo)
+- tabla SQLite: `intel_human_insights`.
+- campos minimos: `id`, `company_id`, `seller_id`, `raw_text`, `structured_payload(JSON)`, `created_at`.
+- `structured_payload` debe contener array con categorias minimas:
+  - `pain_points`
+  - `decision_makers`
+  - `sentiment`
 
 ## 5) Requisitos de busqueda y SLA
 
@@ -104,6 +116,7 @@ Implementado:
 
 Parcial:
 - falta observabilidad persistente unificada de SLA + chat en backend dedicado (APM/metrics).
+- falta cierre de endpoint y repositorios para `Sales Insight Collector`.
 
 ## 7) Seguridad minima
 
@@ -124,6 +137,7 @@ Checklist:
 2. cobertura minima de tests para cambios de dominio.
 3. sin regresion del flujo HITL.
 4. bitacora actualizada con motivo tecnico + impacto negocio.
+5. no romper contratos existentes de `/agent/*` ni `/api/search`.
 
 ## 9) Backlog tecnico V2.2
 
@@ -131,3 +145,4 @@ Checklist:
 2. health checks profundos por dependencia.
 3. reporte persistente de calidad de ingesta por categoria.
 4. guardrails avanzados conversacionales (clasificacion semantica + auditoria persistente + alertas).
+5. migracion controlada de SQLite Repository a Postgres/pgvector (sin refactor de dominio).

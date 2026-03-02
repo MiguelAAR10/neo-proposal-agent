@@ -1,6 +1,6 @@
 # BITACORA MVP V2 - ESTADO REAL, ERRORES Y TRAZABILIDAD
 
-Fecha de corte: 2026-02-28  
+Fecha de corte: 2026-03-02  
 Version objetivo activa: `MVP V2.1 (estable)`  
 Commit baseline operativo: `15bfc20b`
 
@@ -861,3 +861,27 @@ V2.2 se considera cerrada cuando:
     - frontend: `npm --prefix frontend-web run build` => OK.
   - estado:
     - implementado.
+- 2026-03-02 12:12:06 -05: docs(backend): alineacion P0/P1 para pipeline formal + Sales Insight Collector.
+  - objetivo:
+    - incorporar requerimiento critico de negocio HITL comercial en la arquitectura oficial desde Fase 0.
+  - razon_negocio:
+    - la data publica no cubre conocimiento tacito de ventas (miedos, presupuesto, decisores) que impacta conversion.
+  - cambio:
+    - se actualizan documentos P0/P1 para fijar:
+      - storage MVP: SQLite (SQLAlchemy) + Qdrant, sin Postgres/Mongo/Firestore.
+      - patron Repository obligatorio para capa de storage.
+      - nueva entidad `HumanInsight` y tabla `intel_human_insights`.
+      - nuevo endpoint aprobado `POST /intel/company/{company_id}/insights`.
+      - orquestacion objetivo `update_summary` combinando data web + human insights.
+      - plan de ejecucion en 7 fases del pipeline backend formal.
+  - tradeoff:
+    - se agrega capa tecnica (repositorios + sqlite) pero reduce deuda de migracion futura y conflictos por acoplamiento.
+  - error detectado/evitado:
+    - se evita sobre-ingenieria temprana de DB distribuida y deriva documental antes de codificar.
+  - validacion:
+    - coherencia cruzada actualizada en:
+      - `00-INDEX-DOCUMENTATION.md`
+      - `REQUIREMENTS/01..05`
+      - `MVP-2.1-ARQUITECTURA-Y-LOGICA.md`
+  - estado:
+    - implementado (documentacion).

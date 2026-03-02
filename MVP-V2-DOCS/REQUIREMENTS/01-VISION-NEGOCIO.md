@@ -1,7 +1,7 @@
 # 01 - VISION Y CONTEXTO DEL NEGOCIO
 
-Fecha de corte: 2026-02-28
-Estado: ALINEADO A IMPLEMENTACION V2.1
+Fecha de corte: 2026-03-02
+Estado: ALINEADO A IMPLEMENTACION V2.1 + pipeline backend formal aprobado
 
 ## Proposito del producto
 
@@ -42,6 +42,7 @@ IMPLEMENTADO:
 PARCIAL:
 - Uso sistematico de inteligencia sector en todos los flujos.
 - Persistencia operativa de metricas SLA.
+- Captura estructurada de conocimiento tacito comercial (reuniones, objeciones, presupuesto, decisores).
 
 BACKLOG:
 - Integracion CRM end-to-end.
@@ -60,11 +61,12 @@ BACKLOG:
 P0:
 1. Mantener estabilidad E2E del flujo completo.
 2. Evitar regresiones de evidencia (URL/KPI/score claro).
+3. Activar `Sales Insight Collector` HITL desde Fase 1 del pipeline formal.
 
 P1:
 1. Mejorar visibilidad de calidad de datos por caso.
 2. Fortalecer telemetria operativa persistente.
+3. Consolidar perfil empresa con fusion de data web + insights de ventas.
 
 P2:
 1. Integrar salida a CRM y trazabilidad comercial.
-
