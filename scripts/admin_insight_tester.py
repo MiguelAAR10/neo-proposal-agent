@@ -45,21 +45,50 @@ COMPANY_OPTIONS = ["Banco_ABC", "Retail_XYZ", "Telco_123"]
 FORM_AUTHOR_OPTIONS = ["Carlos Ruiz", "María Gómez", "Juan Pérez"]
 
 
+def _normalize_sqlite_url(raw_value: str) -> str:
+    value = (raw_value or "").strip()
+    if not value:
+        default_path = REPO_ROOT / "backend" / "data" / "intel.sqlite3"
+        default_path.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite:///{default_path.resolve()}"
+
+    if not value.startswith("sqlite://"):
+        path = Path(value).expanduser().resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite:///{path}"
+
+    lowered = value.lower()
+    if ":memory:" in lowered:
+        return value
+
+    if value.startswith("sqlite:///"):
+        raw_path = value[len("sqlite:///") :]
+        path = Path(raw_path).expanduser()
+        if not path.is_absolute():
+            path = (REPO_ROOT / path).resolve()
+        else:
+            path = path.resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite:///{path}"
+
+    return value
+
+
 def _sqlite_url() -> str:
     explicit_url = os.getenv("SQLITE_DB_URL") or os.getenv("INTEL_SQLITE_URL")
     if explicit_url:
-        return explicit_url
+        return _normalize_sqlite_url(explicit_url)
     explicit_path = os.getenv("SQLITE_DB_PATH") or os.getenv("INTEL_SQLITE_PATH")
     if explicit_path:
-        return f"sqlite:///{Path(explicit_path).expanduser().resolve()}"
-    default_path = REPO_ROOT / "backend" / "data" / "intel.sqlite3"
-    return f"sqlite:///{default_path.resolve()}"
+        return _normalize_sqlite_url(explicit_path)
+    return _normalize_sqlite_url("")
 
 
 def _engine():
     if not HAS_SQLALCHEMY:
         return None
-    return create_engine(_sqlite_url(), future=True, connect_args={"check_same_thread": False})
+    sqlite_url = _sqlite_url()
+    return create_engine(sqlite_url, future=True, connect_args={"check_same_thread": False})
 
 
 def _stable_hash(company_id: str, author: str, raw_text: str) -> str:
@@ -94,8 +123,14 @@ def _reset_and_seed_historical_dummy_data(company_id: str) -> dict[str, Any]:
     assert engine is not None
 
     # Hard reset solicitado por arquitectura para evitar desalineación de columnas.
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.drop_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        return {
+            "status": "error",
+            "detail": f"Fallo en hard reset de SQLite ({_sqlite_url()}): {exc}",
+        }
 
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
