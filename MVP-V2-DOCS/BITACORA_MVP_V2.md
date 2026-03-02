@@ -910,3 +910,23 @@ V2.2 se considera cerrada cuando:
     - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (58 tests).
   - estado:
     - implementado.
+- 2026-03-02 12:55:50 -05: feat(intel-hardening): sqlalchemy estricto + errores tipados + metricas intel.
+  - objetivo:
+    - cerrar deuda tecnica del collector para merge seguro y operacion consistente.
+  - razon_negocio:
+    - evita dualidad de drivers y mejora observabilidad del flujo de insights de ventas.
+  - cambio:
+    - repositorios intel pasan a SQLAlchemy-only (sin fallback sqlite3).
+    - se mantienen tablas con `Base.metadata.create_all(bind=engine)` para MVP (sin Alembic).
+    - se agregan indices para series temporales (`company_id`, `created_at`) en `intel_human_insights`.
+    - endpoint intel mantiene APIRouter modular e incorpora errores tipados (`INSIGHT_PARSE_FAILED`, `INTEL_STORAGE_ERROR`).
+    - se añaden metricas intel (`parse_ms`, `store_ms`, `errors_by_code`) dentro de `/ops/metrics`.
+    - validacion de payload reforzada (sanitizacion + limites estrictos de `text` y `seller_id`).
+  - tradeoff:
+    - si SQLAlchemy no esta instalada, el collector falla de forma explicita en runtime en vez de degradar a otro driver.
+  - error detectado/evitado:
+    - se evita inconsistencia entre entornos por usar dos stacks de acceso a SQLite.
+  - validacion:
+    - validacion parcial ejecutada por entorno local sin SQLAlchemy global; tests de hardening completo se consolidan en commit de testing.
+  - estado:
+    - implementado.

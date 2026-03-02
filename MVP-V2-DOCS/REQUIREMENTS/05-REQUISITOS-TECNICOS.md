@@ -91,6 +91,10 @@ Implementado:
   - `cache_hit_rate`
   - errores por categoria
 - exposicion via `GET /ops/metrics`.
+- metricas in-memory intel:
+  - `parse_ms` (avg/max/count)
+  - `store_ms` (avg/max/count)
+  - `errors_by_code` (incluye `INSIGHT_PARSE_FAILED`)
 - auditoria in-memory de chat:
   - persistencia Redis opcional + fallback memoria
   - status (`ok|guardrail_blocked`)
@@ -116,7 +120,6 @@ Implementado:
 
 Parcial:
 - falta observabilidad persistente unificada de SLA + chat en backend dedicado (APM/metrics).
-- migracion futura de fallback local a ruta full SQLAlchemy en todos los entornos.
 
 ## 7) Seguridad minima
 

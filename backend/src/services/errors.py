@@ -36,3 +36,12 @@ class ExternalDependencyTimeout(BackendDomainError):
         self.dependency = dependency
         self.timeout_seconds = timeout_seconds
 
+
+class InsightParseError(BackendDomainError):
+    status_code = 422
+    code = "INSIGHT_PARSE_FAILED"
+
+
+class IntelStorageError(BackendDomainError):
+    status_code = 500
+    code = "INTEL_STORAGE_ERROR"

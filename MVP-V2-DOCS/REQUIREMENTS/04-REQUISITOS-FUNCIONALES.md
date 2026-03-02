@@ -100,6 +100,8 @@ Implementado:
 - regla de storage MVP: SQLite + SQLAlchemy + patron Repository (sin Postgres/Mongo/Firestore).
 - idempotencia basica por hash para evitar duplicados de reunion.
 - integracion de insights humanos en nodo `update_summary` para perfil final de empresa.
+- validacion estricta de payload (`seller_id`, `text`, sanitizacion y limites de tamaño).
+- errores tipados para parseo (`INSIGHT_PARSE_FAILED`).
 
 ## Referencias
 - `backend/src/api/main.py`

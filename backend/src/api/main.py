@@ -25,6 +25,7 @@ from src.services.errors import (
     SessionNotFoundError,
 )
 from src.services.metrics import search_metrics
+from src.services.intel_metrics import intel_metrics
 from src.services.chat_audit import chat_audit_store
 from src.services.chat_alerts import ChatAlertThresholds, build_chat_alerts
 from src.services.chat_guardrails import evaluate_chat_message
@@ -279,6 +280,7 @@ async def get_ops_metrics(authorization: str | None = Header(default=None)):
         "status": "ok",
         "environment": settings.app_env,
         "search": search_metrics.snapshot(),
+        "intel": intel_metrics.snapshot(),
     }
 
 @app.get("/ops/chat-audit")
