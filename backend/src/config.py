@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     
     gemini_api_key: str | None = None
     gemini_embedding_model: str = "models/gemini-embedding-001"
+    tavily_api_key: str | None = None
+    perplexity_api_key: str | None = None
+    firecrawl_api_key: str | None = None
+    radar_use_live_tools: bool = False
+    radar_tool_timeout_sec: float = 8.0
     admin_token: str | None = None
     app_env: str = "development"
     allowed_origins_raw: str = "http://localhost:3000,http://127.0.0.1:3000"

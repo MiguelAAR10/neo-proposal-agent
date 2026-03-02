@@ -20,6 +20,7 @@ Core:
 - `POST /api/search`
 - `POST /intel/company/{company_id}/insights` (implementado)
 - `GET /intel/company/{company_id}/profile` (implementado, `refresh=true|false`)
+- `POST /intel/radar/run` (implementado, sync MVP)
 
 Orquestacion:
 - `POST /agent/start`
@@ -70,6 +71,18 @@ Operaciones:
   - `decision_makers`
   - `sentiment`
 - `update_summary` debe aplicar `time-decay`: prioridad alta a insights de últimos 30 dias para estado actual.
+
+### Macro radar (nuevo)
+- tabla SQLite: `intel_industry_radiography`.
+- campos minimos: `industry_target`, `profile_payload(JSON)`, `triggers_payload(JSON)`, `updated_at`.
+- workflow LangGraph:
+  - `collect_signals` (tools agentic)
+  - `evaluate_triggers` (extracción de triggers críticos)
+  - `update_industry_profile` (persistencia de radiografía)
+- tools disponibles:
+  - `search_market_trends` (Tavily/Perplexity o mock)
+  - `scrape_regulatory_site` (Firecrawl o mock markdown)
+  - `get_financial_ticker` (yfinance o mock determinístico)
 
 ## 5) Requisitos de busqueda y SLA
 

@@ -8,13 +8,14 @@ from fastapi import HTTPException
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from src.api.intel import create_human_insight, get_company_profile  # noqa: E402
+from src.api.intel import create_human_insight, get_company_profile, run_macro_radar  # noqa: E402
 from src.models.human_insight import (  # noqa: E402
     CompanyProfileStored,
     HumanInsightCreate,
     ParsedHumanInsight,
     StructuredInsightItem,
 )
+from src.models.industry_radar import RadarRunRequest  # noqa: E402
 from src.repositories.sqlite_repositories import SQLiteHumanInsightRepository  # noqa: E402
 from src.services.errors import InsightParseError  # noqa: E402
 
@@ -143,6 +144,18 @@ class IntelEndpointTests(unittest.TestCase):
 
         self.assertEqual(ctx.exception.status_code, 404)
         self.assertEqual(ctx.exception.detail["code"], "PROFILE_NOT_FOUND")
+
+    def test_run_macro_radar_contract_success(self) -> None:
+        payload = RadarRunRequest(industry_target="Banca", force_mock_tools=True)
+
+        async def run() -> dict:
+            return await run_macro_radar(payload)
+
+        body = asyncio.run(run())
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["industry_target"], "Banca")
+        self.assertIn("critical_triggers_found", body)
+        self.assertIn("industry_radiography", body)
 
 
 if __name__ == "__main__":

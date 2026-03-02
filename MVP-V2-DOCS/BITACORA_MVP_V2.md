@@ -992,3 +992,29 @@ V2.2 se considera cerrada cuando:
     - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK.
   - estado:
     - implementado.
+- 2026-03-02 16:38:30 -05:00: feat(intel): macro-intelligence radar agentic con LangGraph y tools externas.
+  - objetivo:
+    - evolucionar intelligence sectorial desde modo manual/reactivo a un pipeline proactivo de señales macro.
+  - razon_negocio:
+    - detectar antes que la competencia cambios regulatorios y shocks de mercado que afectan la narrativa comercial.
+  - cambio:
+    - nuevo módulo `intel_pipeline` con `macro_radar_graph` y nodos:
+      - `collect_signals`
+      - `evaluate_triggers`
+      - `update_industry_profile`
+    - nuevas tools agentic desacopladas:
+      - `search_market_trends` (Tavily/Perplexity + fallback mock)
+      - `scrape_regulatory_site` (Firecrawl + fallback mock markdown)
+      - `get_financial_ticker` (yfinance + fallback mock determinístico)
+    - nuevo modelo/persistencia de radiografía en SQLite (`intel_industry_radiography`) mediante patrón Repository.
+    - nuevo endpoint `POST /intel/radar/run` para ejecutar radar sync en MVP.
+    - se agregan errores tipados radar y configuración de providers/timeout en settings.
+  - tradeoff:
+    - modo MVP corre sync y con fallback mock por defecto para estabilidad local; el modo live depende de API keys externas.
+  - error detectado/evitado:
+    - se evita acoplar scraping frágil al flujo principal y se evita dependencia dura de red en tests.
+  - validacion:
+    - `python -m unittest backend/tests/test_macro_radar_graph.py -v` => OK.
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK.
+  - estado:
+    - implementado.

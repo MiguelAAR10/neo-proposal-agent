@@ -45,3 +45,23 @@ class InsightParseError(BackendDomainError):
 class IntelStorageError(BackendDomainError):
     status_code = 500
     code = "INTEL_STORAGE_ERROR"
+
+
+class RadarToolTimeoutError(BackendDomainError):
+    status_code = 504
+    code = "RADAR_TOOL_TIMEOUT"
+
+
+class RadarToolUnavailableError(BackendDomainError):
+    status_code = 503
+    code = "RADAR_TOOL_UNAVAILABLE"
+
+
+class RadarTriggerParseError(BackendDomainError):
+    status_code = 422
+    code = "RADAR_TRIGGER_PARSE_FAILED"
+
+
+class RadarStorageError(BackendDomainError):
+    status_code = 500
+    code = "RADAR_STORAGE_ERROR"

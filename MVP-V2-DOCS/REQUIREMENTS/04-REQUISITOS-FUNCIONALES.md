@@ -107,9 +107,28 @@ Implementado:
 - `department` y `sentiment` deducidos por parser Gemini y persistidos por insight.
 - resumen `update_summary` incorpora criterio de relevancia temporal (time-decay) y segmentacion por departamentos.
 
+## RF-14 Macro-Intelligence Radar (Agentic Scraping)
+Estado: `IMPLEMENTADO`
+
+Implementado:
+- workflow LangGraph `macro_radar_graph` con nodos:
+  - `collect_signals`
+  - `evaluate_triggers`
+  - `update_industry_profile`
+- tools agentic desacopladas:
+  - `search_market_trends` (Tavily/Perplexity + fallback mock)
+  - `scrape_regulatory_site` (Firecrawl + fallback mock markdown regulatorio)
+  - `get_financial_ticker` (yfinance + fallback mock determinístico)
+- endpoint `POST /intel/radar/run` para ejecución sync del radar en MVP.
+- extracción de triggers críticos (leyes/circulares, caída de ticker <= -5%, alertas de consultoras top).
+- persistencia de radiografía de industria en SQLite (`intel_industry_radiography`) con patrón Repository.
+
 ## Referencias
 - `backend/src/api/main.py`
 - `backend/src/api/intel.py` (target aprobado)
+- `backend/src/intel_pipeline/orchestrator/macro_radar_graph.py`
+- `backend/src/intel_pipeline/orchestrator/nodes.py`
+- `backend/src/intel_pipeline/collectors/agentic_tools.py`
 - `backend/src/agent/graph.py`
 - `backend/src/agent/nodes.py`
 - `backend/src/services/search_service.py`

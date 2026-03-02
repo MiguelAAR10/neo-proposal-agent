@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from src.models.human_insight import CompanyProfileStored, HumanInsightStored, StructuredInsightItem
+from src.models.industry_radar import IndustryRadiographyStored
 
 
 class HumanInsightRepository(ABC):
@@ -33,4 +34,20 @@ class CompanyProfileRepository(ABC):
 
     @abstractmethod
     def upsert_profile(self, *, company_id: str, area: str, profile_payload: dict) -> CompanyProfileStored:
+        raise NotImplementedError
+
+
+class IndustryRadarRepository(ABC):
+    @abstractmethod
+    def get_radiography(self, *, industry_target: str) -> IndustryRadiographyStored | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def upsert_radiography(
+        self,
+        *,
+        industry_target: str,
+        profile_payload: dict,
+        triggers_payload: list[dict],
+    ) -> IndustryRadiographyStored:
         raise NotImplementedError

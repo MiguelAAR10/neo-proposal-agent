@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from src.config import get_settings
-from src.repositories.sqlite_repositories import SQLiteCompanyProfileRepository, SQLiteHumanInsightRepository
+from src.repositories.sqlite_repositories import (
+    SQLiteCompanyProfileRepository,
+    SQLiteHumanInsightRepository,
+    SQLiteIndustryRadarRepository,
+)
 
 
 def _get_database_url_or_path() -> str:
@@ -30,4 +34,7 @@ human_insight_repository = _LazyRepositoryProxy(
 )
 company_profile_repository = _LazyRepositoryProxy(
     lambda: SQLiteCompanyProfileRepository(_get_database_url_or_path())
+)
+industry_radar_repository = _LazyRepositoryProxy(
+    lambda: SQLiteIndustryRadarRepository(_get_database_url_or_path())
 )

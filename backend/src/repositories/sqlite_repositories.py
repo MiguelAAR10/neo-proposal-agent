@@ -7,7 +7,8 @@ import uuid
 from typing import Any
 
 from src.models.human_insight import CompanyProfileStored, HumanInsightStored, StructuredInsightItem
-from src.repositories.base import CompanyProfileRepository, HumanInsightRepository
+from src.models.industry_radar import IndustryRadiographyStored
+from src.repositories.base import CompanyProfileRepository, HumanInsightRepository, IndustryRadarRepository
 
 try:
     from sqlalchemy import JSON, DateTime, Index, String, Text, UniqueConstraint, create_engine, select
@@ -86,6 +87,21 @@ if HAS_SQLALCHEMY:
         updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, onupdate=_utc_now)
 
 
+    class IndustryRadiographyORM(Base):
+        __tablename__ = "intel_industry_radiography"
+        __table_args__ = (
+            UniqueConstraint("industry_target", name="uq_industry_target"),
+            Index("ix_industry_radar_target_updated", "industry_target", "updated_at"),
+            Index("ix_industry_radar_updated", "updated_at"),
+        )
+
+        id: Mapped[str] = mapped_column(String(64), primary_key=True)
+        industry_target: Mapped[str] = mapped_column(String(120), index=True)
+        profile_payload: Mapped[dict[str, Any]] = mapped_column(JSON)
+        triggers_payload: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+        updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, onupdate=_utc_now)
+
+
 class _SQLAlchemyStorage:
     def __init__(self, db_url_or_path: str) -> None:
         if not HAS_SQLALCHEMY:  # pragma: no cover
@@ -127,6 +143,12 @@ class _SQLAlchemyStorage:
             )
             conn.exec_driver_sql(
                 "CREATE INDEX IF NOT EXISTS ix_human_insights_department ON intel_human_insights (department)"
+            )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_industry_radar_target_updated ON intel_industry_radiography (industry_target, updated_at)"
+            )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_industry_radar_updated ON intel_industry_radiography (updated_at)"
             )
 
     def save_human_insight(
@@ -280,6 +302,59 @@ class _SQLAlchemyStorage:
                 updated_at=_to_iso(row.updated_at),
             )
 
+    def get_industry_radiography(self, *, industry_target: str) -> IndustryRadiographyStored | None:
+        with self._session_factory() as session:
+            row = session.execute(
+                select(IndustryRadiographyORM)
+                .where(IndustryRadiographyORM.industry_target == industry_target)
+                .limit(1)
+            ).scalar_one_or_none()
+            if not row:
+                return None
+            return IndustryRadiographyStored(
+                industry_target=row.industry_target,
+                profile_payload=dict(row.profile_payload or {}),
+                triggers_payload=list(row.triggers_payload or []),
+                updated_at=_to_iso(row.updated_at),
+            )
+
+    def upsert_industry_radiography(
+        self,
+        *,
+        industry_target: str,
+        profile_payload: dict,
+        triggers_payload: list[dict],
+    ) -> IndustryRadiographyStored:
+        with self._session_factory() as session:
+            row = session.execute(
+                select(IndustryRadiographyORM).where(
+                    IndustryRadiographyORM.industry_target == industry_target,
+                )
+            ).scalar_one_or_none()
+            now = _utc_now()
+
+            if row:
+                row.profile_payload = profile_payload
+                row.triggers_payload = triggers_payload
+                row.updated_at = now
+            else:
+                row = IndustryRadiographyORM(
+                    id=str(uuid.uuid4()),
+                    industry_target=industry_target,
+                    profile_payload=profile_payload,
+                    triggers_payload=triggers_payload,
+                    updated_at=now,
+                )
+                session.add(row)
+            session.commit()
+
+            return IndustryRadiographyStored(
+                industry_target=row.industry_target,
+                profile_payload=dict(row.profile_payload or {}),
+                triggers_payload=list(row.triggers_payload or []),
+                updated_at=_to_iso(row.updated_at),
+            )
+
 
 class SQLiteHumanInsightRepository(HumanInsightRepository):
     def __init__(self, db_url_or_path: str) -> None:
@@ -321,3 +396,24 @@ class SQLiteCompanyProfileRepository(CompanyProfileRepository):
 
     def upsert_profile(self, *, company_id: str, area: str, profile_payload: dict) -> CompanyProfileStored:
         return self._storage.upsert_profile(company_id=company_id, area=area, profile_payload=profile_payload)
+
+
+class SQLiteIndustryRadarRepository(IndustryRadarRepository):
+    def __init__(self, db_url_or_path: str) -> None:
+        self._storage = _SQLAlchemyStorage(db_url_or_path)
+
+    def get_radiography(self, *, industry_target: str) -> IndustryRadiographyStored | None:
+        return self._storage.get_industry_radiography(industry_target=industry_target)
+
+    def upsert_radiography(
+        self,
+        *,
+        industry_target: str,
+        profile_payload: dict,
+        triggers_payload: list[dict],
+    ) -> IndustryRadiographyStored:
+        return self._storage.upsert_industry_radiography(
+            industry_target=industry_target,
+            profile_payload=profile_payload,
+            triggers_payload=triggers_payload,
+        )

@@ -6,8 +6,14 @@ from typing import Callable
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.models.human_insight import HumanInsightCreate, ParsedHumanInsight
+from src.models.industry_radar import RadarRunRequest
 from src.repositories.base import CompanyProfileRepository, HumanInsightRepository
-from src.services.errors import BackendDomainError, IntelStorageError, ValidationDomainError
+from src.services.errors import (
+    BackendDomainError,
+    IntelStorageError,
+    RadarStorageError,
+    ValidationDomainError,
+)
 from src.services.human_insight_parser import parse_sales_insight_text
 from src.services.intel_metrics import intel_metrics
 from src.services.intel_storage import company_profile_repository, human_insight_repository
@@ -170,4 +176,43 @@ async def get_company_profile(
         "updated_at": profile.updated_at,
         "profile_payload": profile.profile_payload,
         "refresh": refresh_result,
+    }
+
+
+@router.post("/radar/run")
+async def run_macro_radar(payload: RadarRunRequest):
+    industry_target = " ".join(payload.industry_target.split())
+    if not industry_target:
+        error = ValidationDomainError("industry_target invalido")
+        _raise_domain_http(error)
+
+    try:
+        from src.intel_pipeline.orchestrator.macro_radar_graph import run_macro_radar_sync
+
+        result = run_macro_radar_sync(
+            industry_target=industry_target,
+            force_mock_tools=payload.force_mock_tools,
+        )
+    except BackendDomainError as exc:
+        intel_metrics.record_error(exc.code)
+        _raise_domain_http(exc)
+        return {}
+    except Exception as exc:
+        error = RadarStorageError(f"Fallo ejecutando macro radar: {exc}")
+        intel_metrics.record_error(error.code)
+        _raise_domain_http(error)
+        return {}
+
+    if result.get("error"):
+        error = RadarStorageError(str(result.get("error")))
+        intel_metrics.record_error(error.code)
+        _raise_domain_http(error)
+        return {}
+
+    return {
+        "status": "success",
+        "industry_target": result.get("industry_target", industry_target),
+        "raw_signals": result.get("raw_signals", []),
+        "critical_triggers_found": result.get("critical_triggers_found", []),
+        "industry_radiography": result.get("industry_radiography", {}),
     }
