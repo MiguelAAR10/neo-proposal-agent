@@ -47,7 +47,8 @@ class RateLimiter:
             self._redis_client = None
 
     def _check_memory(self, key: str, limit: int, window_sec: int) -> RateLimitResult:
-        now = time.time()
+        # monotonic evita fallos por cambios del reloj del sistema.
+        now = time.monotonic()
         with self._lock:
             started, count = self._buckets.get(key, (now, 0))
             if (now - started) >= window_sec:

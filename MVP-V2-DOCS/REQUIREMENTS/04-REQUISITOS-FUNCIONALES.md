@@ -90,18 +90,15 @@ Estado: `IMPLEMENTADO`
 - CORS por allowlist configurable.
 
 ## RF-13 Sales Insight Collector (Human-in-the-Loop)
-Estado: `PARCIAL`
+Estado: `IMPLEMENTADO`
 
-Implementado en documentacion y contrato:
+Implementado:
 - nueva entidad `HumanInsight` para capturar texto libre del equipo de ventas.
 - estructuracion asistida por Gemini a JSON array (pain points, decisores, sentimiento).
 - persistencia en tabla `intel_human_insights` vinculada a `company_id`.
-- endpoint objetivo: `POST /intel/company/{company_id}/insights`.
+- endpoint `POST /intel/company/{company_id}/insights`.
 - regla de storage MVP: SQLite + SQLAlchemy + patron Repository (sin Postgres/Mongo/Firestore).
-
-Pendiente de cierre tecnico:
-- implementacion endpoint + repositorio SQLite en backend.
-- idempotencia basica para evitar duplicados de reunion.
+- idempotencia basica por hash para evitar duplicados de reunion.
 - integracion de insights humanos en nodo `update_summary` para perfil final de empresa.
 
 ## Referencias
@@ -111,5 +108,8 @@ Pendiente de cierre tecnico:
 - `backend/src/agent/nodes.py`
 - `backend/src/services/search_service.py`
 - `backend/src/services/metrics.py`
+- `backend/src/services/human_insight_parser.py`
+- `backend/src/services/intel_storage.py`
+- `backend/src/repositories/sqlite_repositories.py`
 - `backend/src/tools/qdrant_tool.py`
 - `backend/src/tools/verify_links_job.py`

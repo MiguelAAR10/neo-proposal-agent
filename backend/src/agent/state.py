@@ -19,6 +19,7 @@ class ProposalState(TypedDict):
     profile_status: NotRequired[Literal["found", "not_found", "incomplete"]]
     cliente_priorizado_contexto: NotRequired[dict]
     inteligencia_sector: NotRequired[dict]
+    human_insights: NotRequired[list[dict]]
     
     # Decisiones HITL
     casos_seleccionados_ids: list[str]

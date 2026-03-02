@@ -11,5 +11,6 @@ tqdm==4.67.0
 langchain-google-genai
 langgraph
 pydantic-settings
+sqlalchemy==2.0.38
 redis==5.2.1
 langchain-redis

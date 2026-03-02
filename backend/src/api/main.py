@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from src.agent.graph import graph
+from src.api.intel import router as intel_router
 from src.config import get_settings
 from src.services.errors import (
     BackendDomainError,
@@ -63,6 +64,7 @@ app = FastAPI(
     description="Backend para la generación de propuestas comerciales orientadas a perfiles corporativos.",
     lifespan=lifespan
 )
+app.include_router(intel_router, prefix="/intel", tags=["intel"])
 
 # CORS Configuration
 app.add_middleware(
@@ -132,6 +134,7 @@ class AgentStateResponse(BaseModel):
     profile_status: Optional[Literal["found", "not_found", "incomplete"]] = None
     cliente_priorizado_contexto: Optional[dict] = None
     inteligencia_sector: Optional[dict] = None
+    human_insights: List[dict] = Field(default_factory=list)
     propuesta_final: Optional[str] = None
     status: str
     error: Optional[str] = None
@@ -180,6 +183,7 @@ def _map_state_response(
         profile_status=state_values.get("profile_status"),
         cliente_priorizado_contexto=state_values.get("cliente_priorizado_contexto"),
         inteligencia_sector=state_values.get("inteligencia_sector"),
+        human_insights=state_values.get("human_insights", []),
         propuesta_final=state_values.get("propuesta_final"),
         status=resolved_status,
         error=state_values.get("error"),

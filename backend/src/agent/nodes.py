@@ -11,7 +11,7 @@ from src.services.proposal_context import (
     validate_selected_cases_have_url,
 )
 from src.services.search_service import search_cases_sync
-from src.tools.qdrant_tool import db_connection
+from src.services.intel_storage import company_profile_repository, human_insight_repository
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def intake_node(state: ProposalState) -> ProposalState:
     return state
 
 def retrieve_node(state: ProposalState) -> ProposalState:
-    """Busca casos (con switch) y recupera el perfil del cliente (Dummy/Real)."""
+    """Busca casos (con switch) y recupera el perfil del cliente desde repositorio."""
     if state.get("error"):
         return state
 
@@ -130,9 +130,13 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             state["top_match_global"] = top_match
             state["top_match_global_reason"] = search_payload.get("top_match_global_reason", "")
 
-        # 2. Buscar perfil del cliente (Insights de negocio)
-        perfil = db_connection.get_profile(state["empresa"], state["area"])
-        if perfil:
+        # 2. Buscar perfil del cliente desde SQLite Repository
+        profile_row = company_profile_repository.get_profile(
+            company_id=state["empresa"],
+            area=state["area"],
+        )
+        if profile_row:
+            perfil = profile_row.profile_payload
             state["perfil_cliente"] = perfil
             has_objectives = bool(perfil.get("objetivos"))
             has_pains = bool(perfil.get("pain_points"))
@@ -143,7 +147,7 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             state["perfil_cliente"] = {
                 "empresa": state["empresa"],
                 "area": state["area"],
-                "notas": "Empresa nueva sin historial previo."
+                "notas": "Empresa nueva sin historial previo.",
             }
             state["profile_status"] = "not_found"
 
@@ -161,6 +165,57 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             
     except Exception as exc:
         state["error"] = f"Error en retrieve_node: {exc}"
+
+    return state
+
+
+def update_summary_node(state: ProposalState) -> ProposalState:
+    """
+    Consolida perfil empresa usando:
+    - data web/sectorial ya recuperada en retrieve_node
+    - ultimos HumanInsights de ventas (SQLite)
+    """
+    if state.get("error"):
+        return state
+
+    settings = get_settings()
+    company_id = str(state.get("empresa") or "").strip()
+    area = str(state.get("area") or "General").strip()
+    if not company_id:
+        return state
+
+    try:
+        recent_insights = human_insight_repository.list_recent(
+            company_id=company_id,
+            limit=max(1, int(settings.intel_summary_insights_limit)),
+        )
+        state["human_insights"] = [
+            {
+                "id": insight.id,
+                "seller_id": insight.seller_id,
+                "source": insight.source,
+                "created_at": insight.created_at,
+                "structured_payload": [item.model_dump() for item in insight.structured_payload],
+            }
+            for insight in recent_insights
+        ]
+
+        merged_profile = _merge_profile_with_human_insights(
+            company_id=company_id,
+            area=area,
+            base_profile=state.get("perfil_cliente") or {},
+            sector_context=state.get("inteligencia_sector") or {},
+            recent_insights=state["human_insights"],
+        )
+        state["perfil_cliente"] = merged_profile
+        company_profile_repository.upsert_profile(
+            company_id=company_id,
+            area=area,
+            profile_payload=merged_profile,
+        )
+    except Exception as exc:
+        logger.exception("update_summary_node fallo para empresa=%s: %s", company_id, exc)
+        state.setdefault("human_insights", [])
 
     return state
 
@@ -230,6 +285,54 @@ def _build_sector_intel(rubro: str, area: str) -> dict:
         "source": "placeholder_v2",
     }
 
+
+def _merge_profile_with_human_insights(
+    *,
+    company_id: str,
+    area: str,
+    base_profile: dict[str, Any],
+    sector_context: dict[str, Any],
+    recent_insights: list[dict[str, Any]],
+) -> dict[str, Any]:
+    profile = dict(base_profile or {})
+    profile.setdefault("empresa", company_id)
+    profile.setdefault("area", area)
+
+    pain_points: list[str] = []
+    decision_makers: list[str] = []
+    sentiments: list[str] = []
+    for insight in recent_insights:
+        structured = insight.get("structured_payload") or []
+        for item in structured:
+            category = str(item.get("category") or "").strip().lower()
+            value = str(item.get("value") or "").strip()
+            if not value:
+                continue
+            if category == "pain_points":
+                pain_points.append(value)
+            elif category == "decision_makers":
+                decision_makers.append(value)
+            elif category == "sentiment":
+                sentiments.append(value)
+
+    existing_pains = profile.get("pain_points") or []
+    if isinstance(existing_pains, str):
+        existing_pains = [existing_pains]
+    merged_pains = list(dict.fromkeys([*existing_pains, *pain_points]))
+    if merged_pains:
+        profile["pain_points"] = merged_pains[:10]
+
+    if decision_makers:
+        profile["decision_makers"] = list(dict.fromkeys(decision_makers))[:10]
+    if sentiments:
+        profile["sentimiento_comercial"] = sentiments[0]
+
+    profile["intel_sources"] = {
+        "sector_source": sector_context.get("source", "unknown"),
+        "human_insights_count": len(recent_insights),
+    }
+    return profile
+
 def _format_profile_for_prompt(perfil: dict | None) -> str:
     if not perfil or not perfil.get("empresa"):
         return "No hay información previa del cliente."
@@ -238,6 +341,8 @@ def _format_profile_for_prompt(perfil: dict | None) -> str:
         f"Información sobre {perfil.get('empresa')}:\n"
         f"- Objetivos: {perfil.get('objetivos', 'N/A')}\n"
         f"- Pain Points: {perfil.get('pain_points', 'N/A')}\n"
+        f"- Decisores: {perfil.get('decision_makers', 'N/A')}\n"
+        f"- Sentimiento comercial: {perfil.get('sentimiento_comercial', 'N/A')}\n"
         f"- Estilo/Cultura: {perfil.get('notas', 'N/A')}"
     )
 

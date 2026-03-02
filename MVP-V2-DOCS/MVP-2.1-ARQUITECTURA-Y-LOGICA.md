@@ -83,7 +83,7 @@ IMPLEMENTADO:
 PARCIAL:
 - Persistencia robusta de metricas (hoy in-memory).
 - Validacion mas profunda de calidad de fuente por batch.
-- Sales Insight Collector (documentado y aprobado; implementacion en curso).
+- consolidacion de runtime SQLAlchemy en todos los entornos (hoy existe fallback sqlite3 si falta dependencia).
 
 BACKLOG:
 - Dashboard operativo persistente (p95/p99 historico).

@@ -89,12 +89,15 @@ Aprobado (Fase 4, en implementacion):
 - alertas automaticas por umbral/severidad via `/ops/chat-alerts`.
 - alertas incluyen playbook accionable por codigo (owner/prioridad/paso sugerido).
 - historial temporal de alertas por bucket (`hour/day`) via `/ops/chat-alerts/history`.
+- collector HITL de ventas con endpoint `POST /intel/company/{company_id}/insights`.
+- repositorios SQLite para insights/perfiles con patron Repository.
+- nodo `update_summary` para fusion de contexto sectorial + ultimos insights humanos.
 
 ### Parcial
 - `health` aun no hace verificacion profunda de dependencias (qdrant/redis/gemini real-time).
 - metricas SLA no persistentes (se pierden al reinicio).
 - auditoria de chat depende de Redis para persistencia cross-restart; en fallback memoria se pierde al reinicio.
-- pipeline `Sales Insight Collector` (SQLite + Repository + endpoint + orquestacion `update_summary`) aprobado y en ejecucion.
+- activacion completa de SQLAlchemy en runtime local (actualmente con fallback sqlite3 cuando dependencia no esta instalada).
 
 ### Backlog
 - observabilidad persistente (Prometheus/Datadog/LangSmith).

@@ -18,3 +18,4 @@ Thumbs.db
 
 # Datos locales (para que no subas los CSVs pesados por error)
 data/*.csv
+backend/data/*.sqlite3

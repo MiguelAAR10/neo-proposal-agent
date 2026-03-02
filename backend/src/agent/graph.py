@@ -9,7 +9,7 @@ try:
 except ImportError:
     HAS_REDIS = False
 
-from src.agent.nodes import draft_node, intake_node, retrieve_node
+from src.agent.nodes import draft_node, intake_node, retrieve_node, update_summary_node
 from src.agent.state import ProposalState
 from src.config import get_settings
 
@@ -21,6 +21,7 @@ builder = StateGraph(ProposalState)
 # Nodos del MVP V2
 builder.add_node("intake_node", intake_node)
 builder.add_node("retrieve_node", retrieve_node)
+builder.add_node("update_summary_node", update_summary_node)
 builder.add_node("draft_node", draft_node)
 
 builder.add_edge(START, "intake_node")
@@ -39,7 +40,16 @@ builder.add_conditional_edges(
     _route_on_error,
     {
         "end": END,
-        "next": "draft_node", # El interrupt ocurre aquí
+        "next": "update_summary_node",
+    },
+)
+
+builder.add_conditional_edges(
+    "update_summary_node",
+    _route_on_error,
+    {
+        "end": END,
+        "next": "draft_node",  # El interrupt ocurre aquí
     },
 )
 
@@ -71,8 +81,9 @@ else:
     checkpointer = MemorySaver()
 
 # Compilación del Grafo
-# Interrumpimos antes de draft_node para que el usuario pueda seleccionar los casos (HITL)
+# Interrumpimos antes de update_summary_node para que el usuario seleccione casos (HITL)
+# y la consolidacion final use los insights humanos mas recientes al reanudar.
 graph = builder.compile(
     checkpointer=checkpointer, 
-    interrupt_before=["draft_node"]
+    interrupt_before=["update_summary_node"]
 )

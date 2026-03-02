@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     qdrant_collection_cases: str = "neo_cases_v1"
     qdrant_collection_profiles: str = "neo_profiles_v1"
     qdrant_vector_size: int = 3072
+    sqlite_db_path: str = str(Path(__file__).resolve().parents[1] / "data" / "intel.sqlite3")
+    intel_summary_insights_limit: int = 5
     
     redis_url: str = "redis://localhost:6379"
     

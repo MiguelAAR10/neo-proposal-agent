@@ -116,7 +116,7 @@ Implementado:
 
 Parcial:
 - falta observabilidad persistente unificada de SLA + chat en backend dedicado (APM/metrics).
-- falta cierre de endpoint y repositorios para `Sales Insight Collector`.
+- migracion futura de fallback local a ruta full SQLAlchemy en todos los entornos.
 
 ## 7) Seguridad minima
 

@@ -885,3 +885,28 @@ V2.2 se considera cerrada cuando:
       - `MVP-2.1-ARQUITECTURA-Y-LOGICA.md`
   - estado:
     - implementado (documentacion).
+- 2026-03-02 12:21:19 -05: feat(backend-intel): collector HITL de ventas + repositorios SQLite + update_summary.
+  - objetivo:
+    - capturar conocimiento tacito comercial y fusionarlo con contexto sectorial para mejorar perfil de empresa.
+  - razon_negocio:
+    - propuestas con solo data publica pierden precision comercial en objeciones reales, presupuesto y decisores.
+  - cambio:
+    - nuevo endpoint `POST /intel/company/{company_id}/insights`.
+    - nueva entidad `HumanInsight` y parser Gemini a JSON tipado (`pain_points`, `decision_makers`, `sentiment`).
+    - nueva tabla `intel_human_insights` con idempotencia basica por hash.
+    - repositorios SQLite para `HumanInsight` y `CompanyProfile` bajo patron Repository.
+    - nuevo nodo `update_summary_node` en el grafo (`retrieve -> update_summary -> draft`) para combinar web+human insights.
+    - perfil consolidado persiste en SQLite para reutilizacion en sesiones siguientes.
+    - hardening menor: rate limiter en memoria pasa a reloj monotonic para evitar flakiness por drift del sistema.
+    - tests nuevos:
+      - `test_intel_endpoint.py`
+      - `test_human_insight_repository.py`
+      - `test_update_summary_node.py`
+  - tradeoff:
+    - runtime actual soporta fallback sqlite3 cuando SQLAlchemy no esta instalada localmente.
+  - error detectado/evitado:
+    - se evita acoplamiento directo de nodos a storage concreto y se mantiene ruta de migracion a Postgres/pgvector.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (58 tests).
+  - estado:
+    - implementado.
