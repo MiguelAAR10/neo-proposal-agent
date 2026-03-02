@@ -40,9 +40,11 @@ except Exception:
 BACKEND_BASE_URL = os.getenv("INTEL_API_BASE_URL", "http://localhost:8000")
 INSIGHT_ENDPOINT_TEMPLATE = "/intel/company/{company_id}/insights"
 PROFILE_ENDPOINT_TEMPLATE = "/intel/company/{company_id}/profile"
+RADAR_ENDPOINT_TEMPLATE = "/intel/radar/run"
 
 COMPANY_OPTIONS = ["Banco_ABC", "Retail_XYZ", "Telco_123"]
 FORM_AUTHOR_OPTIONS = ["Carlos Ruiz", "María Gómez", "Juan Pérez"]
+INDUSTRY_OPTIONS = ["Banca y Seguros", "Ecommerce", "Retail"]
 
 
 def _normalize_sqlite_url(raw_value: str) -> str:
@@ -318,6 +320,31 @@ def _try_get_profile_endpoint(company_id: str) -> dict[str, Any]:
         }
 
 
+def _run_macro_radar(industry_name: str) -> dict[str, Any]:
+    url = f"{BACKEND_BASE_URL.rstrip('/')}{RADAR_ENDPOINT_TEMPLATE}"
+    clean_industry = " ".join(industry_name.split())
+    payload = {
+        "industry_target": clean_industry,
+        "industry": clean_industry,
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=40)
+        body = response.json() if response.content else {}
+        return {
+            "http_status": response.status_code,
+            "url": url,
+            "payload": payload,
+            "response": body,
+        }
+    except Exception as exc:
+        return {
+            "http_status": None,
+            "url": url,
+            "payload": payload,
+            "response": {"error": str(exc)},
+        }
+
+
 def _render_profile_markdown(profile_payload: dict[str, Any]) -> str:
     summary = profile_payload.get("resumen_departamentos") if isinstance(profile_payload, dict) else None
     lines = ["### Evolution Summary (Time-Decay)"]
@@ -340,6 +367,29 @@ def _render_profile_markdown(profile_payload: dict[str, Any]) -> str:
         lines.append("No hay `resumen_departamentos` aún. Resetea/inyecta data y procesa un insight actual.")
 
     return "\n".join(lines)
+
+
+def _render_macro_radar_sections(radiography: dict[str, Any]) -> tuple[str, str]:
+    trigger_rows = radiography.get("critical_triggers") or []
+    recommendations = radiography.get("recommendations") or []
+
+    if trigger_rows:
+        challenge_lines = ["### Desafíos Estructurales"]
+        for row in trigger_rows:
+            title = row.get("title", "Trigger crítico")
+            severity = row.get("severity", "medium")
+            rationale = row.get("rationale", "Sin detalle")
+            challenge_lines.append(f"- **{title}** (`{severity}`): {rationale}")
+        challenges_md = "\n".join(challenge_lines)
+    else:
+        challenges_md = "### Desafíos Estructurales\n- No se detectaron triggers críticos en esta corrida."
+
+    if recommendations:
+        strategy_md = "### Estrategia Ganadora\n" + "\n".join(f"- {item}" for item in recommendations)
+    else:
+        strategy_md = "### Estrategia Ganadora\n- Mantener monitoreo semanal y validar señales con ventas."
+
+    return challenges_md, strategy_md
 
 
 def main() -> None:
@@ -374,71 +424,111 @@ def main() -> None:
         st.session_state["last_get_attempt"] = None
     if "last_seed_report" not in st.session_state:
         st.session_state["last_seed_report"] = None
+    if "last_radar_response" not in st.session_state:
+        st.session_state["last_radar_response"] = None
 
-    left_col, right_col = st.columns(2)
+    tab1, tab2 = st.tabs(["🗣️ Sales Insights (Micro)", "📡 Macro-Intelligence Radar"])
 
-    with left_col:
-        st.subheader("Controles e Inputs")
-        selected_company = st.selectbox("Selector de Empresa", options=COMPANY_OPTIONS)
-        normalized_company = selected_company.strip()
+    with tab1:
+        left_col, right_col = st.columns(2)
 
-        if st.button("Resetear Base de Datos e Inyectar Dummy Data", type="primary", use_container_width=True):
-            seed_report = _reset_and_seed_historical_dummy_data(normalized_company)
-            st.session_state["last_seed_report"] = seed_report
-            st.session_state["last_profile_snapshot"] = _refresh_profile_snapshot(normalized_company)
-            st.session_state["last_get_attempt"] = _try_get_profile_endpoint(normalized_company)
+        with left_col:
+            st.subheader("Controles e Inputs")
+            selected_company = st.selectbox("Selector de Empresa", options=COMPANY_OPTIONS)
+            normalized_company = selected_company.strip()
 
-        if st.session_state["last_seed_report"] is not None:
-            st.json(st.session_state["last_seed_report"])
+            if st.button("Resetear Base de Datos e Inyectar Dummy Data", type="primary", use_container_width=True):
+                seed_report = _reset_and_seed_historical_dummy_data(normalized_company)
+                st.session_state["last_seed_report"] = seed_report
+                st.session_state["last_profile_snapshot"] = _refresh_profile_snapshot(normalized_company)
+                st.session_state["last_get_attempt"] = _try_get_profile_endpoint(normalized_company)
 
-        st.markdown("---")
-        st.markdown("#### Formulario de Nuevo Insight")
-        author = st.selectbox("Consultor", options=FORM_AUTHOR_OPTIONS)
-        raw_report = st.text_area(
-            "Reporte crudo de reunión",
-            height=220,
-            placeholder=(
-                "Ejemplo: TI sigue en bloqueo de compras, pero el CEO presiona por IA inmediata."
-            ),
-        )
+            if st.session_state["last_seed_report"] is not None:
+                st.json(st.session_state["last_seed_report"])
 
-        if st.button("Procesar Insight Actual", use_container_width=True):
-            st.session_state["last_endpoint_response"] = _post_current_insight(
-                company_id=normalized_company,
-                author=author,
-                raw_text=raw_report,
+            st.markdown("---")
+            st.markdown("#### Formulario de Nuevo Insight")
+            author = st.selectbox("Consultor", options=FORM_AUTHOR_OPTIONS)
+            raw_report = st.text_area(
+                "Reporte crudo de reunión",
+                height=220,
+                placeholder=(
+                    "Ejemplo: TI sigue en bloqueo de compras, pero el CEO presiona por IA inmediata."
+                ),
             )
-            st.session_state["last_profile_snapshot"] = _refresh_profile_snapshot(normalized_company)
-            st.session_state["last_get_attempt"] = _try_get_profile_endpoint(normalized_company)
 
-    with right_col:
-        st.subheader("Resultados y Observabilidad")
-        st.markdown("#### Respuesta cruda del endpoint")
-        if st.session_state["last_endpoint_response"] is None:
-            st.info("Aún no se ha procesado un insight actual.")
-        else:
-            st.json(st.session_state["last_endpoint_response"])
+            if st.button("Procesar Insight Actual", use_container_width=True):
+                st.session_state["last_endpoint_response"] = _post_current_insight(
+                    company_id=normalized_company,
+                    author=author,
+                    raw_text=raw_report,
+                )
+                st.session_state["last_profile_snapshot"] = _refresh_profile_snapshot(normalized_company)
+                st.session_state["last_get_attempt"] = _try_get_profile_endpoint(normalized_company)
 
-        st.markdown("---")
-        st.markdown("#### GET de perfil actualizado")
-        if st.session_state["last_get_attempt"] is not None:
-            st.json(st.session_state["last_get_attempt"])
-
-        st.markdown("---")
-        st.markdown("#### Evolution Summary final")
-        profile_snapshot = st.session_state.get("last_profile_snapshot") or {}
-        if profile_snapshot.get("status") == "ok":
-            profile_payload = profile_snapshot.get("perfil_cliente") or {}
-            st.markdown(_render_profile_markdown(profile_payload))
-            st.json(profile_payload)
-        else:
-            db_profile = _load_profile_from_db(normalized_company)
-            if db_profile.get("status") == "ok":
-                st.markdown(_render_profile_markdown(db_profile.get("profile_payload") or {}))
-                st.json(db_profile)
+        with right_col:
+            st.subheader("Resultados y Observabilidad")
+            st.markdown("#### Respuesta cruda del endpoint")
+            if st.session_state["last_endpoint_response"] is None:
+                st.info("Aún no se ha procesado un insight actual.")
             else:
-                st.info("No hay perfil consolidado disponible aún para esta empresa.")
-                st.json(db_profile)
+                st.json(st.session_state["last_endpoint_response"])
+
+            st.markdown("---")
+            st.markdown("#### GET de perfil actualizado")
+            if st.session_state["last_get_attempt"] is not None:
+                st.json(st.session_state["last_get_attempt"])
+
+            st.markdown("---")
+            st.markdown("#### Evolution Summary final")
+            profile_snapshot = st.session_state.get("last_profile_snapshot") or {}
+            if profile_snapshot.get("status") == "ok":
+                profile_payload = profile_snapshot.get("perfil_cliente") or {}
+                st.markdown(_render_profile_markdown(profile_payload))
+                st.json(profile_payload)
+            else:
+                db_profile = _load_profile_from_db(normalized_company)
+                if db_profile.get("status") == "ok":
+                    st.markdown(_render_profile_markdown(db_profile.get("profile_payload") or {}))
+                    st.json(db_profile)
+                else:
+                    st.info("No hay perfil consolidado disponible aún para esta empresa.")
+                    st.json(db_profile)
+
+    with tab2:
+        st.subheader("Macro-Intelligence Radar")
+        industry_name = st.selectbox("Industria objetivo", options=INDUSTRY_OPTIONS)
+        if st.button("Ejecutar Radar de Industria", type="primary", use_container_width=True):
+            with st.spinner("Agentes IA analizando el mercado..."):
+                st.session_state["last_radar_response"] = _run_macro_radar(industry_name)
+
+        radar_result = st.session_state.get("last_radar_response")
+        if not radar_result:
+            st.info("Ejecuta el radar para visualizar la radiografía de industria.")
+        else:
+            body = radar_result.get("response") if isinstance(radar_result, dict) else {}
+            if radar_result.get("http_status") == 200 and body.get("status") == "success":
+                st.success("Macro radar completado exitosamente.")
+                radiography = body.get("industry_radiography") or {}
+                raw_signals = body.get("raw_signals") or []
+                triggers = body.get("critical_triggers_found") or []
+                sources = radiography.get("sources_checked") or []
+
+                metric_col1, metric_col2, metric_col3 = st.columns(3)
+                metric_col1.metric("Señales Analizadas", len(raw_signals))
+                metric_col2.metric("Triggers Críticos", len(triggers))
+                metric_col3.metric("Fuentes Revisadas", len(sources))
+
+                challenges_md, strategy_md = _render_macro_radar_sections(radiography)
+                st.markdown(challenges_md)
+                st.markdown(strategy_md)
+
+                with st.expander("Ver JSON Crudo del Radar"):
+                    st.json(radar_result)
+            else:
+                st.error("La ejecución del radar devolvió error. Revisa el JSON técnico.")
+                with st.expander("Ver JSON Crudo del Radar"):
+                    st.json(radar_result)
 
 
 if __name__ == "__main__":
