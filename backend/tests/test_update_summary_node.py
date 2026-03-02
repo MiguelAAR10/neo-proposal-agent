@@ -44,8 +44,16 @@ class UpdateSummaryNodeTests(unittest.TestCase):
             )
         ]
 
-        with patch("src.agent.nodes.human_insight_repository.list_recent", return_value=recent):
-            with patch("src.agent.nodes.company_profile_repository.upsert_profile", return_value=None):
+        class _InsightRepo:
+            def list_recent(self, *, company_id: str, limit: int = 5):
+                return recent
+
+        class _ProfileRepo:
+            def upsert_profile(self, *, company_id: str, area: str, profile_payload: dict):
+                return None
+
+        with patch("src.agent.nodes.human_insight_repository", new=_InsightRepo()):
+            with patch("src.agent.nodes.company_profile_repository", new=_ProfileRepo()):
                 result = update_summary_node(base_state)
 
         perfil = result["perfil_cliente"]

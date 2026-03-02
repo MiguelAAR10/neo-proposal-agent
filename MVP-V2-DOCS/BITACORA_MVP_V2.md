@@ -930,3 +930,24 @@ V2.2 se considera cerrada cuando:
     - validacion parcial ejecutada por entorno local sin SQLAlchemy global; tests de hardening completo se consolidan en commit de testing.
   - estado:
     - implementado.
+- 2026-03-02 12:57:59 -05: test(intel): integracion real sqlite memory + regresion de contrato + idempotencia.
+  - objetivo:
+    - validar de extremo a extremo el collector intel sin mocks de repository.
+  - razon_negocio:
+    - asegura que el flujo de ventas no falle en runtime por diferencias entre contrato API y persistencia real.
+  - cambio:
+    - `test_human_insight_repository.py` pasa a integration test real con `sqlite:///:memory:`:
+      - save/list/dedupe de insights
+      - upsert/get de perfiles
+    - `test_intel_endpoint.py` usa `TestClient` con override de repository real en memoria:
+      - contrato de `POST /intel/company/{company_id}/insights`
+      - idempotencia en doble POST del mismo reporte
+      - error tipado `INSIGHT_PARSE_FAILED` cuando parser falla
+    - `test_agent_state_mapper.py` agrega regresion de contrato para `human_insights`.
+    - `test_update_summary_node.py` ajusta patching para aislar proxy lazy sin forzar inicializacion de storage.
+  - tradeoff:
+    - en entorno sin SQLAlchemy los tests de integration intel se marcan `skip` en lugar de fallar import.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (60 tests, 3 skipped por dependencia local).
+  - estado:
+    - implementado.

@@ -23,6 +23,7 @@ class AgentStateMapperTests(unittest.TestCase):
         self.assertEqual(response.status, "awaiting_selection")
         self.assertEqual(response.neo_cases, [])
         self.assertEqual(response.ai_cases, [])
+        self.assertEqual(response.human_insights, [])
 
     def test_status_completed_when_proposal_exists(self) -> None:
         state = {
@@ -36,6 +37,19 @@ class AgentStateMapperTests(unittest.TestCase):
 
         response = _map_state_response("thread-2", state)
         self.assertEqual(response.status, "completed")
+
+    def test_maps_human_insights_when_present(self) -> None:
+        state = {
+            "empresa": "BCP",
+            "area": "Operaciones",
+            "problema": "Reducir tiempos",
+            "casos_encontrados": [],
+            "casos_seleccionados_ids": [],
+            "human_insights": [{"id": "h-1", "seller_id": "s-1"}],
+        }
+        response = _map_state_response("thread-3", state)
+        self.assertEqual(len(response.human_insights), 1)
+        self.assertEqual(response.human_insights[0]["id"], "h-1")
 
 
 if __name__ == "__main__":
