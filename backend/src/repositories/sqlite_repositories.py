@@ -25,8 +25,8 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _stable_hash(company_id: str, seller_id: str, raw_text: str) -> str:
-    norm = f"{company_id.strip().lower()}|{seller_id.strip().lower()}|{raw_text.strip().lower()}"
+def _stable_hash(company_id: str, author: str, raw_text: str) -> str:
+    norm = f"{company_id.strip().lower()}|{author.strip().lower()}|{raw_text.strip().lower()}"
     return sha256(norm.encode("utf-8")).hexdigest()
 
 
@@ -56,11 +56,14 @@ if HAS_SQLALCHEMY:
             UniqueConstraint("insight_hash", name="uq_insight_hash"),
             Index("ix_human_insights_company_created", "company_id", "created_at"),
             Index("ix_human_insights_created", "created_at"),
+            Index("ix_human_insights_department", "department"),
         )
 
         id: Mapped[str] = mapped_column(String(64), primary_key=True)
         company_id: Mapped[str] = mapped_column(String(120), index=True)
-        seller_id: Mapped[str] = mapped_column(String(120), index=True)
+        author: Mapped[str] = mapped_column(String(120), index=True)
+        department: Mapped[str] = mapped_column(String(80), index=True)
+        sentiment: Mapped[str] = mapped_column(String(40), index=True)
         raw_text: Mapped[str] = mapped_column(Text)
         structured_payload: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
         source: Mapped[str] = mapped_column(String(50))
@@ -99,18 +102,46 @@ class _SQLAlchemyStorage:
         self._engine = create_engine(database_url, **engine_kwargs)
         self._session_factory = sessionmaker(self._engine, expire_on_commit=False, class_=Session)
         Base.metadata.create_all(bind=self._engine)
+        self._ensure_sqlite_schema_compat()
+
+    def _ensure_sqlite_schema_compat(self) -> None:
+        # Sin Alembic en MVP: compatibilidad mínima para tablas existentes.
+        with self._engine.begin() as conn:
+            rows = conn.exec_driver_sql("PRAGMA table_info('intel_human_insights')").fetchall()
+            columns = {str(row[1]) for row in rows}
+            if "author" not in columns:
+                conn.exec_driver_sql("ALTER TABLE intel_human_insights ADD COLUMN author VARCHAR(120)")
+                conn.exec_driver_sql("UPDATE intel_human_insights SET author = 'Unknown' WHERE author IS NULL")
+            if "department" not in columns:
+                conn.exec_driver_sql("ALTER TABLE intel_human_insights ADD COLUMN department VARCHAR(80)")
+                conn.exec_driver_sql("UPDATE intel_human_insights SET department = 'General' WHERE department IS NULL")
+            if "sentiment" not in columns:
+                conn.exec_driver_sql("ALTER TABLE intel_human_insights ADD COLUMN sentiment VARCHAR(40)")
+                conn.exec_driver_sql("UPDATE intel_human_insights SET sentiment = 'Neutral' WHERE sentiment IS NULL")
+
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_human_insights_company_created ON intel_human_insights (company_id, created_at)"
+            )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_human_insights_created ON intel_human_insights (created_at)"
+            )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_human_insights_department ON intel_human_insights (department)"
+            )
 
     def save_human_insight(
         self,
         *,
         company_id: str,
-        seller_id: str,
+        author: str,
+        department: str,
+        sentiment: str,
         raw_text: str,
         structured_payload: list[StructuredInsightItem],
         source: str,
         parser_version: str,
     ) -> HumanInsightStored:
-        insight_hash = _stable_hash(company_id, seller_id, raw_text)
+        insight_hash = _stable_hash(company_id, author, raw_text)
         payload = [item.model_dump() for item in structured_payload]
 
         with self._session_factory() as session:
@@ -121,7 +152,9 @@ class _SQLAlchemyStorage:
                 return HumanInsightStored(
                     id=existing.id,
                     company_id=existing.company_id,
-                    seller_id=existing.seller_id,
+                    author=existing.author,
+                    department=existing.department,
+                    sentiment=existing.sentiment,
                     raw_text=existing.raw_text,
                     structured_payload=[StructuredInsightItem.model_validate(row) for row in existing.structured_payload],
                     source=existing.source,
@@ -132,7 +165,9 @@ class _SQLAlchemyStorage:
             row = HumanInsightORM(
                 id=str(uuid.uuid4()),
                 company_id=company_id,
-                seller_id=seller_id,
+                author=author,
+                department=department,
+                sentiment=sentiment,
                 raw_text=raw_text,
                 structured_payload=payload,
                 source=source,
@@ -146,7 +181,9 @@ class _SQLAlchemyStorage:
             return HumanInsightStored(
                 id=row.id,
                 company_id=row.company_id,
-                seller_id=row.seller_id,
+                author=row.author,
+                department=row.department,
+                sentiment=row.sentiment,
                 raw_text=row.raw_text,
                 structured_payload=[StructuredInsightItem.model_validate(item) for item in payload],
                 source=row.source,
@@ -167,7 +204,9 @@ class _SQLAlchemyStorage:
                 HumanInsightStored(
                     id=row.id,
                     company_id=row.company_id,
-                    seller_id=row.seller_id,
+                    author=row.author,
+                    department=row.department,
+                    sentiment=row.sentiment,
                     raw_text=row.raw_text,
                     structured_payload=[StructuredInsightItem.model_validate(item) for item in row.structured_payload],
                     source=row.source,
@@ -250,7 +289,9 @@ class SQLiteHumanInsightRepository(HumanInsightRepository):
         self,
         *,
         company_id: str,
-        seller_id: str,
+        author: str,
+        department: str,
+        sentiment: str,
         raw_text: str,
         structured_payload: list[StructuredInsightItem],
         source: str,
@@ -258,7 +299,9 @@ class SQLiteHumanInsightRepository(HumanInsightRepository):
     ) -> HumanInsightStored:
         return self._storage.save_human_insight(
             company_id=company_id,
-            seller_id=seller_id,
+            author=author,
+            department=department,
+            sentiment=sentiment,
             raw_text=raw_text,
             structured_payload=structured_payload,
             source=source,

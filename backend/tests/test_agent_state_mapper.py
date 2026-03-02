@@ -45,7 +45,7 @@ class AgentStateMapperTests(unittest.TestCase):
             "problema": "Reducir tiempos",
             "casos_encontrados": [],
             "casos_seleccionados_ids": [],
-            "human_insights": [{"id": "h-1", "seller_id": "s-1"}],
+            "human_insights": [{"id": "h-1", "author": "Carlos Ruiz", "department": "TI"}],
         }
         response = _map_state_response("thread-3", state)
         self.assertEqual(len(response.human_insights), 1)

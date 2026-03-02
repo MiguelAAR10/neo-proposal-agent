@@ -951,3 +951,24 @@ V2.2 se considera cerrada cuando:
     - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (60 tests, 3 skipped por dependencia local).
   - estado:
     - implementado.
+- 2026-03-02 15:26:08 -05: feat(intel): author + department + sentiment + time-decay summary por áreas.
+  - objetivo:
+    - modelar al cliente VIP por departamentos y priorizar señales recientes en el resumen ejecutivo.
+  - razon_negocio:
+    - la situación comercial cambia por área (TI/Finanzas/Marketing), y la data antigua no debe dominar el estado actual.
+  - cambio:
+    - `HumanInsightCreate` reemplaza `seller_id` por `author`.
+    - insights persisten `author`, `department`, `sentiment` en SQLite/SQLAlchemy.
+    - parser Gemini deduce `department` y `sentiment` desde texto crudo.
+    - `update_summary_node` ahora agrega etiqueta temporal por insight (`Fecha: ... (Hoy/Hace X días/Hace X meses)`).
+    - prompt de resumen incorpora regla estricta de `time-decay`:
+      - peso alto a últimos 30 días para estado actual,
+      - histórico con peso menor para evolución.
+    - salida de resumen segmentada por departamentos en `perfil_cliente.resumen_departamentos`.
+    - script `scripts/admin_insight_collector.py` añade dropdown de autor (4 consultores hardcodeados).
+  - tradeoff:
+    - el resumen LLM depende de disponibilidad de Gemini; fallback local mantiene continuidad sin bloquear flujo.
+  - validacion:
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (60 tests, 3 skipped).
+  - estado:
+    - implementado.

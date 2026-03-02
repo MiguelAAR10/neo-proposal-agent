@@ -26,14 +26,18 @@ class HumanInsightRepositoryTests(unittest.TestCase):
 
         first = insight_repo.save(
             company_id="BCP",
-            seller_id="seller-1",
+            author="Carlos Ruiz",
+            department="Finanzas",
+            sentiment="Riesgo",
             raw_text="Cliente preocupado por presupuesto",
             structured_payload=payload,
             source="form",
         )
         second = insight_repo.save(
             company_id="BCP",
-            seller_id="seller-1",
+            author="Carlos Ruiz",
+            department="Finanzas",
+            sentiment="Riesgo",
             raw_text="Cliente preocupado por presupuesto",
             structured_payload=payload,
             source="form",
@@ -43,6 +47,9 @@ class HumanInsightRepositoryTests(unittest.TestCase):
         recent = insight_repo.list_recent(company_id="BCP", limit=5)
         self.assertEqual(len(recent), 1)
         self.assertEqual(recent[0].structured_payload[0].category, "pain_points")
+        self.assertEqual(recent[0].author, "Carlos Ruiz")
+        self.assertEqual(recent[0].department, "Finanzas")
+        self.assertEqual(recent[0].sentiment, "Riesgo")
 
         profile_repo.upsert_profile(
             company_id="BCP",

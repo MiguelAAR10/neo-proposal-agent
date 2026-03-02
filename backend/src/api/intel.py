@@ -5,7 +5,7 @@ from typing import Callable
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from src.models.human_insight import HumanInsightCreate, StructuredInsightItem
+from src.models.human_insight import HumanInsightCreate, ParsedHumanInsight
 from src.repositories.base import HumanInsightRepository
 from src.services.errors import BackendDomainError, IntelStorageError, ValidationDomainError
 from src.services.human_insight_parser import parse_sales_insight_text
@@ -27,7 +27,7 @@ def get_human_insight_repository() -> HumanInsightRepository:
     return human_insight_repository  # type: ignore[return-value]
 
 
-def get_insight_parser() -> Callable[[str], list[StructuredInsightItem]]:
+def get_insight_parser() -> Callable[[str], ParsedHumanInsight]:
     return parse_sales_insight_text
 
 
@@ -36,7 +36,7 @@ async def create_human_insight(
     company_id: str,
     payload: HumanInsightCreate,
     repository: HumanInsightRepository = Depends(get_human_insight_repository),
-    parser: Callable[[str], list[StructuredInsightItem]] = Depends(get_insight_parser),
+    parser: Callable[[str], ParsedHumanInsight] = Depends(get_insight_parser),
 ):
     if not hasattr(repository, "save"):  # soporte para invocacion directa en tests
         repository = get_human_insight_repository()
@@ -51,7 +51,7 @@ async def create_human_insight(
 
     parse_start = time.perf_counter()
     try:
-        structured = parser(payload.text)
+        parsed = parser(payload.text)
     except BackendDomainError as exc:
         intel_metrics.record_error(exc.code)
         _raise_domain_http(exc)
@@ -65,9 +65,11 @@ async def create_human_insight(
     try:
         saved = repository.save(
             company_id=normalized_company,
-            seller_id=payload.seller_id,
+            author=payload.author,
+            department=parsed.department,
+            sentiment=parsed.sentiment,
             raw_text=payload.text,
-            structured_payload=structured,
+            structured_payload=parsed.structured_payload,
             source=payload.source,
             parser_version="v1",
         )
@@ -82,6 +84,9 @@ async def create_human_insight(
         "status": "success",
         "company_id": saved.company_id,
         "insight_id": saved.id,
+        "author": saved.author,
+        "department": saved.department,
+        "sentiment": saved.sentiment,
         "created_at": saved.created_at,
         "structured_payload": [item.model_dump() for item in saved.structured_payload],
         "metrics": {

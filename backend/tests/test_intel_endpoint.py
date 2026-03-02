@@ -27,7 +27,7 @@ class IntelEndpointTests(unittest.TestCase):
 
     def test_create_human_insight_contract_and_idempotency(self) -> None:
         body = {
-            "seller_id": "seller-1",
+            "author": "Carlos Ruiz",
             "text": "El gerente de operaciones teme sobrecostos y pide ROI en 3 meses.",
             "source": "chat_form",
         }
@@ -36,6 +36,9 @@ class IntelEndpointTests(unittest.TestCase):
         first_payload = first.json()
         self.assertEqual(first_payload["status"], "success")
         self.assertEqual(first_payload["company_id"], "BCP")
+        self.assertEqual(first_payload["author"], "Carlos Ruiz")
+        self.assertIn("department", first_payload)
+        self.assertIn("sentiment", first_payload)
         self.assertEqual(len(first_payload["structured_payload"]), 3)
 
         second = self.client.post("/intel/company/bcp/insights", json=body)
@@ -51,7 +54,7 @@ class IntelEndpointTests(unittest.TestCase):
         response = self.client.post(
             "/intel/company/bcp/insights",
             json={
-                "seller_id": "seller-2",
+                "author": "Ana Silva",
                 "text": "Texto de prueba para parser.",
                 "source": "chat_form",
             },

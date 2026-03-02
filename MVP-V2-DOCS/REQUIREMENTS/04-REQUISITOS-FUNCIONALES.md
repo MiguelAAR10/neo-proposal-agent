@@ -100,8 +100,11 @@ Implementado:
 - regla de storage MVP: SQLite + SQLAlchemy + patron Repository (sin Postgres/Mongo/Firestore).
 - idempotencia basica por hash para evitar duplicados de reunion.
 - integracion de insights humanos en nodo `update_summary` para perfil final de empresa.
-- validacion estricta de payload (`seller_id`, `text`, sanitizacion y limites de tamaño).
+- validacion estricta de payload (`author`, `text`, sanitizacion y limites de tamaño).
 - errores tipados para parseo (`INSIGHT_PARSE_FAILED`).
+- `author` obligatorio para trazabilidad del consultor.
+- `department` y `sentiment` deducidos por parser Gemini y persistidos por insight.
+- resumen `update_summary` incorpora criterio de relevancia temporal (time-decay) y segmentacion por departamentos.
 
 ## Referencias
 - `backend/src/api/main.py`

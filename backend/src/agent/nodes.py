@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -192,9 +192,12 @@ def update_summary_node(state: ProposalState) -> ProposalState:
         state["human_insights"] = [
             {
                 "id": insight.id,
-                "seller_id": insight.seller_id,
+                "author": insight.author,
+                "department": insight.department,
+                "sentiment": insight.sentiment,
                 "source": insight.source,
                 "created_at": insight.created_at,
+                "created_at_label": _format_insight_age_label(insight.created_at),
                 "structured_payload": [item.model_dump() for item in insight.structured_payload],
             }
             for insight in recent_insights
@@ -206,6 +209,13 @@ def update_summary_node(state: ProposalState) -> ProposalState:
             base_profile=state.get("perfil_cliente") or {},
             sector_context=state.get("inteligencia_sector") or {},
             recent_insights=state["human_insights"],
+        )
+        merged_profile["resumen_departamentos"] = _generate_departmental_time_decay_summary(
+            company_id=company_id,
+            area=area,
+            sector_context=state.get("inteligencia_sector") or {},
+            recent_insights=state["human_insights"],
+            settings=settings,
         )
         state["perfil_cliente"] = merged_profile
         company_profile_repository.upsert_profile(
@@ -301,7 +311,14 @@ def _merge_profile_with_human_insights(
     pain_points: list[str] = []
     decision_makers: list[str] = []
     sentiments: list[str] = []
+    departments: list[str] = []
     for insight in recent_insights:
+        department = str(insight.get("department") or "").strip()
+        if department:
+            departments.append(department)
+        top_sentiment = str(insight.get("sentiment") or "").strip()
+        if top_sentiment:
+            sentiments.append(top_sentiment)
         structured = insight.get("structured_payload") or []
         for item in structured:
             category = str(item.get("category") or "").strip().lower()
@@ -326,12 +343,136 @@ def _merge_profile_with_human_insights(
         profile["decision_makers"] = list(dict.fromkeys(decision_makers))[:10]
     if sentiments:
         profile["sentimiento_comercial"] = sentiments[0]
+    if departments:
+        profile["departamentos_activos"] = list(dict.fromkeys(departments))[:10]
 
     profile["intel_sources"] = {
         "sector_source": sector_context.get("source", "unknown"),
         "human_insights_count": len(recent_insights),
     }
     return profile
+
+
+def _format_insight_age_label(created_at: str) -> str:
+    try:
+        ts = datetime.fromisoformat(created_at)
+    except Exception:
+        return f"Fecha: {created_at}"
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    delta = now - ts.astimezone(timezone.utc)
+    days = max(0, delta.days)
+    formatted_date = ts.strftime("%d-%b-%Y")
+    if days == 0:
+        age = "Hoy"
+    elif days == 1:
+        age = "Hace 1 día"
+    elif days < 30:
+        age = f"Hace {days} días"
+    else:
+        months = max(1, days // 30)
+        age = f"Hace {months} meses"
+    return f"Fecha: {formatted_date} ({age})"
+
+
+def _format_insights_for_summary_prompt(recent_insights: list[dict[str, Any]]) -> str:
+    if not recent_insights:
+        return "Sin insights humanos recientes."
+    lines: list[str] = []
+    for idx, insight in enumerate(recent_insights, start=1):
+        items = insight.get("structured_payload") or []
+        pain_values = [str(i.get("value") or "").strip() for i in items if str(i.get("category") or "") == "pain_points"]
+        decisor_values = [
+            str(i.get("value") or "").strip() for i in items if str(i.get("category") or "") == "decision_makers"
+        ]
+        lines.append(
+            (
+                f"[Insight {idx}] {insight.get('created_at_label', insight.get('created_at', 'N/A'))}\n"
+                f"- Autor: {insight.get('author', 'N/A')}\n"
+                f"- Departamento: {insight.get('department', 'General')}\n"
+                f"- Sentimiento: {insight.get('sentiment', 'Neutral')}\n"
+                f"- Pain points: {pain_values[:3]}\n"
+                f"- Decisores: {decisor_values[:3]}"
+            )
+        )
+    return "\n\n".join(lines)
+
+
+def _generate_departmental_time_decay_summary(
+    *,
+    company_id: str,
+    area: str,
+    sector_context: dict[str, Any],
+    recent_insights: list[dict[str, Any]],
+    settings,
+) -> dict[str, Any]:
+    if not recent_insights:
+        return {
+            "departments": [],
+            "historical_evolution": "Sin historial suficiente de insights humanos.",
+            "source": "no_human_insights",
+        }
+
+    insights_block = _format_insights_for_summary_prompt(recent_insights)
+    if not settings.gemini_api_key:
+        grouped: dict[str, list[str]] = {}
+        for insight in recent_insights:
+            dept = str(insight.get("department") or "General")
+            grouped.setdefault(dept, []).append(str(insight.get("sentiment") or "Neutral"))
+        return {
+            "departments": [
+                {
+                    "department": dept,
+                    "current_state": f"Señales recientes: {signals[:3]}",
+                }
+                for dept, signals in grouped.items()
+            ],
+            "historical_evolution": (
+                "Resumen generado en fallback local. "
+                "Priorizar insights de últimos 30 días para el estado actual."
+            ),
+            "source": "fallback_local_time_decay",
+        }
+
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash",
+        temperature=0.2,
+        google_api_key=settings.gemini_api_key,
+    )
+    prompt = (
+        "Eres un analista comercial senior. Genera un resumen JSON segmentado por departamentos.\n"
+        "Regla estricta de Time-Decay:\n"
+        "1) Da PESO ALTISIMO a insights de los últimos 30 días para definir el estado actual.\n"
+        "2) Insights antiguos tienen peso menor y sirven solo para evolución histórica.\n"
+        "3) No mezcles departamentos; separa TI, Finanzas, Marketing, Operaciones, Comercial o General.\n"
+        "4) Responde SOLO JSON con schema:\n"
+        "{\"departments\":[{\"department\":\"...\",\"current_state\":\"...\",\"priority_signals_recent\":[\"...\"],\"historical_notes\":\"...\"}],"
+        "\"historical_evolution\":\"...\"}\n\n"
+        f"EMPRESA: {company_id}\n"
+        f"AREA PRINCIPAL: {area}\n"
+        f"CONTEXTO SECTORIAL: {sector_context}\n\n"
+        f"INSIGHTS HUMANOS (ordenados por recencia):\n{insights_block}\n"
+    )
+    try:
+        response = llm.invoke(prompt)
+        text = str(response.content).strip()
+        if text.startswith("```"):
+            text = text.replace("```json", "").replace("```", "").strip()
+        import json
+
+        parsed = json.loads(text)
+        if not isinstance(parsed, dict):
+            raise ValueError("Formato JSON inválido")
+        parsed.setdefault("source", "llm_time_decay_v1")
+        return parsed
+    except Exception as exc:
+        logger.warning("Fallo resumen time-decay LLM para %s: %s", company_id, exc)
+        return {
+            "departments": [],
+            "historical_evolution": "No se pudo generar resumen por LLM; usar señales directas de insights.",
+            "source": "llm_error_fallback",
+        }
 
 def _format_profile_for_prompt(perfil: dict | None) -> str:
     if not perfil or not perfil.get("empresa"):

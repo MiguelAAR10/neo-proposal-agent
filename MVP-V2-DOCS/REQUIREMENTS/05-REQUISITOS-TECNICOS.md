@@ -62,11 +62,12 @@ Operaciones:
 
 ### Human insights (nuevo)
 - tabla SQLite: `intel_human_insights`.
-- campos minimos: `id`, `company_id`, `seller_id`, `raw_text`, `structured_payload(JSON)`, `created_at`.
+- campos minimos: `id`, `company_id`, `author`, `department`, `sentiment`, `raw_text`, `structured_payload(JSON)`, `created_at`.
 - `structured_payload` debe contener array con categorias minimas:
   - `pain_points`
   - `decision_makers`
   - `sentiment`
+- `update_summary` debe aplicar `time-decay`: prioridad alta a insights de últimos 30 dias para estado actual.
 
 ## 5) Requisitos de busqueda y SLA
 

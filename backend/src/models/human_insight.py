@@ -7,6 +7,15 @@ from pydantic import BaseModel, Field, field_validator
 
 
 InsightCategory = Literal["pain_points", "decision_makers", "sentiment"]
+DepartmentType = Literal[
+    "TI",
+    "Finanzas",
+    "Marketing",
+    "Operaciones",
+    "Comercial",
+    "General",
+]
+SentimentType = Literal["Riesgo", "Urgente", "Positivo", "Bloqueo", "Neutral"]
 
 
 class StructuredInsightItem(BaseModel):
@@ -24,7 +33,7 @@ class StructuredInsightItem(BaseModel):
 
 
 class HumanInsightCreate(BaseModel):
-    seller_id: str = Field(..., min_length=2, max_length=64)
+    author: str = Field(..., min_length=2, max_length=80)
     text: str = Field(..., min_length=10, max_length=1800)
     source: str = Field(default="sales_form", min_length=2, max_length=50)
 
@@ -33,12 +42,12 @@ class HumanInsightCreate(BaseModel):
     def _normalize_source(cls, value: str) -> str:
         return str(value).strip().lower()
 
-    @field_validator("seller_id")
+    @field_validator("author")
     @classmethod
-    def _normalize_seller_id(cls, value: str) -> str:
+    def _normalize_author(cls, value: str) -> str:
         cleaned = " ".join(str(value).split())
         if not cleaned:
-            raise ValueError("seller_id vacio")
+            raise ValueError("author vacio")
         return cleaned
 
     @field_validator("text")
@@ -53,12 +62,20 @@ class HumanInsightCreate(BaseModel):
 class HumanInsightStored(BaseModel):
     id: str
     company_id: str
-    seller_id: str
+    author: str
+    department: DepartmentType | str
+    sentiment: SentimentType | str
     raw_text: str
     structured_payload: list[StructuredInsightItem]
     source: str
     created_at: str
     parser_version: str = "v1"
+
+
+class ParsedHumanInsight(BaseModel):
+    department: DepartmentType | str
+    sentiment: SentimentType | str
+    structured_payload: list[StructuredInsightItem]
 
 
 class CompanyProfileStored(BaseModel):
