@@ -1018,3 +1018,25 @@ V2.2 se considera cerrada cuando:
     - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK.
   - estado:
     - implementado.
+- 2026-03-02 16:49:07 -05:00: feat(tools): dashboard Streamlit con pestaña Macro Radar para validación de producto.
+  - objetivo:
+    - habilitar validación visual rápida de outputs del grafo `macro_radar_graph` por equipo de producto/arquitectura.
+  - razon_negocio:
+    - acelera iteración de hipótesis comerciales sin depender del frontend productivo ni de despliegues externos.
+  - cambio:
+    - `scripts/admin_insight_tester.py` migra a `st.tabs`:
+      - `🗣️ Sales Insights (Micro)` con el flujo HITL actual intacto.
+      - `📡 Macro-Intelligence Radar` con ejecución de `POST /intel/radar/run`.
+    - se agrega visualización de radiografía:
+      - estado exitoso,
+      - 3 métricas clave en columnas,
+      - bloques de `Desafíos Estructurales` y `Estrategia Ganadora`,
+      - expander con JSON crudo para auditoría técnica.
+  - tradeoff:
+    - herramienta interna desechable: UX optimizada para validación, no para operación productiva final.
+  - error detectado/evitado:
+    - se evita mezclar pruebas macro con carpetas de frontend estable y se mantiene aislamiento de merge.
+  - validacion:
+    - `python -m py_compile scripts/admin_insight_tester.py` => OK.
+  - estado:
+    - implementado.
