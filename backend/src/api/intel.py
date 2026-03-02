@@ -6,11 +6,11 @@ from typing import Callable
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.models.human_insight import HumanInsightCreate, ParsedHumanInsight
-from src.repositories.base import HumanInsightRepository
+from src.repositories.base import CompanyProfileRepository, HumanInsightRepository
 from src.services.errors import BackendDomainError, IntelStorageError, ValidationDomainError
 from src.services.human_insight_parser import parse_sales_insight_text
 from src.services.intel_metrics import intel_metrics
-from src.services.intel_storage import human_insight_repository
+from src.services.intel_storage import company_profile_repository, human_insight_repository
 from src.services.prioritized_clients import normalize_company_name
 
 router = APIRouter()
@@ -25,6 +25,10 @@ def _raise_domain_http(error: BackendDomainError) -> None:
 
 def get_human_insight_repository() -> HumanInsightRepository:
     return human_insight_repository  # type: ignore[return-value]
+
+
+def get_company_profile_repository() -> CompanyProfileRepository:
+    return company_profile_repository  # type: ignore[return-value]
 
 
 def get_insight_parser() -> Callable[[str], ParsedHumanInsight]:
@@ -93,4 +97,77 @@ async def create_human_insight(
             "parse_ms": parse_ms,
             "store_ms": store_ms,
         },
+    }
+
+
+@router.get("/company/{company_id}/profile")
+async def get_company_profile(
+    company_id: str,
+    area: str = "General",
+    refresh: bool = True,
+    repository: CompanyProfileRepository = Depends(get_company_profile_repository),
+):
+    if not hasattr(repository, "get_profile"):
+        repository = get_company_profile_repository()
+
+    normalized_company = normalize_company_name(company_id)
+    normalized_area = (area or "General").strip() or "General"
+    if not normalized_company:
+        error = ValidationDomainError("company_id invalido")
+        intel_metrics.record_error(error.code)
+        _raise_domain_http(error)
+
+    refresh_result: dict[str, object] | None = None
+    if refresh:
+        try:
+            from src.agent.nodes import update_summary_node
+
+            state = {
+                "empresa": normalized_company,
+                "area": normalized_area,
+                "perfil_cliente": {"empresa": normalized_company, "area": normalized_area},
+                "inteligencia_sector": {
+                    "industria": "General",
+                    "area": normalized_area,
+                    "source": "intel_profile_endpoint",
+                    "tendencias": [],
+                    "benchmarks": {},
+                    "oportunidades": [],
+                },
+                "error": "",
+            }
+            result = update_summary_node(state)
+            refresh_result = {
+                "status": "ok",
+                "human_insights_used": len(result.get("human_insights", [])),
+            }
+        except Exception as exc:
+            code = "PROFILE_REFRESH_ERROR"
+            intel_metrics.record_error(code)
+            refresh_result = {"status": "error", "detail": str(exc)}
+
+    try:
+        profile = repository.get_profile(company_id=normalized_company, area=normalized_area)
+    except Exception as exc:
+        error = IntelStorageError(f"Error leyendo perfil: {exc}")
+        intel_metrics.record_error(error.code)
+        _raise_domain_http(error)
+        return {}
+
+    if profile is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "PROFILE_NOT_FOUND",
+                "message": "No existe perfil consolidado para la empresa/area solicitada.",
+            },
+        )
+
+    return {
+        "status": "success",
+        "company_id": profile.company_id,
+        "area": profile.area,
+        "updated_at": profile.updated_at,
+        "profile_payload": profile.profile_payload,
+        "refresh": refresh_result,
     }

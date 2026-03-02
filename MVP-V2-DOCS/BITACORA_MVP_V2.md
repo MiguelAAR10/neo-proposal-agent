@@ -972,3 +972,23 @@ V2.2 se considera cerrada cuando:
     - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK (60 tests, 3 skipped).
   - estado:
     - implementado.
+- 2026-03-02 16:17:07 -05:00: feat(intel): endpoint profile + estabilidad de tester SQLite y pruebas de contrato sin red.
+  - objetivo:
+    - habilitar lectura operativa del perfil consolidado y eliminar fallas de prueba por path SQLite o llamadas externas.
+  - razon_negocio:
+    - ventas necesita observar resumen final por empresa sin depender del frontend productivo ni de conectividad a Gemini durante QA.
+  - cambio:
+    - se agrega `GET /intel/company/{company_id}/profile` en router modular de intel (con `refresh=true|false`).
+    - contract tests cubren `200` y `404 PROFILE_NOT_FOUND` para el endpoint de perfil.
+    - tests de `POST /insights` pasan a parser stub determinista para evitar bloqueos por API key/red.
+    - documentación técnica/funcional actualizada con contrato de lectura de perfil.
+    - `scripts/admin_insight_tester.py` robustecido para normalizar URL SQLite y crear directorios padre del archivo de base antes de `drop_all/create_all`.
+  - tradeoff:
+    - el refresh del perfil atrapa errores y responde `refresh.status=error` para no bloquear lectura del último snapshot persistido.
+  - error detectado/evitado:
+    - se corrige `sqlite3.OperationalError: unable to open database file` y se evita test flaky por dependencia externa de Gemini.
+  - validacion:
+    - `python -m unittest backend/tests/test_intel_endpoint.py -v` => OK.
+    - `python -m unittest discover -s backend/tests -p 'test_*.py'` => OK.
+  - estado:
+    - implementado.

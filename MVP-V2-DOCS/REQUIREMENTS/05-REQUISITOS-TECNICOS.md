@@ -18,7 +18,8 @@ Version objetivo: MVP V2.1 estable + pipeline backend formal
 
 Core:
 - `POST /api/search`
-- `POST /intel/company/{company_id}/insights` (aprobado, en implementacion)
+- `POST /intel/company/{company_id}/insights` (implementado)
+- `GET /intel/company/{company_id}/profile` (implementado, `refresh=true|false`)
 
 Orquestacion:
 - `POST /agent/start`
@@ -63,6 +64,7 @@ Operaciones:
 ### Human insights (nuevo)
 - tabla SQLite: `intel_human_insights`.
 - campos minimos: `id`, `company_id`, `author`, `department`, `sentiment`, `raw_text`, `structured_payload(JSON)`, `created_at`.
+- lectura de perfil consolidado via repository: `GET /intel/company/{company_id}/profile`.
 - `structured_payload` debe contener array con categorias minimas:
   - `pain_points`
   - `decision_makers`

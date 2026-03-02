@@ -97,6 +97,7 @@ Implementado:
 - estructuracion asistida por Gemini a JSON array (pain points, decisores, sentimiento).
 - persistencia en tabla `intel_human_insights` vinculada a `company_id`.
 - endpoint `POST /intel/company/{company_id}/insights`.
+- endpoint `GET /intel/company/{company_id}/profile` para lectura de perfil consolidado intel.
 - regla de storage MVP: SQLite + SQLAlchemy + patron Repository (sin Postgres/Mongo/Firestore).
 - idempotencia basica por hash para evitar duplicados de reunion.
 - integracion de insights humanos en nodo `update_summary` para perfil final de empresa.
