@@ -162,6 +162,14 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
         + 0.10 * recencia
     )
 
+    # Determinar match_type segun score final
+    if final_score >= 0.85:
+        match_type = "exacto"
+    elif final_score >= 0.70:
+        match_type = "relacionado"
+    else:
+        match_type = "inspiracional"
+
     return {
         "case_id": case_id,
         "id": case_id,
@@ -183,6 +191,9 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
         "score_label": score_label,
         "confidence": confidence,
         "score_final": round(final_score, 4),
+        "score_client_fit": round(final_score, 4),
+        "match_type": match_type,
+        "match_reason": f"Afinidad de {int(final_score*100)}% basada en industria ({industria}), área ({area}) y similitud semántica.",
         "score_breakdown": {
             "similitud_semantica": round(similitud_semantica, 4),
             "match_industria": round(match_industria, 4),
