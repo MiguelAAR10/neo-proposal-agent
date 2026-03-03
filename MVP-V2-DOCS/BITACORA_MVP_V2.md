@@ -1,8 +1,8 @@
 # BITACORA MVP V2 - ESTADO REAL, ERRORES Y TRAZABILIDAD
 
-Fecha de corte: 2026-03-02  
-Version objetivo activa: `MVP V2.1 (estable)`  
-Commit baseline operativo: `15bfc20b`
+Fecha de corte: 2026-03-03  
+Version objetivo activa: `MVP V2.1 integrado`  
+Commit baseline operativo: `19cb88d5`
 
 ## 1) Proposito
 
@@ -22,7 +22,6 @@ Implementado:
 - Segmentacion visual NEO/AI y `top_match_global`.
 
 En progreso / pendiente:
-- Chat de frontend aun mock (`ChatPanel.tsx`), no conectado a endpoint real.
 - Falta tablero de metricas p95/p99 persistente.
 - Falta pipeline de validacion asincronica de links (`link_status`) fuera de ingesta.
 
@@ -96,6 +95,109 @@ V2.2 se considera cerrada cuando:
 - Existe job de verificacion de links y se actualiza `link_status`.
 
 ## 8) Registro de actualizaciones de esta bitacora (fecha y hora obligatorias)
+
+- 2026-03-03 15:15 -0500: reconstrucción frontend corporativa Two-Panel con DnD tipado y arquitectura modular.
+  - objetivo:
+    - reemplazar implementación inestable por layout SaaS B2B definitivo, escalable y mantenible.
+  - cambio:
+    - se implementó arquitectura modular con `useDashboardController` para separar lógica UI/API/estado.
+    - nuevo sistema de tipos estricto en `src/types/dashboard.ts` (casos, contexto sectorial y estado dashboard).
+    - header corporativo unificado con logo NEO, barra central de empresa objetivo y acciones operativas.
+    - panel izquierdo: radar intelligence, controles, textarea problema, casos drag y fichas de contexto drag.
+    - panel derecho: drop form, generación de propuesta, resultado dinámico y chat asistente.
+    - drop de fichas (caso/contexto) integrado a `POST /intel/company/{id}/insights`.
+    - fondo con textura animada sutil + glassmorphism + micro-interacciones.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+
+- 2026-03-03 13:35 -0500: visibilidad permanente de opciones de empresa/area y apertura comercial del formulario.
+  - objetivo:
+    - garantizar que siempre existan opciones visibles para el consultor y evitar flujo bloqueado por catalogo remoto.
+  - cambio:
+    - `InitialForm` ahora muestra lista de empresas priorizadas siempre (fallback local Top12) aun sin API.
+    - se agrega selector con opcion `Otra empresa (manual)` para no restringir discovery comercial.
+    - `area` pasa a input con sugerencias (datalist), no select cerrado.
+    - `rubro` editable para permitir exploracion por hipótesis de negocio.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+
+- 2026-03-03 13:22 -0500: apertura del algoritmo de busqueda para priorizar problema sobre empresa/sector.
+  - objetivo:
+    - evitar recomendaciones cerradas por cliente/vertical y entregar más opciones de valor comercial.
+  - cambio:
+    - `backend/src/agent/nodes.py`: nuevo reranking con peso dominante en similitud del problema (`score_raw`) y bonus contextuales suaves.
+    - `backend/src/api/main.py` + `backend/src/agent/nodes.py`: clientes no priorizados ahora permitidos con warning (sin bloqueo hard).
+    - `backend/src/services/search_service.py`: score base menos dependiente de industria/area, más centrado en problema + evidencia.
+    - `frontend-web/src/components/forms/InitialForm.tsx`: empresa editable con sugerencias (`datalist`) y rubro editable.
+  - validacion:
+    - `python -m pytest -q backend/tests/test_api_contracts.py backend/tests/test_search_service.py backend/tests/test_agent_state_mapper.py` => 28 passed.
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+
+- 2026-03-03 12:55 -0500: correccion de bloqueo en UI para busqueda/seleccion de casos.
+  - objetivo:
+    - evitar que la pantalla quede bloqueada cuando falla la carga del catalogo de clientes.
+  - problema detectado:
+    - si `GET /api/prioritized-clients` fallaba, el boton de busqueda quedaba deshabilitado y no aparecian opciones utilizables.
+    - adicionalmente, la UI intentaba cargar logos inexistentes (`/logos/companies/*.png`) generando ruido 404.
+  - cambio:
+    - `InitialForm.tsx`: se agrega `FALLBACK_CATALOG` local minimo para mantener flujo operativo.
+    - `InitialForm.tsx`: se habilita submit aunque no exista catalogo remoto.
+    - `page.tsx`: se elimina dependencia de logos PNG inexistentes y se usa avatar por iniciales.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+    - smoke backend:
+      - `GET /api/prioritized-clients` => 200 con 12 clientes.
+      - `POST /agent/start` => 200 con `casos_encontrados` poblado.
+  - estado:
+    - implementado.
+
+- 2026-03-03 12:30 -0500: validacion integral de integracion frontend+backend y ajuste de timeout de busqueda.
+  - objetivo:
+    - asegurar que toda la integracion V2 funcione en pruebas y en runtime local.
+  - cambio:
+    - se ejecuto suite completa backend (`65 passed`) y validacion frontend (`lint` + `build` OK).
+    - se ejecuto smoke test real de API: `/health` y `/api/search`.
+    - se detecto timeout operativo en Qdrant con umbral fijo de 1.0s (`HTTP 504 EXTERNAL_TIMEOUT`).
+    - se corrigio hardcode en `search_service` para usar settings configurables:
+      - `search_embedding_timeout_sec`
+      - `search_qdrant_timeout_sec`
+    - default actualizado a 2.0s para mejorar estabilidad local sin romper contratos.
+  - validacion:
+    - backend tests: `python -m pytest -q backend/tests` => `65 passed`.
+    - frontend: `npm --prefix frontend-web run lint` => OK.
+    - frontend: `npm --prefix frontend-web run build` => OK.
+    - smoke runtime:
+      - `GET /health` => `200 healthy`
+      - `POST /api/search` => `200` (antes del ajuste devolvia `504`).
+  - riesgo residual:
+    - latencia observada en smoke: `embedding_ms ~1129`, `qdrant_ms ~1276`, `latencia_ms ~2406`.
+    - requiere seguimiento con metricas persistentes para controlar degradacion por entorno.
+  - estado:
+    - implementado.
+
+- 2026-03-03: consolidacion operativa de ramas en `feat/mvp2-frontend-art-two-panel`.
+  - objetivo:
+    - unificar en una sola rama activa el frontend art y backend intelligence para reducir deriva.
+  - cambio:
+    - merge exitoso de `origin/feature/company-intel-orchestration-v1` en rama frontend.
+    - limpieza de ramas locales redundantes.
+    - actualizacion documental de prioridades por valor (index + requisitos funcionales + tecnicos).
+  - riesgo:
+    - dependencia de metricas aun in-memory y deuda de observabilidad persistente.
+  - validacion:
+    - estado local limpio y rama activa adelante del remoto.
+  - estado:
+    - implementado.
 
 - 2026-02-28: se agrega matriz de trazabilidad por commit y registro explicito de errores/aprendizajes para control de versiones V2.
 - 2026-02-28: backend plan fase inicial ejecutada.
