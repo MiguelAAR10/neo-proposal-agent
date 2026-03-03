@@ -1,0 +1,13 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="160" y2="160" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7EA2FF"/>
+      <stop offset="1" stop-color="#4AE3FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="80" cy="80" r="74" fill="#0B1022" stroke="url(#badgeGrad)" stroke-width="8"/>
+  <text x="80" y="66" text-anchor="middle" fill="url(#badgeGrad)" font-size="24" font-family="Arial, sans-serif" font-weight="700">NEO</text>
+  <text x="80" y="102" text-anchor="middle" fill="white" font-size="44" font-family="Arial, sans-serif" font-weight="800">25</text>
+  <text x="80" y="124" text-anchor="middle" fill="#B7CBFF" font-size="12" font-family="Arial, sans-serif">AÑOS</text>
+</svg>
+

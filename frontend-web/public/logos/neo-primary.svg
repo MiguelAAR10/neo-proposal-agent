@@ -1,0 +1,15 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="neoGrad" x1="0" y1="0" x2="640" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7EA2FF"/>
+      <stop offset="1" stop-color="#4AE3FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="628" height="168" rx="26" fill="#0B1022" stroke="url(#neoGrad)" stroke-width="12"/>
+  <g fill="url(#neoGrad)">
+    <path d="M80 132V48H102L162 108V48H188V132H166L106 72V132H80Z"/>
+    <path d="M228 132V48H336V70H254V82H328V102H254V110H338V132H228Z"/>
+    <path d="M450 136C405 136 372 103 372 90C372 77 405 44 450 44C495 44 528 77 528 90C528 103 495 136 450 136ZM450 112C478 112 502 99 502 90C502 81 478 68 450 68C422 68 398 81 398 90C398 99 422 112 450 112Z"/>
+  </g>
+</svg>
+

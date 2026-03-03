@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
@@ -37,6 +38,9 @@ export default function RootLayout({
       >
         <Providers>
           {children}
+          <div className="neo-anniversary-badge" aria-hidden="true">
+            <Image src="/logos/neo-25.svg" alt="NEO 25 años" width={92} height={92} />
+          </div>
         </Providers>
       </body>
     </html>
