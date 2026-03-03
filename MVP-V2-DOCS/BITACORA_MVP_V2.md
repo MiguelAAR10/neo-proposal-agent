@@ -1040,3 +1040,23 @@ V2.2 se considera cerrada cuando:
     - `python -m py_compile scripts/admin_insight_tester.py` => OK.
   - estado:
     - implementado.
+- 2026-03-03 11:20:00 -05:00: feat(integration): unificación e2e backend intel + frontend v2 (art direction).
+  - objetivo:
+    - consolidar la "fuente de verdad" unificada donde el motor de inteligencia avanzado alimenta la nueva interfaz de 2 paneles premium.
+  - razon_negocio:
+    - asegura que las propuestas generadas no solo sean visualmente atractivas, sino que estén respaldadas por datos reales de ventas (insights humanos) y señales macro del radar, eliminando la discrepancia entre diseño y capacidad técnica.
+  - cambio:
+    - fusión (merge) de rama `feat/mvp2-frontend-art-two-panel` sobre `feature/company-intel-orchestration-v1`.
+    - rediseño de esquemas en `backend/src/services/search_service.py` para incluir `score_client_fit` y `match_type` dinámicos.
+    - alineación de etiquetas JSON (`tecnologias`, `match_reason`) con las interfaces de `CaseFlashCard.tsx` y `agentStore.ts`.
+    - resolución de conflictos en bitácora de versiones preservando trazabilidad de ambos flujos.
+  - tradeoff:
+    - se sacrifica la simplicidad de los esquemas originales del backend para dar soporte a la densidad de información requerida por la nueva UI (badges, scores desglosados, razones de afinidad).
+  - error detectado/evitado:
+    - se evita el "rompimiento de UI" al asegurar que el backend devuelva exactamente las llaves que el frontend espera tras su rediseño visual radical en casa.
+  - validacion:
+    - `python -m unittest discover -s backend/tests` => OK (65 tests).
+    - `npm --prefix frontend-web run build` => OK.
+    - sincronización exitosa a repositorio personal de GitHub (`MiguelAAR10`) vía SSH.
+  - estado:
+    - implementado (MVP V2 unificado).
