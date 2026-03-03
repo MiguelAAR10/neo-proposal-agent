@@ -96,6 +96,36 @@ _DISPLAY_NAME: dict[str, str] = {
     "SODIMAC": "Sodimac",
 }
 
+_LOGO_FILE: dict[str, str] = {
+    "BCP": "bcp.png",
+    "INTERBANK": "interbank.png",
+    "BBVA": "bbva.png",
+    "ALICORP": "alicorp.png",
+    "RIMAC": "rimac.png",
+    "PACIFICO": "pacifico.png",
+    "SCOTIABANK": "scotiabank.png",
+    "MIBANCO": "mibanco.png",
+    "CREDICORP": "credicorp.png",
+    "PLAZA VEA": "plaza-vea.png",
+    "FALABELLA": "falabella.png",
+    "SODIMAC": "sodimac.png",
+}
+
+_BRAND_COLOR: dict[str, str] = {
+    "BCP": "#0057B8",
+    "INTERBANK": "#00A651",
+    "BBVA": "#072146",
+    "ALICORP": "#1F4E9E",
+    "RIMAC": "#E31E24",
+    "PACIFICO": "#00A3E0",
+    "SCOTIABANK": "#EC111A",
+    "MIBANCO": "#F59E0B",
+    "CREDICORP": "#1D4ED8",
+    "PLAZA VEA": "#D21F26",
+    "FALABELLA": "#7EBE2B",
+    "SODIMAC": "#E10600",
+}
+
 
 def normalize_company_name(value: str) -> str:
     raw = (value or "").strip()
@@ -121,6 +151,9 @@ def get_prioritized_clients_catalog() -> list[dict[str, Any]]:
                 "vertical": ctx.get("vertical", "N/A"),
                 "priorities": list(ctx.get("priorities", [])),
                 "constraints": list(ctx.get("constraints", [])),
+                "logo_file": _LOGO_FILE.get(key),
+                "logo_path": f"/logos/companies/{_LOGO_FILE.get(key)}" if _LOGO_FILE.get(key) else None,
+                "brand_color": _BRAND_COLOR.get(key),
             }
         )
     return catalog
@@ -140,5 +173,12 @@ def get_prioritized_client_context(company_name: str) -> dict[str, Any]:
         "vertical": base.get("vertical"),
         "priorities": list(base.get("priorities", [])),
         "constraints": list(base.get("constraints", [])),
+        "logo_file": _LOGO_FILE.get(normalized),
+        "logo_path": (
+            f"/logos/companies/{_LOGO_FILE.get(normalized)}"
+            if _LOGO_FILE.get(normalized)
+            else None
+        ),
+        "brand_color": _BRAND_COLOR.get(normalized),
         "source": "prioritized_clients_v1",
     }

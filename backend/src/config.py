@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     
     gemini_api_key: str | None = None
+    gemini_chat_model: str = "gemini-2.0-flash"
     gemini_embedding_model: str = "models/gemini-embedding-001"
     tavily_api_key: str | None = None
     perplexity_api_key: str | None = None

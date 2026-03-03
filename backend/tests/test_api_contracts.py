@@ -99,7 +99,7 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(exc.status_code, 400)
         self.assertEqual(exc.detail["code"], "BUSINESS_RULE_ERROR")
 
-    def test_select_cases_rejects_selected_case_without_url(self) -> None:
+    def test_select_cases_allows_selected_case_without_url_with_warning(self) -> None:
         mock_state = type(
             "S",
             (),
@@ -113,16 +113,17 @@ class ApiContractTests(unittest.TestCase):
             },
         )()
 
-        async def run() -> None:
+        async def run():
             with patch("src.api.main.graph.aget_state", new=AsyncMock(return_value=mock_state)):
-                await select_cases("thread-1", SelectRequest(case_ids=["CASE-1"]))
+                with patch("src.api.main.graph.aupdate_state", new=AsyncMock(return_value=None)):
+                    with patch(
+                        "src.api.main.graph.ainvoke",
+                        new=AsyncMock(return_value={"casos_encontrados": mock_state.values["casos_encontrados"]}),
+                    ):
+                        return await select_cases("thread-1", SelectRequest(case_ids=["CASE-1"]))
 
-        with self.assertRaises(HTTPException) as ctx:
-            asyncio.run(run())
-
-        exc = ctx.exception
-        self.assertEqual(exc.status_code, 400)
-        self.assertEqual(exc.detail["code"], "BUSINESS_RULE_ERROR")
+        result = asyncio.run(run())
+        self.assertEqual(result.status, "completed")
 
     def test_contextual_chat_not_found_contract(self) -> None:
         async def run() -> None:

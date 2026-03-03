@@ -30,6 +30,7 @@ class ProposalState(TypedDict):
     chat_messages: NotRequired[list[dict[str, str]]]
     
     # Control
+    warning: NotRequired[str]
     error: NotRequired[str]
     thread_id: NotRequired[str]
     updated_at: NotRequired[str]

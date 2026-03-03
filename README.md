@@ -14,7 +14,7 @@ Este repositorio mantiene artefactos de V1 (Streamlit) por continuidad históric
   - `GET /agent/{thread_id}/state`
 - Frontend Next.js integrado para:
   - intake inicial
-  - curación/selección de casos en flashcards dinámicas (2 paneles)
+  - curación/selección de casos en barra lateral desplegable + flashcards dinámicas
   - generación de propuesta final
 - chat contextual y refinamiento conectados a backend real.
 - panel operativo `/ops` con:
@@ -42,6 +42,7 @@ MVP-V2-DOCS/     Requisitos, arquitectura y bitácora V2
 QDRANT_URL="..."
 QDRANT_API_KEY="..."
 GEMINI_API_KEY="..."
+GEMINI_CHAT_MODEL="gemini-2.0-flash"
 REDIS_URL="redis://localhost:6379"
 NEXT_PUBLIC_API_URL="http://localhost:8000"
 ```
@@ -78,10 +79,11 @@ npm run dev
 ## UX actual (Frontend principal)
 
 - Estructura de 2 paneles:
-  - Izquierdo: discovery y selección de casos.
+  - Izquierdo: barra lateral de casos desplegable (visible/oculta).
   - Derecho: generación/refinamiento y propuesta viva.
 - Fichas con modo flashcard (frente/reverso) para reducir densidad textual.
-- Siempre prioriza evidencia URL y badges de afinidad (`exacto`, `relacionado`, `inspiracional`).
+- Muestra etiquetas de afinidad (`exacto`, `relacionado`, `inspiracional`) y evidencia URL cuando existe.
+- Si no hay match exacto, backend devuelve casos relacionados/inspiracionales para evitar estado vacío.
 
 ## Pruebas rápidas
 
@@ -96,6 +98,7 @@ Nota: esta prueba depende de servicios externos (Qdrant/Gemini). Si no están ac
 - Estado y decisiones V2: `MVP-V2-DOCS/BITACORA_MVP_V2.md`
 - Índice general: `MVP-V2-DOCS/00-INDEX-DOCUMENTATION.md`
 - Arquitectura objetivo: `MVP-V2-DOCS/REQUIREMENTS/02-ARQUITECTURA-SISTEMA.md`
+- Guía de logos/datos para empresas priorizadas: `MVP-V2-DOCS/REQUIREMENTS/06-GUIA-DATOS-LOGOS-EMPRESA.md`
 
 ## Convención de evolución
 

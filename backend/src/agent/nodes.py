@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import logging
-from typing import Any
+from typing import Any, Literal
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.agent.state import ProposalState
 from src.config import get_settings
@@ -49,11 +49,11 @@ def retrieve_node(state: ProposalState) -> ProposalState:
 
     try:
         # 1. Buscar casos via primitiva compartida (/api/search)
-        search_payload = search_cases_sync(
+        search_payload = _search_with_progressive_thresholds(
             problema=state["problema"],
             switch=state["switch"],
-            limit=6,
-            score_threshold=0.50,
+            thresholds=(0.50, 0.40, 0.30, 0.20),
+            limit=8,
         )
         reranked_all = _rerank_cases_for_client(
             search_payload.get("casos", []),
@@ -73,10 +73,9 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             area=state.get("area", ""),
             rubro=state.get("rubro", ""),
         )
-        # Para cards seleccionables exigimos evidencia URL.
-        filtered_cases = [c for c in reranked_all if c.get("url_slide")]
-        filtered_neo = [c for c in reranked_neo if c.get("url_slide")]
-        filtered_ai = [c for c in reranked_ai if c.get("url_slide")]
+        filtered_cases = _prioritize_cases_with_evidence(reranked_all)
+        filtered_neo = _prioritize_cases_with_evidence(reranked_neo)
+        filtered_ai = _prioritize_cases_with_evidence(reranked_ai)
 
         # Fallback comercial: nunca dejar la UI sin fichas; ampliar búsqueda por rubro/área.
         if not filtered_cases:
@@ -84,11 +83,11 @@ def retrieve_node(state: ProposalState) -> ProposalState:
                 f"Iniciativas de alto impacto para {state.get('rubro', 'negocio')} "
                 f"en el área {state.get('area', 'operaciones')} con evidencia verificable"
             )
-            fallback_payload = search_cases_sync(
+            fallback_payload = _search_with_progressive_thresholds(
                 problema=fallback_query,
                 switch="both",
-                limit=8,
-                score_threshold=0.35,
+                thresholds=(0.40, 0.30, 0.20, 0.0),
+                limit=10,
             )
             fallback_cases = _rerank_cases_for_client(
                 fallback_payload.get("casos", []),
@@ -108,9 +107,9 @@ def retrieve_node(state: ProposalState) -> ProposalState:
                 area=state.get("area", ""),
                 rubro=state.get("rubro", ""),
             )
-            filtered_cases = [c for c in fallback_cases if c.get("url_slide")]
-            filtered_neo = [c for c in fallback_neo if c.get("url_slide")]
-            filtered_ai = [c for c in fallback_ai if c.get("url_slide")]
+            filtered_cases = _prioritize_cases_with_evidence(fallback_cases)
+            filtered_neo = _prioritize_cases_with_evidence(fallback_neo)
+            filtered_ai = _prioritize_cases_with_evidence(fallback_ai)
 
             # Etiquetar explícitamente como relacionados/inspiracionales para transparencia UX.
             for item in filtered_cases:
@@ -126,7 +125,7 @@ def retrieve_node(state: ProposalState) -> ProposalState:
         state["ai_cases"] = filtered_ai
 
         top_match = search_payload.get("top_match_global")
-        if top_match and top_match.get("url_slide"):
+        if top_match:
             state["top_match_global"] = top_match
             state["top_match_global_reason"] = search_payload.get("top_match_global_reason", "")
 
@@ -159,7 +158,7 @@ def retrieve_node(state: ProposalState) -> ProposalState:
 
         if not state["casos_encontrados"]:
             state["error"] = (
-                "No se encontraron casos con evidencia suficiente para el problema ingresado. "
+                "No se encontraron casos para el problema ingresado. "
                 "Intenta reformular en términos de industria/área."
             )
             
@@ -271,6 +270,38 @@ def _rerank_cases_for_client(
 
     rescored.sort(key=lambda c: c.get("score_client_fit", c.get("score_raw", 0.0)), reverse=True)
     return rescored
+
+
+def _prioritize_cases_with_evidence(cases: list[dict[str, Any]], limit: int = 10) -> list[dict[str, Any]]:
+    """Prioriza casos con URL, pero nunca deja fuera casos útiles sin evidencia."""
+    with_url = [c for c in cases if c.get("url_slide")]
+    without_url = [c for c in cases if not c.get("url_slide")]
+    ordered = with_url + without_url
+    return ordered[:limit]
+
+
+def _search_with_progressive_thresholds(
+    problema: str,
+    switch: Literal["neo", "ai", "both"],
+    thresholds: tuple[float, ...] = (0.40, 0.30, 0.20, 0.0),
+    limit: int = 10,
+) -> dict[str, Any]:
+    """
+    Ejecuta búsqueda con umbrales decrecientes hasta obtener resultados.
+    Evita estado vacío cuando el problema es demasiado específico.
+    """
+    last_payload: dict[str, Any] = {"casos": [], "neo_cases": [], "ai_cases": []}
+    for threshold in thresholds:
+        payload = search_cases_sync(
+            problema=problema,
+            switch=switch,
+            limit=limit,
+            score_threshold=threshold,
+        )
+        last_payload = payload
+        if payload.get("casos"):
+            return payload
+    return last_payload
 
 
 def _build_sector_intel(rubro: str, area: str) -> dict:
@@ -528,17 +559,17 @@ def draft_node(state: ProposalState) -> ProposalState:
 
     has_url, missing_url_ids = validate_selected_cases_have_url(filtered_cases)
     if not has_url:
-        state["error"] = (
-            "Todos los casos seleccionados deben incluir URL de evidencia. "
-            f"Faltan URL en: {', '.join(missing_url_ids)}"
+        state["warning"] = (
+            "Se detectaron casos sin URL de evidencia en la selección: "
+            f"{', '.join(missing_url_ids)}. "
+            "La propuesta se generará con enfoque inspiracional para esos casos."
         )
-        return state
 
     try:
         logger.info("draft_node llamando a Gemini con %s casos", len(filtered_cases))
         settings = get_settings()
         llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model=settings.gemini_chat_model,
             temperature=0.3,
             google_api_key=settings.gemini_api_key,
         )
