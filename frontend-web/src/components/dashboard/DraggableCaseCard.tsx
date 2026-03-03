@@ -1,64 +1,143 @@
 "use client";
 
-import { CSS } from "@dnd-kit/utilities";
 import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, ExternalLink, BadgeCheck } from "lucide-react";
 import type { DroppableCaseCard } from "@/types/dashboard";
 
-interface DraggableCaseCardProps {
+interface Props {
   card: DroppableCaseCard;
   isDropped: boolean;
+  onToggle?: (id: string) => void;
 }
 
-export function DraggableCaseCard({ card, isDropped }: DraggableCaseCardProps) {
+const MATCH_STYLE: Record<string, { bg: string; color: string }> = {
+  exacto:       { bg: "rgba(110,255,170,0.12)", color: "#8ff8be" },
+  relacionado:  { bg: "rgba(74,172,255,0.12)",  color: "#7bc8ff" },
+  inspiracional:{ bg: "rgba(196,149,255,0.12)", color: "#d4a8ff" },
+};
+
+export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
     data: { kind: "case", payload: card },
   });
 
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.65 : 1,
-  };
+  const style = { transform: CSS.Translate.toString(transform) };
+  const matchStyle = MATCH_STYLE[card.matchType ?? ""] ?? { bg: "rgba(255,255,255,0.06)", color: "#a8b8d4" };
+  const techs = Array.isArray(card.tecnologias) ? card.tecnologias.slice(0, 3) : [];
+  const score = Math.round((card.scoreClientFit ?? card.scoreRaw ?? 0) * 100);
 
   return (
     <article
       ref={setNodeRef}
       style={style}
-      className={`neo-dnd-card ${isDragging ? "neo-dnd-card--dragging" : ""} ${
-        isDropped ? "neo-dnd-card--dropped" : ""
-      }`}
-      {...listeners}
-      {...attributes}
+      className={`neo-case-card${isDropped ? " neo-case-card--selected" : ""}${isDragging ? " neo-case-card--dragging" : ""}`}
     >
-      <header className="neo-dnd-card__header">
-        <div className="flex items-center gap-2">
-          <span className="neo-dnd-chip">{card.tipo}</span>
-          <span className="neo-dnd-chip neo-dnd-chip--score">
-            {Math.round((card.scoreClientFit ?? card.scoreRaw ?? 0) * 100)}%
-          </span>
+      {/* Header */}
+      <div className="neo-case-card__header">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, flexWrap: "wrap" }}>
+            <span className="neo-dnd-chip" style={{ fontSize: 9, padding: "1px 7px" }}>{card.tipo}</span>
+            <span className="neo-dnd-chip neo-dnd-chip--score" style={{ fontSize: 9, padding: "1px 7px" }}>
+              {score}%
+            </span>
+            {card.matchType && (
+              <span
+                style={{
+                  fontSize: 9, padding: "1px 7px", borderRadius: 999,
+                  background: matchStyle.bg, color: matchStyle.color,
+                  border: `1px solid ${matchStyle.color}55`,
+                }}
+              >
+                {card.matchType}
+              </span>
+            )}
+          </div>
+          <h3 className="neo-case-card__title">{card.titulo}</h3>
         </div>
-        <GripVertical className="h-4 w-4 text-slate-300" />
-      </header>
-      <h3 className="neo-dnd-card__title">{card.titulo}</h3>
-      <p className="neo-dnd-card__desc">{card.problema}</p>
-      <footer className="neo-dnd-card__footer">
-        <span>{card.empresa}</span>
-        <span>{card.area}</span>
-        {card.urlSlide ? (
-          <a href={card.urlSlide} target="_blank" rel="noopener noreferrer" className="neo-dnd-link">
-            Evidencia <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        ) : (
-          <span className="neo-dnd-muted">Sin URL</span>
+        {/* Drag handle — solo esta zona inicia el arrastre */}
+        <div
+          {...listeners}
+          {...attributes}
+          style={{ cursor: "grab", padding: "2px 0", flexShrink: 0 }}
+          title="Arrastra al chat para añadir como contexto"
+        >
+          <GripVertical className="h-4 w-4 text-slate-400" />
+        </div>
+      </div>
+
+      {/* Tags empresa / área */}
+      <div className="neo-case-card__tags">
+        {card.empresa && card.empresa !== "N/A" && (
+          <span className="neo-dnd-chip" style={{ fontSize: 9 }}>{card.empresa}</span>
         )}
-        {isDropped && (
-          <span className="neo-dnd-success">
+        {card.industria && card.industria !== "N/A" && (
+          <span className="neo-dnd-chip" style={{ fontSize: 9, color: "#c3d2f1" }}>{card.industria}</span>
+        )}
+        {card.area && card.area !== "N/A" && (
+          <span className="neo-dnd-chip" style={{ fontSize: 9, color: "#c3d2f1" }}>{card.area}</span>
+        )}
+      </div>
+
+      {/* Cuerpo — Problema / Solución en dos columnas */}
+      <div className="neo-case-card__body">
+        <div className="neo-case-card__col">
+          <p className="neo-case-card__col-label neo-case-card__col-label--problem">Problema del cliente</p>
+          <p className="neo-case-card__col-text">{card.problema}</p>
+        </div>
+        <div className="neo-case-card__col">
+          <p className="neo-case-card__col-label neo-case-card__col-label--solution">Solución</p>
+          <p className="neo-case-card__col-text">{card.solucion}</p>
+        </div>
+      </div>
+
+      {/* KPI impacto */}
+      {card.kpiImpacto && (
+        <div className="neo-case-card__kpi">
+          ⚡ {card.kpiImpacto}
+        </div>
+      )}
+
+      {/* Footer — tecnologías + URL + selección */}
+      <div className="neo-case-card__footer">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1 }}>
+          {techs.map((t) => (
+            <span key={t} className="neo-dnd-chip" style={{ fontSize: 9 }}>{t}</span>
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {card.urlSlide ? (
+            <a
+              href={card.urlSlide}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="neo-case-url-btn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Ver diapositivas <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : (
+            <span style={{ fontSize: 10, color: "#4a5e7a", fontStyle: "italic" }}>Sin URL</span>
+          )}
+          <button
+            type="button"
+            onClick={() => onToggle?.(card.id)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 3,
+              padding: "3px 8px", borderRadius: 7, border: "none",
+              background: isDropped ? "rgba(110,255,170,0.15)" : "rgba(255,255,255,0.07)",
+              color: isDropped ? "#8ff8be" : "#8ab0d0",
+              fontSize: 10, fontWeight: 600, cursor: "pointer",
+              transition: "background 130ms ease, color 130ms ease",
+            }}
+            title={isDropped ? "Quitar de propuesta" : "Seleccionar para propuesta"}
+          >
             <BadgeCheck className="h-3.5 w-3.5" />
-            En propuesta
-          </span>
-        )}
-      </footer>
+            {isDropped ? "Seleccionado" : "Seleccionar"}
+          </button>
+        </div>
+      </div>
     </article>
   );
 }

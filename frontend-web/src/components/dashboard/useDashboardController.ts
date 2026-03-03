@@ -37,6 +37,7 @@ export const AREA_OPTIONS = [
   "Innovación",
   "Atención al cliente",
   "Supply Chain",
+  "Otros",
 ];
 
 export const DEFAULT_CONTEXT_CARDS: DraggableContextCard[] = [
@@ -112,6 +113,8 @@ export function useDashboardController() {
     setSession,
     setProposal,
     selectCase,
+    unselectCase,
+    addContextChip,
     setError,
     setWarning,
     setLoading,
@@ -204,38 +207,22 @@ export function useDashboardController() {
     );
   }, [cases, searchBridge]);
 
-  const submitContextInsight = async (contextCard: DraggableContextCard): Promise<void> => {
-    const companyId = (empresa || controls.empresa || "GENERAL").trim();
-    await apiClient.post(`/intel/company/${encodeURIComponent(companyId)}/insights`, {
-      author: "Dashboard Context DnD",
-      text: `Contexto ${contextCard.title}: ${contextCard.summary}`,
-      source: "drag_context_dashboard",
-    });
-    setDragMessage(`Contexto inyectado: ${contextCard.title}`);
-  };
-
-  const submitCaseInsight = async (caseCard: DroppableCaseCard): Promise<void> => {
-    const companyId = (empresa || controls.empresa || "GENERAL").trim();
-    await apiClient.post(`/intel/company/${encodeURIComponent(companyId)}/insights`, {
-      author: "Dashboard DragDrop",
-      text: [
-        `Caso: ${caseCard.titulo}`,
-        `Problema: ${caseCard.problema}`,
-        `Solución: ${caseCard.solucion}`,
-        `Impacto: ${caseCard.kpiImpacto ?? "N/A"}`,
-      ].join(" | "),
-      source: "drag_case_dashboard",
-    });
-    setDragMessage(`Insight de caso procesado: ${caseCard.titulo}`);
-  };
-
-  const onDropCase = async (caseCard: DroppableCaseCard): Promise<void> => {
+  const onDropCase = (caseCard: DroppableCaseCard): void => {
     if (!selectedCaseIds.includes(caseCard.id)) selectCase(caseCard.id);
-    await submitCaseInsight(caseCard);
+    addContextChip({
+      id: `case-${caseCard.id}`,
+      label: caseCard.titulo.length > 28 ? caseCard.titulo.slice(0, 28) + "…" : caseCard.titulo,
+      text: `Caso "${caseCard.titulo}": ${caseCard.problema} → ${caseCard.solucion}${caseCard.kpiImpacto ? ` | KPI: ${caseCard.kpiImpacto}` : ""}`,
+    });
+    setDragMessage(`Caso añadido: ${caseCard.titulo}`);
   };
 
-  const onDropContext = async (contextCard: DraggableContextCard): Promise<void> => {
-    await submitContextInsight(contextCard);
+  const onToggleCase = (caseId: string): void => {
+    if (selectedCaseIds.includes(caseId)) {
+      unselectCase(caseId);
+    } else {
+      selectCase(caseId);
+    }
   };
 
   const onCompanyChange = (companyName: string) => {
@@ -263,7 +250,7 @@ export function useDashboardController() {
     dragMessage,
     onCompanyChange,
     onDropCase,
-    onDropContext,
+    onToggleCase,
     searchMutation,
     generateMutation,
     reset,

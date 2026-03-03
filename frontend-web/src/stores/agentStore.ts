@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { ContextChip } from '@/types/dashboard'
 
 export interface Case {
   id: string
@@ -104,6 +105,10 @@ export interface ProposalState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setWarning: (warning: string | null) => void
+  contextChips: ContextChip[]
+  addContextChip: (chip: ContextChip) => void
+  removeContextChip: (id: string) => void
+  clearContextChips: () => void
   reset: () => void
 }
 
@@ -130,6 +135,7 @@ export const useAgentStore = create<ProposalState>()(
       loading: false,
       error: null,
       warning: null,
+      contextChips: [],
 
       setSession: (data) => set({
         threadId: data.threadId,
@@ -166,6 +172,15 @@ export const useAgentStore = create<ProposalState>()(
       setLoading: (loading) => set({ loading }),
       setError: (error) => set({ error }),
       setWarning: (warning) => set({ warning }),
+      addContextChip: (chip) => set((state) => ({
+        contextChips: state.contextChips.some((c) => c.id === chip.id)
+          ? state.contextChips
+          : [...state.contextChips, chip],
+      })),
+      removeContextChip: (id) => set((state) => ({
+        contextChips: state.contextChips.filter((c) => c.id !== id),
+      })),
+      clearContextChips: () => set({ contextChips: [] }),
 
       reset: () => set({
         threadId: null,
@@ -188,6 +203,7 @@ export const useAgentStore = create<ProposalState>()(
         loading: false,
         error: null,
         warning: null,
+        contextChips: [],
       }),
     }),
     {

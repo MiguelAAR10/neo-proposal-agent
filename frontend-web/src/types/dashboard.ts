@@ -37,6 +37,29 @@ export interface DashboardControls {
   problema: string;
 }
 
+export interface ClientProfileInsight {
+  author: string;
+  text: string;
+  timestamp: string;
+  sentiment: "positive" | "neutral" | "negative";
+}
+
+export interface ClientProfileCard {
+  id: string;
+  empresa: string;
+  area: string;
+  objetivos: string[];
+  painPoints: string[];
+  notas: string;
+  insights: ClientProfileInsight[];
+}
+
+export interface ContextChip {
+  id: string;
+  label: string;
+  text: string;
+}
+
 export interface DashboardState {
   threadId: string | null;
   loading: boolean;

@@ -32,11 +32,27 @@ interface InitialFormProps {
   compact?: boolean
 }
 
+const FALLBACK_CATALOG: PrioritizedClientCatalogEntry[] = [
+  { name: 'BCP', display_name: 'BCP', vertical: 'Banca' },
+  { name: 'INTERBANK', display_name: 'Interbank', vertical: 'Banca' },
+  { name: 'BBVA', display_name: 'BBVA', vertical: 'Banca' },
+  { name: 'ALICORP', display_name: 'Alicorp', vertical: 'Consumo masivo' },
+  { name: 'RIMAC', display_name: 'Rimac', vertical: 'Seguros' },
+  { name: 'PACIFICO', display_name: 'Pacifico', vertical: 'Seguros' },
+  { name: 'SCOTIABANK', display_name: 'Scotiabank', vertical: 'Banca' },
+  { name: 'MIBANCO', display_name: 'MiBanco', vertical: 'Microfinanzas' },
+  { name: 'CREDICORP', display_name: 'Credicorp', vertical: 'Servicios financieros' },
+  { name: 'PLAZA VEA', display_name: 'Plaza Vea', vertical: 'Retail' },
+  { name: 'FALABELLA', display_name: 'Falabella', vertical: 'Retail' },
+  { name: 'SODIMAC', display_name: 'Sodimac', vertical: 'Retail' },
+]
+
 export function InitialForm({ compact = false }: InitialFormProps) {
   const { setSession, setLoading, setError } = useAgentStore()
-  const [catalog, setCatalog] = useState<PrioritizedClientCatalogEntry[]>([])
+  const [catalog, setCatalog] = useState<PrioritizedClientCatalogEntry[]>(FALLBACK_CATALOG)
   const [catalogError, setCatalogError] = useState<string | null>(null)
-  const [catalogLoading, setCatalogLoading] = useState(true)
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [empresaPreset, setEmpresaPreset] = useState<string>('')
 
   const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -67,7 +83,14 @@ export function InitialForm({ compact = false }: InitialFormProps) {
         }
       } catch (error: unknown) {
         if (!cancelled) {
-          setCatalogError(getErrorMessage(error, 'No se pudo cargar el catálogo de clientes priorizados.'))
+          setCatalog(FALLBACK_CATALOG)
+          setCatalogError(
+            `${getErrorMessage(error, 'No se pudo cargar el catálogo de clientes priorizados.')} Usando catálogo local mínimo.`,
+          )
+          if (!empresaValue) {
+            setValue('empresa', FALLBACK_CATALOG[0].name, { shouldValidate: true })
+            setValue('rubro', FALLBACK_CATALOG[0].vertical, { shouldValidate: true })
+          }
         }
       } finally {
         if (!cancelled) setCatalogLoading(false)
@@ -80,13 +103,21 @@ export function InitialForm({ compact = false }: InitialFormProps) {
   }, [setValue, empresaValue])
 
   useEffect(() => {
+    if (empresaPreset && empresaPreset !== '__OTHER__') {
+      const found = catalog.find((item) => item.name === empresaPreset)
+      if (found) {
+        setValue('empresa', found.name, { shouldValidate: true })
+        setValue('rubro', found.vertical, { shouldValidate: true })
+      }
+      return
+    }
     if (!empresaValue || catalog.length === 0) return
     const found = catalog.find((item) => item.name === empresaValue || item.display_name === empresaValue)
     if (found?.vertical) {
       setValue('empresa', found.name, { shouldValidate: true })
       setValue('rubro', found.vertical, { shouldValidate: true })
     }
-  }, [empresaValue, catalog, setValue])
+  }, [empresaPreset, empresaValue, catalog, setValue])
 
   const areaOptions = useMemo(
     () => ['Operaciones', 'Marketing', 'TI', 'Finanzas', 'Ventas', 'RRHH', 'Innovación'],
@@ -141,36 +172,48 @@ export function InitialForm({ compact = false }: InitialFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
           <div className="md:col-span-3">
             <div className="flex items-center justify-between mb-0.5">
-              <label htmlFor="empresa" className="block text-[10px] font-semibold text-slate-200">Empresa priorizada</label>
+              <label htmlFor="empresaPreset" className="block text-[10px] font-semibold text-slate-200">Empresa objetivo</label>
               {selectedEntry?.logo_path ? (
                 <span
                   className="h-7 w-7 rounded-md border border-white/20 bg-white/10 overflow-hidden flex items-center justify-center"
                   style={{ boxShadow: selectedEntry.brand_color ? `0 0 0 1px ${selectedEntry.brand_color}44 inset` : undefined }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={selectedEntry.logo_path}
-                    alt={`Logo ${selectedEntry.display_name}`}
-                    width={20}
-                    height={20}
-                    className="object-contain"
-                    loading="lazy"
-                  />
+                  <span className="text-[10px] font-semibold text-slate-100">
+                    {selectedEntry.display_name.slice(0, 2).toUpperCase()}
+                  </span>
                 </span>
               ) : null}
             </div>
             <select
-              id="empresa"
-              {...register('empresa')}
-              disabled={catalogLoading}
+              id="empresaPreset"
+              value={empresaPreset}
+              onChange={(e) => {
+                const value = e.target.value
+                setEmpresaPreset(value)
+                if (value === '__OTHER__') {
+                  setValue('empresa', '', { shouldValidate: true })
+                }
+              }}
               className="w-full rounded-xl border border-white/15 bg-white/10 text-[var(--foreground)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
             >
-              <option value="">Selecciona empresa...</option>
+              <option value="">Selecciona empresa priorizada...</option>
               {catalog.map((entry) => (
-                <option key={entry.name} value={entry.name}>{entry.display_name}</option>
+                <option key={entry.name} value={entry.name}>
+                  {entry.display_name}
+                </option>
               ))}
+              <option value="__OTHER__">Otra empresa (manual)</option>
             </select>
-            {catalogLoading && <p className="mt-1 text-xs text-slate-300">Cargando empresas priorizadas...</p>}
+            {empresaPreset === '__OTHER__' && (
+              <input
+                id="empresa"
+                {...register('empresa')}
+                placeholder="Escribe empresa objetivo..."
+                className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 text-[var(--foreground)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              />
+            )}
+            {empresaPreset !== '__OTHER__' && <input type="hidden" {...register('empresa')} />}
+            {catalogLoading && <p className="mt-1 text-xs text-slate-300">Actualizando catálogo priorizado...</p>}
             {errors.empresa && <p className="mt-1 text-xs text-rose-300">{errors.empresa.message}</p>}
           </div>
 
@@ -179,24 +222,26 @@ export function InitialForm({ compact = false }: InitialFormProps) {
             <input
               id="rubro"
               {...register('rubro')}
-              readOnly
-              className="w-full rounded-xl border border-white/10 bg-white/5 text-slate-100 px-3 py-2 text-sm outline-none"
+              placeholder="Ej. Banca, Seguros, Retail"
+              className="w-full rounded-xl border border-white/15 bg-white/10 text-slate-100 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
             />
             {errors.rubro && <p className="mt-1 text-xs text-rose-300">{errors.rubro.message}</p>}
           </div>
 
           <div className="md:col-span-2">
             <label htmlFor="area" className="block text-[10px] font-semibold text-slate-200 mb-0.5">Área</label>
-            <select
+            <input
               id="area"
+              list="area-suggestions"
               {...register('area')}
+              placeholder="Ej. Operaciones, Finanzas, Comercial..."
               className="w-full rounded-xl border border-white/15 bg-white/10 text-[var(--foreground)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
-            >
-              <option value="">Selecciona...</option>
+            />
+            <datalist id="area-suggestions">
               {areaOptions.map((area) => (
                 <option key={area} value={area}>{area}</option>
               ))}
-            </select>
+            </datalist>
             {errors.area && <p className="mt-1 text-xs text-rose-300">{errors.area.message}</p>}
           </div>
 
@@ -216,7 +261,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
           <div className="md:col-span-2 flex items-end">
             <button
               type="submit"
-              disabled={mutation.isPending || catalogLoading || catalog.length === 0}
+              disabled={mutation.isPending}
               className="neo-pill w-full h-[36px] flex items-center justify-center text-sm font-semibold text-white bg-[var(--accent-soft)] hover:brightness-110 disabled:opacity-50"
             >
               {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="h-4 w-4 mr-1.5" /> Buscar</>}
