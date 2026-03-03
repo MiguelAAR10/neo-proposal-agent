@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -136,24 +135,26 @@ export function InitialForm({ compact = false }: InitialFormProps) {
     return (
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="neo-glass-card p-4 md:p-5 space-y-3"
+        className="neo-glass-card p-3 md:p-3.5 space-y-2.5"
         aria-label="Formulario compacto de búsqueda"
       >
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
           <div className="md:col-span-3">
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor="empresa" className="block text-[11px] font-semibold text-slate-200">Empresa priorizada</label>
+            <div className="flex items-center justify-between mb-0.5">
+              <label htmlFor="empresa" className="block text-[10px] font-semibold text-slate-200">Empresa priorizada</label>
               {selectedEntry?.logo_path ? (
                 <span
                   className="h-7 w-7 rounded-md border border-white/20 bg-white/10 overflow-hidden flex items-center justify-center"
                   style={{ boxShadow: selectedEntry.brand_color ? `0 0 0 1px ${selectedEntry.brand_color}44 inset` : undefined }}
                 >
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={selectedEntry.logo_path}
                     alt={`Logo ${selectedEntry.display_name}`}
                     width={20}
                     height={20}
                     className="object-contain"
+                    loading="lazy"
                   />
                 </span>
               ) : null}
@@ -174,7 +175,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="rubro" className="block text-[11px] font-semibold text-slate-200 mb-1">Industria</label>
+            <label htmlFor="rubro" className="block text-[10px] font-semibold text-slate-200 mb-0.5">Industria</label>
             <input
               id="rubro"
               {...register('rubro')}
@@ -185,7 +186,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="area" className="block text-[11px] font-semibold text-slate-200 mb-1">Área</label>
+            <label htmlFor="area" className="block text-[10px] font-semibold text-slate-200 mb-0.5">Área</label>
             <select
               id="area"
               {...register('area')}
@@ -200,7 +201,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
           </div>
 
           <div className="md:col-span-3">
-            <label htmlFor="switch" className="block text-[11px] font-semibold text-slate-200 mb-1">Fuente</label>
+            <label htmlFor="switch" className="block text-[10px] font-semibold text-slate-200 mb-0.5">Fuente</label>
             <select
               id="switch"
               {...register('switch')}
@@ -216,7 +217,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
             <button
               type="submit"
               disabled={mutation.isPending || catalogLoading || catalog.length === 0}
-              className="neo-pill w-full h-[38px] flex items-center justify-center text-sm font-semibold text-white bg-[var(--accent-soft)] hover:brightness-110 disabled:opacity-50"
+              className="neo-pill w-full h-[36px] flex items-center justify-center text-sm font-semibold text-white bg-[var(--accent-soft)] hover:brightness-110 disabled:opacity-50"
             >
               {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="h-4 w-4 mr-1.5" /> Buscar</>}
             </button>
@@ -224,14 +225,14 @@ export function InitialForm({ compact = false }: InitialFormProps) {
         </div>
 
         <div>
-          <div className="mb-1 flex items-center justify-between">
-            <label htmlFor="problema" className="block text-[11px] font-semibold text-slate-200">Problema de negocio</label>
+          <div className="mb-0.5 flex items-center justify-between">
+            <label htmlFor="problema" className="block text-[10px] font-semibold text-slate-200">Problema de negocio</label>
             <span className="text-[11px] text-slate-300">{problemaValue.trim().length}/500</span>
           </div>
           <textarea
             id="problema"
             {...register('problema')}
-            rows={2}
+            rows={1}
             maxLength={500}
             placeholder="Describe el dolor, impacto y urgencia..."
             className="w-full rounded-xl border border-white/15 bg-white/10 text-[var(--foreground)] placeholder:text-slate-300/70 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"

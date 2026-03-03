@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
@@ -112,6 +111,7 @@ export default function Home() {
   const [companyQuery, setCompanyQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'NEO' | 'AI'>('all')
   const [casesSidebarOpen, setCasesSidebarOpen] = useState(true)
+  const [failedLogoSrc, setFailedLogoSrc] = useState<string | null>(null)
 
   const visibleCases = useMemo(() => {
     const q = companyQuery.trim().toLowerCase()
@@ -191,25 +191,38 @@ export default function Home() {
   const canGenerate = !!threadId && selectedCaseIds.length > 0
 
   return (
-    <main className="neo-shell min-h-screen px-3 md:px-6 py-4 md:py-6">
-      <div className="neo-content max-w-[1780px] mx-auto space-y-4">
-        <section className="neo-glass-card p-4 md:p-5 relative overflow-hidden">
-          <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full blur-3xl" style={logoStyle} />
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3 relative z-10">
+    <main className="neo-shell neo-shell-vivid min-h-screen px-3 md:px-6 py-4 md:py-6">
+      <div className="neo-content max-w-[1780px] mx-auto space-y-3">
+        <section className="neo-glass-card neo-hero neo-hero-compact p-3 md:p-4 relative overflow-hidden">
+          <div className="absolute -right-8 -top-10 h-20 w-20 rounded-full blur-3xl" style={logoStyle} />
+          <div className="neo-hero-ribbon neo-hero-ribbon-a" />
+          <div className="neo-hero-ribbon neo-hero-ribbon-b" />
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-2 relative z-10">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-10 w-10 rounded-2xl border border-white/20 overflow-hidden flex items-center justify-center text-xs font-semibold text-white" style={logoStyle}>
-                {companyLogo ? (
-                  <Image src={companyLogo} alt={`Logo ${empresa || 'Cliente'}`} width={30} height={30} className="object-contain" />
+              <div className="h-9 w-9 rounded-xl border border-white/20 overflow-hidden flex items-center justify-center text-[11px] font-semibold text-white" style={logoStyle}>
+                {companyLogo && failedLogoSrc !== companyLogo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={companyLogo}
+                    alt={`Logo ${empresa || 'Cliente'}`}
+                    width={30}
+                    height={30}
+                    className="object-contain"
+                    onError={() => setFailedLogoSrc(companyLogo)}
+                  />
                 ) : (
                   initials(empresa || 'Cliente')
                 )}
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl font-semibold text-[var(--foreground)] tracking-tight">
+                <h1 className="text-xl md:text-2xl font-semibold text-[var(--foreground)] tracking-tight neo-title-gradient">
                   NEO Proposal Agent
                 </h1>
-                <p className="text-xs md:text-sm text-slate-200 truncate">
+                <p className="text-[11px] md:text-xs text-slate-200 truncate">
                   {empresa || 'Cliente priorizado'}{area ? ` • ${area}` : ''} • Panel lateral de casos desplegable
+                </p>
+                <p className="text-[11px] mt-0.5 neo-business-copy line-clamp-1">
+                  De casos a <span className="neo-highlight">decisión comercial</span> con <span className="neo-highlight-cyan">evidencia</span> y <span className="neo-highlight-blue">ROI</span>.
                 </p>
               </div>
             </div>
@@ -228,6 +241,11 @@ export default function Home() {
                 <RefreshCcw className="w-3.5 h-3.5" /> Reiniciar
               </button>
             </div>
+          </div>
+          <div className="neo-hero-tags mb-2">
+            <span>HITL</span>
+            <span>Casos Priorizados</span>
+            <span className="hidden md:inline-flex">Propuesta + Chat</span>
           </div>
           <InitialForm compact />
         </section>
@@ -307,8 +325,20 @@ export default function Home() {
                 </div>
 
                 <p className="text-[11px] text-slate-300 inline-flex items-center gap-1 mb-3">
-                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" /> Hover/tap para voltear ficha.
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" /> Selecciona el caso y abre evidencia desde la ficha.
                 </p>
+                <div className="neo-value-callout mb-3">
+                  <p className="neo-value-title">Cómo decidir rápido</p>
+                  <p className="neo-value-line">
+                    1) Prioriza fichas con <span className="neo-highlight">match alto</span>.
+                  </p>
+                  <p className="neo-value-line">
+                    2) Revisa <span className="neo-highlight-cyan">diapositivas de evidencia</span>.
+                  </p>
+                  <p className="neo-value-line">
+                    3) Selecciona solo casos con <span className="neo-highlight-blue">valor de negocio claro</span>.
+                  </p>
+                </div>
 
                 {visibleCases.length === 0 ? (
                   <div className="rounded-2xl border border-white/12 bg-white/6 p-5 text-sm text-slate-300">
@@ -335,10 +365,10 @@ export default function Home() {
             )}
           </aside>
 
-          <article className="space-y-3">
-            <div className="neo-glass-card p-4">
+          <article className="neo-right-stage space-y-3 p-3 md:p-4">
+            <div className="neo-glass-card neo-right-card p-4">
               <div className="flex items-center justify-between gap-2 mb-2">
-                <h2 className="text-sm md:text-base font-semibold text-[var(--foreground)]">Propuesta de valor viva</h2>
+                <h2 className="text-sm md:text-base font-semibold text-[var(--foreground)] neo-section-title">Propuesta de Valor</h2>
                 <button
                   type="button"
                   onClick={handleCopyProposal}
@@ -349,7 +379,9 @@ export default function Home() {
                   {copied ? 'Copiada' : 'Copiar'}
                 </button>
               </div>
-              <p className="text-xs text-slate-300 mb-3">Selecciona casos en la barra lateral y genera/refina con chat.</p>
+              <p className="text-xs text-slate-300 mb-3">
+                Construye una narrativa ejecutiva: <span className="neo-highlight">dolor</span> {'->'} <span className="neo-highlight-cyan">solución</span> {'->'} <span className="neo-highlight-blue">retorno esperado</span>.
+              </p>
               <button
                 type="button"
                 onClick={() => generateMutation.mutate()}
@@ -371,9 +403,11 @@ export default function Home() {
               )}
             </div>
 
-            <ChatPanel />
+            <div className="neo-right-card">
+              <ChatPanel />
+            </div>
 
-            <div className="neo-glass-card p-4 md:p-5 space-y-3">
+            <div className="neo-glass-card neo-right-card p-4 md:p-5 space-y-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-3 min-h-[240px] max-h-[38vh] overflow-y-auto">
                 {proposal ? (
                   <pre className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100 font-sans">{proposal}</pre>

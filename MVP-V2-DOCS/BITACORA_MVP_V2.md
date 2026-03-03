@@ -892,3 +892,109 @@ V2.2 se considera cerrada cuando:
     - se evita el bloqueo por filtros estrictos y perdida de contexto cuando el problema es muy especifico.
   - estado:
     - implementado (pendiente validacion smoke local de puertos fuera de sandbox).
+- 2026-03-01 10:49:35 -05: mejora ux de cajetillas (doble ficha + flip controlado + url clickeable/seleccionable).
+  - objetivo:
+    - corregir friccion de uso en tarjetas de casos para permitir seleccion clara, acceso directo a evidencia y lectura profesional del reverso.
+  - razon_negocio:
+    - acelerar evaluacion de casos por usuario final y reducir rechazo por interaccion confusa en etapa de curacion HITL.
+  - cambio:
+    - componente `CaseFlashCard` redisenado:
+      - frente con 2 cajitas internas:
+        - ficha de informacion,
+        - ficha de evidencia con URL visible y boton `Abrir URL`.
+      - flip solo por boton explicito (`Ver reverso` / `Volver frente`), sin auto-flip por hover.
+      - texto seleccionable (`select-text`) para copiar/revisar contenido.
+      - reverso con detalle extendido, scroll interno y bloque de evidencia separado.
+      - CTA de seleccion disponible en frente y reverso.
+  - tradeoff:
+    - tarjeta aumenta altura para ganar legibilidad y accionabilidad.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-03-01 11:06:16 -05: ajuste ux de fichas para seleccion consultiva (2 cajitas lado a lado + evidencia limpia + puntita de flip).
+  - objetivo:
+    - aumentar claridad de lectura y accion en cada ficha para que consultores elijan casos con informacion valiosa sin ruido.
+  - razon_negocio:
+    - mejora velocidad de curacion de casos y reduce friccion al validar evidencia durante la seleccion HITL.
+  - cambio:
+    - `CaseFlashCard` actualizado con:
+      - dos cajitas frontales lado a lado (`informacion` y `evidencia`).
+      - eliminacion de URL cruda en pantalla; solo boton de evidencia clickeable.
+      - control visual en esquina inferior derecha (`puntita`) para voltear.
+      - detalle del reverso ampliado con nombre, problema, solucion, area, industria, stack y razonamiento.
+      - etiquetas de categoria/tecnologia visibles en frente.
+    - `page.tsx` agrega instruccion de uso clara de la ficha.
+    - `globals.css` agrega estilo reusable de `corner-peel-btn`.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-03-01 11:11:49 -05: refinamiento final de ficha (sin ruido, sin repeticion, valor decisivo por capa).
+  - objetivo:
+    - reducir densidad visual y duplicacion para que el consultor detecte valor en segundos.
+  - razon_negocio:
+    - mejora velocidad de decision en curacion de casos y evita fatiga por lectura redundante.
+  - cambio:
+    - frente de ficha: solo valor clave + evidencia + etiquetas minimas (area, industria, 2 tecnologias).
+    - eliminacion de bloques repetidos de texto.
+    - evidencia sin URL cruda (solo CTA).
+    - reverso: detalle consultivo no repetido (impacto, por que aplica, tecnologias, contexto).
+    - retorno al frente desde esquina inferior derecha (puntita).
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-03-01 11:19:00 -05: refinement ux/ui profundo (menos ruido por ficha + panel derecho claro con texturas animadas).
+  - objetivo:
+    - maximizar legibilidad y decision de casos con minima carga cognitiva, elevando calidad visual del workspace de propuesta.
+  - razon_negocio:
+    - mejora experiencia consultiva, facilita priorizacion de casos y aumenta percepcion de valor del MVP frente a cliente final.
+  - cambio:
+    - ficha de caso:
+      - elimina bloque sobredimensionado de link, conserva evidencia como CTA compacto.
+      - reduce texto repetido y concentra valor clave en frente.
+      - agrega fallback de categoria tecnologia cuando no hay stack.
+      - mantiene corner flip para ida/vuelta (esquina inferior derecha).
+    - panel derecho:
+      - nuevo `neo-right-stage` claro (blanco suave) con gradientes, difuminados y textura animada.
+      - tarjetas internas `neo-right-card` con contraste alto para lectura de chat/propuesta.
+    - estetica:
+      - aurora interna en fichas (`case-aurora`) y animaciones suaves (`neo-flow`, `case-wave`).
+  - edge cases cubiertos:
+    - casos sin URL: evidencia no rompe UI y muestra estado claro.
+    - casos sin tecnologias: etiqueta fallback para no dejar huecos.
+    - textos largos: compactados para mantener escaneo rapido.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.
+- 2026-03-01 11:26:19 -05: upgrade visual profundo (sin cajita de evidencia, más dinamismo cromático y encabezado premium).
+  - objetivo:
+    - maximizar valor visible por ficha y elevar presencia visual general con transiciones difuminadas.
+  - razon_negocio:
+    - reduce ruido cognitivo y mejora percepción de calidad/profesionalismo en demos con clientes.
+  - cambio:
+    - fichas:
+      - se elimina cajita dedicada de evidencia.
+      - evidencia queda como CTA compacto `Ver diapositivas` junto a selección.
+      - bloque central prioriza problema + solución + impacto corto.
+      - animación de elevación y aurora interna en hover.
+    - encabezado:
+      - nuevo hero con cintas difuminadas animadas y título con gradiente.
+      - tags de contexto de producto (HITL, priorizados, propuesta/chat).
+    - pantalla:
+      - fondo más variado con capas radiales.
+      - panel derecho claro mantiene textura/animación suave para lectura premium.
+  - edge cases:
+    - sin URL => estado `Sin diapositivas` sin romper layout.
+    - textos largos => compactación para no saturar.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.

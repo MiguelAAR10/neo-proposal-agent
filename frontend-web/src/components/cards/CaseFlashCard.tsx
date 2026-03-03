@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ExternalLink, CheckCircle2, Circle, Sparkles } from 'lucide-react'
+import { ExternalLink, CheckCircle2, Circle, CornerDownRight, CornerDownLeft } from 'lucide-react'
 import { useAgentStore, type Case } from '@/stores/agentStore'
 
 interface CaseFlashCardProps {
@@ -21,6 +21,13 @@ function initials(name: string): string {
   if (!raw) return 'NA'
   const parts = raw.split(/\s+/).slice(0, 2)
   return parts.map((p) => p[0]?.toUpperCase() || '').join('') || 'NA'
+}
+
+function compactText(value: string | undefined, fallback: string, max = 88): string {
+  const text = (value || '').trim()
+  if (!text) return fallback
+  if (text.length <= max) return text
+  return `${text.slice(0, max - 1)}…`
 }
 
 export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
@@ -43,55 +50,59 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
     [logoHue],
   )
 
+  const scorePct = Math.round((caseData.score_client_fit ?? caseData.score ?? 0) * 100)
+  const topTech = (caseData.tecnologias || []).slice(0, 2)
+
   const handleToggleSelect = () => {
     if (isSelected) unselectCase(caseData.id)
     else selectCase(caseData.id)
   }
 
   return (
-    <div className="case-flip-wrap h-[210px]">
+    <div className="case-flip-wrap h-[292px] md:h-[304px]">
       <div className={`case-flip-inner ${flipped ? 'is-flipped' : ''}`}>
-        <article
-          className={`case-flip-face neo-glass-card border bg-gradient-to-br ${tone} p-4 relative overflow-hidden`}
-          onMouseEnter={() => setFlipped(true)}
-          onMouseLeave={() => setFlipped(false)}
-        >
+        <article className={`case-flip-face case-aurora case-card-lift neo-glass-card border bg-gradient-to-br ${tone} p-4 relative overflow-hidden`}>
           <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full blur-2xl" style={logoStyle} />
-          <div className="flex items-start justify-between gap-2">
+
+          <header className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                 <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100 uppercase tracking-wider">{caseData.tipo}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100">{(caseData.match_type || 'relacionado').toUpperCase()}</span>
-                {caseData.badge ? (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100 line-clamp-1">
-                    {caseData.badge}
-                  </span>
-                ) : null}
+                <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100">{scorePct}%</span>
               </div>
               <h4 className="text-sm font-semibold text-white leading-snug line-clamp-2">{caseData.titulo}</h4>
-              <p className="text-[11px] text-slate-200 mt-1 line-clamp-1">{caseData.match_reason || 'Referencia útil para la propuesta'}</p>
             </div>
             <div className="h-9 w-9 rounded-xl border border-white/20 flex items-center justify-center text-[11px] font-semibold text-white bg-white/10" style={logoStyle}>
               {initials(caseData.empresa || '')}
             </div>
+          </header>
+
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            <section className="rounded-2xl border border-white/15 bg-white/8 p-3 min-h-[122px]">
+              <p className="text-[10px] uppercase tracking-wide text-slate-300 mb-1">Valor clave</p>
+              <p className="text-[11px] text-slate-100 leading-4 select-text">{compactText(caseData.problema, 'Problema no disponible')}</p>
+              <p className="text-[11px] text-slate-300 mt-1.5 leading-4 select-text">{compactText(caseData.solucion, 'Solución no disponible')}</p>
+              <p className="text-[10px] text-slate-300 mt-2 select-text">
+                <span className="text-slate-200">Impacto:</span> {compactText(caseData.kpi_impacto, 'Pendiente de cuantificación', 72)}
+              </p>
+            </section>
           </div>
 
-          <div className="mt-3 space-y-2">
-            <p className="text-[11px] text-slate-100 line-clamp-2">{caseData.problema}</p>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-slate-200">Score {Math.round((caseData.score_client_fit ?? caseData.score ?? 0) * 100)}%</span>
-              <span className="text-[10px] text-slate-300 line-clamp-1">{caseData.score_label || caseData.confidence || 'Afinidad estimada'}</span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setFlipped(true)
-                }}
-                className="text-[11px] text-slate-100 underline underline-offset-2"
-              >
-                Ver más
-              </button>
-            </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">{caseData.area || 'General'}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">{caseData.industria || 'Multisector'}</span>
+            {topTech.length > 0 ? (
+              topTech.map((tech) => (
+                <span key={`${caseData.id}-${tech}`} className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">
+                  {tech}
+                </span>
+              ))
+            ) : (
+              <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-300">
+                Tecnología por definir
+              </span>
+            )}
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-2">
@@ -105,28 +116,41 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
               {isSelected ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
               {isSelected ? 'Seleccionado' : 'Seleccionar'}
             </button>
-            <button
-              type="button"
-              onClick={() => setFlipped((v) => !v)}
-              className="neo-pill inline-flex items-center gap-1 px-3 py-1.5 text-[11px] text-slate-100 border border-white/20 bg-white/10"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Flash
-            </button>
+            {caseData.url_slide ? (
+              <a
+                href={caseData.url_slide}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="neo-pill inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-white border border-white/25 bg-white/12 hover:bg-white/18 w-fit"
+              >
+                Ver diapositivas <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            ) : (
+              <span className="text-[10px] text-amber-200">Sin diapositivas</span>
+            )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setFlipped(true)}
+            className="corner-peel-btn"
+            aria-label="Ver detalle completo"
+            title="Ver detalle completo"
+          >
+            <CornerDownRight className="w-3.5 h-3.5" />
+          </button>
         </article>
 
-        <article
-          className={`case-flip-face case-back neo-glass-card border bg-gradient-to-br ${tone} p-4 relative overflow-hidden`}
-          onMouseLeave={() => setFlipped(false)}
-        >
+        <article className={`case-flip-face case-back case-aurora case-card-lift neo-glass-card border bg-gradient-to-br ${tone} p-4 relative overflow-hidden`}>
           <div className="absolute -left-6 -bottom-8 h-24 w-24 rounded-full blur-2xl" style={logoStyle} />
+
           <h4 className="text-sm font-semibold text-white line-clamp-2">{caseData.titulo}</h4>
-          <div className="mt-2 space-y-1.5 text-[11px] text-slate-100">
-            <p className="line-clamp-2"><span className="text-slate-300">Solución:</span> {caseData.solucion}</p>
-            <p className="line-clamp-1"><span className="text-slate-300">Impacto:</span> {caseData.kpi_impacto || 'Impacto estimado por caso relacionado'}</p>
-            <p className="line-clamp-1"><span className="text-slate-300">Stack:</span> {(caseData.tecnologias || []).slice(0, 3).join(' · ') || 'N/A'}</p>
-            <p className="line-clamp-1"><span className="text-slate-300">Empresa:</span> {caseData.empresa || 'N/A'}</p>
-            <p className="line-clamp-1"><span className="text-slate-300">Evidencia:</span> {caseData.url_slide || 'Pendiente de URL verificable'}</p>
+          <div className="mt-2 rounded-2xl border border-white/15 bg-white/8 p-3 space-y-1.5 text-[11px] text-slate-100 max-h-[175px] overflow-y-auto">
+            <p className="select-text"><span className="text-slate-300">Caso para:</span> {caseData.empresa || 'Cliente no mapeado'}</p>
+            <p className="select-text"><span className="text-slate-300">Impacto esperado:</span> {caseData.kpi_impacto || 'Pendiente de cuantificación'}</p>
+            <p className="select-text"><span className="text-slate-300">Por qué aplica:</span> {caseData.match_reason || 'Similitud con el problema objetivo'}</p>
+            <p className="select-text"><span className="text-slate-300">Tecnologías:</span> {(caseData.tecnologias || []).slice(0, 5).join(' · ') || 'N/A'}</p>
+            <p className="select-text"><span className="text-slate-300">Contexto:</span> {caseData.industria || 'N/A'} · {caseData.area || 'N/A'}</p>
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-2">
@@ -135,21 +159,34 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
                 href={caseData.url_slide}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neo-pill inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-white border border-white/25 bg-white/12"
+                className="neo-pill inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-white border border-white/25 bg-white/12 hover:bg-white/18"
               >
-                Evidencia <ExternalLink className="w-3.5 h-3.5" />
+                Abrir evidencia <ExternalLink className="w-3.5 h-3.5" />
               </a>
             ) : (
-              <span className="text-[11px] text-amber-200">Sin URL</span>
+              <span className="text-[11px] text-amber-200">Sin URL verificable</span>
             )}
             <button
               type="button"
-              onClick={() => setFlipped(false)}
-              className="neo-pill px-3 py-1.5 text-[11px] border border-white/20 bg-white/10 text-slate-100"
+              onClick={handleToggleSelect}
+              className={`neo-pill inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold border ${
+                isSelected ? 'text-emerald-100 border-emerald-200/50 bg-emerald-300/20' : 'text-slate-100 border-white/20 bg-white/10'
+              }`}
             >
-              Volver
+              {isSelected ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+              {isSelected ? 'Seleccionado' : 'Seleccionar'}
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setFlipped(false)}
+            className="corner-peel-btn"
+            aria-label="Regresar al frente"
+            title="Regresar al frente"
+          >
+            <CornerDownLeft className="w-3.5 h-3.5" />
+          </button>
         </article>
       </div>
     </div>
