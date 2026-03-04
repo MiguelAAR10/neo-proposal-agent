@@ -56,6 +56,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
   const {
     threadId, proposal, setProposal,
     selectedCaseIds, contextChips, removeContextChip, clearContextChips,
+    useClientProfile,
   } = useAgentStore()
 
   const [mode, setMode] = useState<ChatMode>('chat')
@@ -131,7 +132,10 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
 
     try {
       if (mode === 'chat') {
-        const response = await apiClient.post(`/agent/${threadId}/chat`, { message: fullMsg })
+        const response = await apiClient.post(`/agent/${threadId}/chat`, {
+          message: fullMsg,
+          use_client_profile: useClientProfile,
+        })
         const answer = response.data?.answer
         const status = response.data?.status
         const guardrailCode = response.data?.guardrail_code
@@ -152,7 +156,10 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
           setIsTyping(false)
           return
         }
-        const response = await apiClient.post(`/agent/${threadId}/refine`, { instruction: fullMsg })
+        const response = await apiClient.post(`/agent/${threadId}/refine`, {
+          instruction: fullMsg,
+          use_client_profile: useClientProfile,
+        })
         const refined = response.data?.propuesta_final
         if (typeof refined === 'string' && refined.trim()) {
           setProposal(refined)

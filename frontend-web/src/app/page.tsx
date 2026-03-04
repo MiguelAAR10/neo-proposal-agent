@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, History, X } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DraggableCaseCard } from "@/components/dashboard/DraggableCaseCard";
 import { DraggableContextCard } from "@/components/dashboard/DraggableContextCard";
@@ -10,16 +10,33 @@ import { ClientProfilePanel } from "@/components/dashboard/ClientProfilePanel";
 import { RadarIntelligencePanel } from "@/components/dashboard/RadarIntelligencePanel";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { AREA_OPTIONS, useDashboardController } from "@/components/dashboard/useDashboardController";
-import { useAgentStore } from "@/stores/agentStore";
 import { getErrorMessage } from "@/lib/error";
 import type { DroppableCaseCard } from "@/types/dashboard";
 
 type DragPayload = { kind: "case"; payload: DroppableCaseCard };
 
+const PROFILE_EVOLUTION_MOCK = [
+  {
+    period: "Hace 1 mes",
+    title: "Foco en churn de banca pyme",
+    detail: "Se priorizó retención sobre crecimiento y se pidió reducir fricción en onboarding.",
+  },
+  {
+    period: "Hace 2 semanas",
+    title: "Riesgo regulatorio en modelos IA",
+    detail: "Aparecen requisitos de trazabilidad y control para decisiones asistidas por IA.",
+  },
+  {
+    period: "Hoy",
+    title: "Interés en automatización con ROI",
+    detail: "La conversación migra a quick wins operativos con impacto financiero en menos de 12 meses.",
+  },
+] as const;
+
 export default function HomePage() {
   const dashboard = useDashboardController();
-  const { addContextChip } = useAgentStore();
   const [activeDrag, setActiveDrag] = useState<DragPayload | null>(null);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
 
   const companyOptions = useMemo(
     () => dashboard.catalog.map((entry) => ({ value: entry.name, label: entry.display_name })),
@@ -117,6 +134,31 @@ export default function HomePage() {
                   </label>
                 </div>
 
+                <div className="neo-profile-controls">
+                  <div className="neo-profile-toggle-row">
+                    <div className="neo-profile-toggle-copy">
+                      <span className="neo-profile-toggle-label">Considerar Perfil Histórico del Cliente</span>
+                      <span className="neo-profile-toggle-help">
+                        Usa señales previas del cliente al proponer estrategia.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={dashboard.useClientProfile}
+                      aria-label="Considerar perfil histórico del cliente"
+                      onClick={() => dashboard.setUseClientProfile(!dashboard.useClientProfile)}
+                      className={`neo-profile-switch${dashboard.useClientProfile ? " neo-profile-switch--on" : ""}`}
+                    >
+                      <span className="neo-profile-switch__thumb" />
+                    </button>
+                  </div>
+                  <button type="button" className="neo-ghost-mini" onClick={() => setIsProfileDrawerOpen(true)}>
+                    <History size={14} />
+                    Ver evolución
+                  </button>
+                </div>
+
                 <label className="neo-control-field" style={{ marginTop: 8 }}>
                   <span>Problema de negocio</span>
                   <textarea
@@ -202,6 +244,39 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      <div
+        className={`neo-profile-drawer-backdrop${isProfileDrawerOpen ? " is-open" : ""}`}
+        onClick={() => setIsProfileDrawerOpen(false)}
+      />
+      <aside
+        className={`neo-profile-drawer${isProfileDrawerOpen ? " is-open" : ""}`}
+        aria-hidden={!isProfileDrawerOpen}
+        aria-label="Evolución del perfil del cliente"
+      >
+        <div className="neo-profile-drawer__header">
+          <div>
+            <p className="neo-profile-drawer__kicker">Perfil del cliente</p>
+            <h3 className="neo-profile-drawer__title">Evolución estratégica</h3>
+          </div>
+          <button
+            type="button"
+            className="neo-ghost-mini neo-ghost-mini--icon"
+            onClick={() => setIsProfileDrawerOpen(false)}
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <div className="neo-profile-timeline">
+          {PROFILE_EVOLUTION_MOCK.map((entry) => (
+            <article key={entry.period} className="neo-profile-timeline__item">
+              <span className="neo-profile-timeline__period">{entry.period}</span>
+              <p className="neo-profile-timeline__title">{entry.title}</p>
+              <p className="neo-profile-timeline__detail">{entry.detail}</p>
+            </article>
+          ))}
+        </div>
+      </aside>
     </main>
   );
 }

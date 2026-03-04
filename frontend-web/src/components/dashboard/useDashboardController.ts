@@ -117,6 +117,8 @@ export function useDashboardController() {
     addContextChip,
     setError,
     setWarning,
+    useClientProfile,
+    setUseClientProfile,
     setLoading,
     reset,
   } = store;
@@ -147,7 +149,10 @@ export function useDashboardController() {
   const searchMutation = useMutation({
     mutationFn: async () => {
       setLoading(true);
-      const response = await apiClient.post("/agent/start", controls);
+      const response = await apiClient.post("/agent/start", {
+        ...controls,
+        use_client_profile: useClientProfile,
+      });
       return response.data;
     },
     onSuccess: (data) => {
@@ -185,6 +190,7 @@ export function useDashboardController() {
       if (selectedCaseIds.length === 0) throw new Error("Arrastra al menos un caso a Propuesta de Valor");
       const response = await apiClient.post(`/agent/${threadId}/select`, {
         case_ids: selectedCaseIds,
+        use_client_profile: useClientProfile,
       });
       return response.data;
     },
@@ -240,6 +246,8 @@ export function useDashboardController() {
     area,
     proposal,
     selectedCaseIds,
+    useClientProfile,
+    setUseClientProfile,
     controls,
     setControls,
     searchBridge,
@@ -258,4 +266,3 @@ export function useDashboardController() {
 }
 
 export type { SourceSwitch };
-

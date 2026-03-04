@@ -82,6 +82,7 @@ export interface ProposalState {
   loading: boolean
   error: string | null
   warning: string | null
+  useClientProfile: boolean
   
   // Actions
   setSession: (data: {
@@ -105,6 +106,7 @@ export interface ProposalState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setWarning: (warning: string | null) => void
+  setUseClientProfile: (enabled: boolean) => void
   contextChips: ContextChip[]
   addContextChip: (chip: ContextChip) => void
   removeContextChip: (id: string) => void
@@ -135,6 +137,7 @@ export const useAgentStore = create<ProposalState>()(
       loading: false,
       error: null,
       warning: null,
+      useClientProfile: true,
       contextChips: [],
 
       setSession: (data) => set({
@@ -172,6 +175,7 @@ export const useAgentStore = create<ProposalState>()(
       setLoading: (loading) => set({ loading }),
       setError: (error) => set({ error }),
       setWarning: (warning) => set({ warning }),
+      setUseClientProfile: (enabled) => set({ useClientProfile: enabled }),
       addContextChip: (chip) => set((state) => ({
         contextChips: state.contextChips.some((c) => c.id === chip.id)
           ? state.contextChips
@@ -203,6 +207,7 @@ export const useAgentStore = create<ProposalState>()(
         loading: false,
         error: null,
         warning: null,
+        useClientProfile: true,
         contextChips: [],
       }),
     }),
