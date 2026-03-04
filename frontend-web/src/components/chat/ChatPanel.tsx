@@ -247,7 +247,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
   }
 
   return (
-    <div className="neo-glass-card h-full flex flex-col overflow-hidden">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-[#121212] p-3" style={{ flexShrink: 0 }}>
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 text-violet-400">

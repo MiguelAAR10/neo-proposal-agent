@@ -101,6 +101,7 @@ export function DashboardHeader({
           <RefreshCcw className="h-4 w-4" />
           Reiniciar
         </button>
+        <span className="neo-main-header__version">[ v2.0 - 25 YRS ]</span>
       </div>
     </header>
   );

@@ -32,6 +32,35 @@ body {
   font-family: var(--font-body), sans-serif;
 }
 
+.animated-grid-bg {
+  position: relative;
+  background-color: #0a0a0a;
+}
+
+.animated-grid-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  animation: panGrid 20s linear infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes panGrid {
+  0% {
+    transform: translateY(0);
+  }
+
+  100% {
+    transform: translateY(40px);
+  }
+}
+
 :focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 2px;
@@ -47,9 +76,11 @@ h6 {
 }
 
 .neo-two-panel-page {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--background);
 }
 
@@ -59,6 +90,8 @@ h6 {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  z-index: 10;
 }
 
 .neo-app-body {
@@ -73,7 +106,7 @@ h6 {
 .neo-main-header {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -136,6 +169,17 @@ h6 {
   display: flex;
   align-items: center;
   gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.neo-main-header__version {
+  font-size: 10px;
+  color: #52525b;
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .neo-company-badge {
@@ -221,6 +265,8 @@ h6 {
   display: flex;
   flex-direction: column;
   gap: 9px;
+  position: relative;
+  z-index: 10;
 }
 
 .neo-right-col {
@@ -229,6 +275,26 @@ h6 {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 10;
+}
+
+.neo-chat-shell {
+  padding: 16px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.neo-chat-frame {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(18, 18, 18, 0.8);
+  backdrop-filter: blur(12px);
 }
 
 .neo-panel,
@@ -635,7 +701,21 @@ h6 {
 }
 
 .neo-case-card__footer {
-  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  padding-top: 0;
+}
+
+.neo-case-card__footer-tech {
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(39, 39, 42, 0.5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neo-case-card__footer-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -833,14 +913,6 @@ h6 {
   line-height: 1.65;
 }
 
-.neo-anniversary-badge {
-  position: fixed;
-  left: 12px;
-  bottom: 12px;
-  opacity: 0.75;
-  pointer-events: none;
-}
-
 @media (max-width: 1260px) {
   .neo-controls-grid {
     grid-template-columns: 1fr;
@@ -881,7 +953,11 @@ h6 {
   }
 
   .neo-right-col {
-    min-height: 600px;
+    min-height: 0;
+  }
+
+  .neo-chat-shell {
+    padding: 10px 0;
   }
 
   .neo-profile-controls {

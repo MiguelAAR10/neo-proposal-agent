@@ -83,14 +83,16 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
       )}
 
       <div className="neo-case-card__footer">
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1 }}>
-          {techs.map((t) => (
-            <span key={t} className={TAG_CLASS}>
-              {t}
-            </span>
-          ))}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        {techs.length > 0 && (
+          <div className="neo-case-card__footer-tech">
+            {techs.map((t) => (
+              <span key={t} className={TAG_CLASS}>
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="neo-case-card__footer-actions">
           {card.urlSlide ? (
             <a
               href={card.urlSlide}

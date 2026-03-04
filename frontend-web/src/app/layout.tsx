@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { Montserrat, Space_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
@@ -38,12 +37,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${bodyFont.variable} ${headingFont.variable} ${monoFont.variable} antialiased`}
       >
-        <Providers>
-          {children}
-          <div className="neo-anniversary-badge" aria-hidden="true">
-            <Image src="/logos/neo-25.svg" alt="NEO 25 años" width={92} height={92} />
-          </div>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

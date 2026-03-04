@@ -66,7 +66,7 @@ export default function HomePage() {
   }, [dashboard.generateMutation]);
 
   return (
-    <main className="neo-two-panel-page">
+    <main className="neo-two-panel-page animated-grid-bg h-screen w-full flex overflow-hidden bg-[#0A0A0A]">
       <DashboardHeader
         companyLabel={`${dashboard.empresa || dashboard.controls.empresa} · ${dashboard.area || dashboard.controls.area}`}
         companyValue={dashboard.controls.empresa}
@@ -265,10 +265,14 @@ export default function HomePage() {
 
             {/* ── PANEL DERECHO: CHAT CENTRO DE MANDO ── */}
             <section className="neo-right-col">
-              <ChatPanel
-                onGenerate={handleGenerateProposal}
-                isGenerating={dashboard.generateMutation.isPending}
-              />
+              <div className="neo-chat-shell p-4 h-full flex flex-col">
+                <div className="neo-chat-frame flex-1 overflow-y-auto rounded-xl border border-zinc-800 bg-[#121212]/80 backdrop-blur-md">
+                  <ChatPanel
+                    onGenerate={handleGenerateProposal}
+                    isGenerating={dashboard.generateMutation.isPending}
+                  />
+                </div>
+              </div>
             </section>
 
           </div>
