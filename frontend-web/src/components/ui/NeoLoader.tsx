@@ -1,0 +1,52 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+const PHRASES = [
+  "> INICIALIZANDO MOTORES NEO...",
+  "> CONECTANDO A BASE VECTORIAL...",
+  "> ANALIZANDO CONTEXTO SECTORIAL...",
+  "> SINTETIZANDO INTELIGENCIA ESTRATEGICA...",
+] as const;
+
+interface NeoLoaderProps {
+  compact?: boolean;
+  className?: string;
+}
+
+export function NeoLoader({ compact = false, className = "" }: NeoLoaderProps) {
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [cycle, setCycle] = useState(0);
+  const [fillLine, setFillLine] = useState(false);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % PHRASES.length);
+      setCycle((prev) => prev + 1);
+    }, 1500);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    setFillLine(false);
+    const raf = window.requestAnimationFrame(() => setFillLine(true));
+    return () => window.cancelAnimationFrame(raf);
+  }, [cycle]);
+
+  return (
+    <div className={`neo-loader${compact ? " neo-loader--compact" : ""}${className ? ` ${className}` : ""}`}>
+      <div className="inline-flex items-center gap-2 text-xs font-mono text-violet-400 tracking-widest uppercase">
+        <span className="h-2 w-px bg-violet-400 animate-pulse" aria-hidden="true" />
+        <span>{PHRASES[phraseIndex]}</span>
+      </div>
+      <div className="mt-2 h-px w-full overflow-hidden bg-zinc-800" aria-hidden="true">
+        <div
+          className={`h-px bg-violet-400 transition-[width] duration-[1400ms] ease-linear ${fillLine ? "w-full" : "w-0"}`}
+        />
+      </div>
+    </div>
+  );
+}

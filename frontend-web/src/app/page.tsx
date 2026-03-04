@@ -10,6 +10,7 @@ import { DraggableContextCard } from "@/components/dashboard/DraggableContextCar
 import { ClientProfilePanel } from "@/components/dashboard/ClientProfilePanel";
 import { RadarIntelligencePanel } from "@/components/dashboard/RadarIntelligencePanel";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { NeoLoader } from "@/components/ui/NeoLoader";
 import { AREA_OPTIONS, useDashboardController } from "@/components/dashboard/useDashboardController";
 import { getErrorMessage } from "@/lib/error";
 import type { DroppableCaseCard } from "@/types/dashboard";
@@ -200,8 +201,12 @@ export default function HomePage() {
                   className="neo-pill neo-pill--primary"
                   style={{ width: "100%", marginTop: 10 }}
                 >
-                  {dashboard.searchMutation.isPending ? "Buscando casos…" : "Buscar casos inteligentes"}
+                  {dashboard.searchMutation.isPending ? "Procesando busqueda..." : "Buscar casos inteligentes"}
                 </button>
+
+                {dashboard.searchMutation.isPending && (
+                  <NeoLoader className="mt-2" />
+                )}
               </div>
 
               {/* Casos encontrados */}

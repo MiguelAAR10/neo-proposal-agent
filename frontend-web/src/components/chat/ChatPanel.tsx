@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { apiClient } from '@/lib/api'
 import { getErrorMessage } from '@/lib/error'
 import { useAgentStore } from '@/stores/agentStore'
+import { NeoLoader } from '@/components/ui/NeoLoader'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -248,28 +249,24 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
       </div>
 
       {selectedCaseIds.length > 0 && onGenerate && (
-        <div className="neo-generate-bar" style={{ flexShrink: 0 }}>
-          <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-zinc-400">
-            <Gauge className="h-3 w-3 text-violet-400" />
-            {selectedCaseIds.length} caso{selectedCaseIds.length > 1 ? 's' : ''} seleccionado{selectedCaseIds.length > 1 ? 's' : ''}
-          </span>
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={isGenerating}
-            className="inline-flex items-center gap-1 rounded-md border border-violet-400 bg-violet-400 px-3 py-1 text-[11px] font-bold text-black disabled:opacity-50"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 size={13} className="animate-spin" /> Generando...
-              </>
-            ) : (
-              <>
-                <WandSparkles size={13} /> Generar propuesta
-              </>
-            )}
-          </button>
-        </div>
+        <>
+          <div className="neo-generate-bar" style={{ flexShrink: 0 }}>
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-zinc-400">
+              <Gauge className="h-3 w-3 text-violet-400" />
+              {selectedCaseIds.length} caso{selectedCaseIds.length > 1 ? 's' : ''} seleccionado{selectedCaseIds.length > 1 ? 's' : ''}
+            </span>
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={isGenerating}
+              className="inline-flex items-center gap-1 rounded-md border border-violet-400 bg-violet-400 px-3 py-1 text-[11px] font-bold text-black disabled:opacity-50"
+            >
+              <WandSparkles size={13} />
+              {isGenerating ? 'Generando...' : 'Generar propuesta'}
+            </button>
+          </div>
+          {isGenerating && <NeoLoader compact className="border-t-0 rounded-none" />}
+        </>
       )}
 
       <div

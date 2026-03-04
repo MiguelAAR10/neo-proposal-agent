@@ -676,6 +676,17 @@ h6 {
   background: #101010;
 }
 
+.neo-loader {
+  border: 1px solid var(--border);
+  background: #121212;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.neo-loader--compact {
+  padding: 6px 8px;
+}
+
 .neo-chips-bar {
   display: flex;
   flex-wrap: wrap;
