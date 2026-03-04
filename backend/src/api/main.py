@@ -2,6 +2,7 @@
 main.py — FastAPI MVP V2 Backend
 Refactored to support LangGraph HITL flow, Redis persistence, and Peru profiles.
 """
+import asyncio
 import uuid
 import logging
 import csv
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Optional, Literal, List
 from datetime import datetime, timezone, timedelta
 
+import redis
 from fastapi import FastAPI, HTTPException, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -51,6 +53,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("neo_api_v2")
 settings = get_settings()
+_INTERNAL_SERVER_ERROR_DETAIL = {"error": "Internal Server Error", "code": 500}
+_HEALTHCHECK_TIMEOUT_SEC = 1.0
+_LLM_TIMEOUT_SEC = 20.0
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -149,6 +154,11 @@ def _raise_domain_http(error: BackendDomainError) -> None:
     )
 
 
+def _raise_internal_server_error(message: str) -> None:
+    logger.exception(message)
+    raise HTTPException(status_code=500, detail=_INTERNAL_SERVER_ERROR_DETAIL)
+
+
 def _require_admin_access(authorization: str | None) -> None:
     if settings.is_non_local_env and not settings.admin_token:
         raise HTTPException(
@@ -213,16 +223,74 @@ def _enforce_rate_limit(scope: str, key: str, limit: int) -> None:
         },
     )
 
+
+async def _invoke_llm_async(llm: ChatGoogleGenerativeAI, prompt: str) -> str:
+    """Invoke LLM asynchronously; fallback path is only for legacy mocks/tests."""
+    try:
+        if hasattr(llm, "ainvoke"):
+            response = await asyncio.wait_for(
+                llm.ainvoke(prompt),
+                timeout=_LLM_TIMEOUT_SEC,
+            )
+        else:
+            response = llm.invoke(prompt)
+    except asyncio.TimeoutError as exc:
+        raise ExternalDependencyTimeout("Gemini", _LLM_TIMEOUT_SEC) from exc
+    return str(getattr(response, "content", response)).strip()
+
+
+async def _check_qdrant_health() -> str:
+    if not settings.qdrant_url:
+        return "not_configured"
+    try:
+        await asyncio.wait_for(
+            asyncio.to_thread(lambda: db_connection._ensure_client().get_collections()),
+            timeout=_HEALTHCHECK_TIMEOUT_SEC,
+        )
+        return "connected"
+    except Exception as exc:
+        logger.warning("Qdrant health check failed: %s", exc)
+        return "unavailable"
+
+
+async def _check_redis_health() -> str:
+    if not settings.redis_url:
+        return "not_configured"
+
+    def _ping() -> bool:
+        client = redis.from_url(
+            settings.redis_url,
+            socket_timeout=_HEALTHCHECK_TIMEOUT_SEC,
+            socket_connect_timeout=_HEALTHCHECK_TIMEOUT_SEC,
+            decode_responses=True,
+        )
+        return bool(client.ping())
+
+    try:
+        ok = await asyncio.wait_for(
+            asyncio.to_thread(_ping),
+            timeout=_HEALTHCHECK_TIMEOUT_SEC,
+        )
+        return "connected" if ok else "unavailable"
+    except Exception as exc:
+        logger.warning("Redis health check failed: %s", exc)
+        return "unavailable"
+
 # --- Endpoints ---
 
 @app.get("/health")
 async def health():
     """Verifica el estado de los servicios."""
+    qdrant_status, redis_status = await asyncio.gather(
+        _check_qdrant_health(),
+        _check_redis_health(),
+    )
+    status = "healthy" if (qdrant_status == "connected" and redis_status == "connected") else "degraded"
     return {
-        "status": "healthy",
+        "status": status,
         "version": "2.0.0",
         "environment": settings.app_env,
-        "qdrant": "connected", # Podríamos añadir un ping real aquí
+        "qdrant": qdrant_status,
         "redis_required": settings.is_non_local_env,
     }
 
@@ -264,10 +332,9 @@ async def api_search(data: SearchRequest):
     except BackendDomainError as exc:
         search_metrics.record_error(exc.code)
         _raise_domain_http(exc)
-    except Exception as exc:
+    except Exception:
         search_metrics.record_error("UNHANDLED_ERROR")
-        logger.exception("Error in /api/search: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_internal_server_error("Error in /api/search")
 
 
 @app.get("/ops/metrics")
@@ -691,9 +758,8 @@ async def start_agent(data: StartRequest):
         return _map_state_response(thread_id, final_state, status="awaiting_selection")
     except BackendDomainError as exc:
         _raise_domain_http(exc)
-    except Exception as e:
-        logger.exception(f"Error starting agent: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        _raise_internal_server_error("Error starting agent")
 
 @app.post("/api/ingest")
 async def ingest_cases(data: IngestRequest, authorization: str | None = Header(default=None)):
@@ -710,13 +776,11 @@ async def ingest_cases(data: IngestRequest, authorization: str | None = Header(d
         raise HTTPException(status_code=400, detail=f"CSV no encontrados: {missing}")
 
     try:
-        import asyncio
         if data.force_rebuild:
             await asyncio.to_thread(db_connection.reset_cases_collection, "neo_cases_v1")
         ingest_summary = await asyncio.to_thread(db_connection.load_csv_files, csv_paths, "neo_cases_v1")
-    except Exception as exc:
-        logger.exception("Error en /api/ingest: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception:
+        _raise_internal_server_error("Error en /api/ingest")
 
     return {
         "status": "success",
@@ -791,9 +855,8 @@ async def select_cases(thread_id: str, data: SelectRequest):
         _raise_domain_http(exc)
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"Error in select_cases: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        _raise_internal_server_error("Error in select_cases")
 
 @app.post("/agent/{thread_id}/refine", response_model=AgentStateResponse)
 async def refine_proposal(thread_id: str, data: RefineRequest):
@@ -850,8 +913,7 @@ async def refine_proposal(thread_id: str, data: RefineRequest):
             "PROPUESTA ACTUAL:\n"
             f"{v['propuesta_final']}\n"
         )
-        response = llm.invoke(prompt)
-        refined = str(response.content).strip()
+        refined = await _invoke_llm_async(llm, prompt)
 
         versions = list(v.get("propuesta_versiones") or [])
         versions.append(refined)
@@ -870,9 +932,8 @@ async def refine_proposal(thread_id: str, data: RefineRequest):
         return _map_state_response(thread_id, latest, status="completed")
     except BackendDomainError as exc:
         _raise_domain_http(exc)
-    except Exception as exc:
-        logger.exception("Error refining proposal: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception:
+        _raise_internal_server_error("Error refining proposal")
 
 @app.post("/agent/{thread_id}/chat", response_model=ChatResponse)
 async def contextual_chat(thread_id: str, data: ChatRequest):
@@ -969,8 +1030,7 @@ async def contextual_chat(thread_id: str, data: ChatRequest):
             f"{guardrail.sanitized_message}\n\n"
             "Responde en maximo 180 palabras y cita IDs de casos cuando corresponda."
         )
-        response = llm.invoke(prompt)
-        answer = str(response.content).strip()
+        answer = await _invoke_llm_async(llm, prompt)
 
         new_history = history_tail + [
             {"role": "user", "content": guardrail.sanitized_message},
@@ -998,9 +1058,8 @@ async def contextual_chat(thread_id: str, data: ChatRequest):
         )
     except BackendDomainError as exc:
         _raise_domain_http(exc)
-    except Exception as exc:
-        logger.exception("Error in contextual chat: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception:
+        _raise_internal_server_error("Error in contextual chat")
 
 @app.get("/agent/{thread_id}/state", response_model=AgentStateResponse)
 async def get_agent_state(thread_id: str):
