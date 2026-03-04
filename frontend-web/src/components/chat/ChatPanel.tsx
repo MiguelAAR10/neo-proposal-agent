@@ -23,6 +23,42 @@ interface ChatPanelProps {
   isGenerating?: boolean
 }
 
+function formatProposalWithEmojis(input: string): string {
+  const raw = input.trim()
+  if (!raw) return raw
+
+  let text = raw
+    .replace(/(^|\n)\s*(#+\s*)?dolor del cliente\s*:?/gi, '\n🎯 Dolor del Cliente:')
+    .replace(/(^|\n)\s*(#+\s*)?solucion propuesta\s*:?/gi, '\n💡 Solución Propuesta:')
+    .replace(/(^|\n)\s*(#+\s*)?impacto( y roi)?\s*:?/gi, '\n🚀 Impacto y ROI:')
+
+  const hasExecutiveBlocks = /🎯\s*Dolor del Cliente:/i.test(text) || /💡\s*Solución Propuesta:/i.test(text) || /🚀\s*Impacto y ROI:/i.test(text)
+  if (hasExecutiveBlocks) return text.trim()
+
+  const chunks = raw.split(/\n{2,}/).map((c) => c.trim()).filter(Boolean)
+  const dolor = chunks[0] ?? raw
+  const solucion = chunks[1] ?? 'Definir la solución propuesta con alcance funcional y operativo.'
+  const impacto = chunks.slice(2).join('\n\n') || 'Cuantificar impacto económico y métricas de ejecución esperadas.'
+
+  return [
+    `🎯 Dolor del Cliente: ${dolor}`,
+    `💡 Solución Propuesta: ${solucion}`,
+    `🚀 Impacto y ROI: ${impacto}`,
+  ].join('\n\n')
+}
+
+function inlineFmt(text: string): React.ReactNode {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
+    /^\*\*[^*]+\*\*$/.test(p) ? (
+      <strong key={i} className="font-semibold text-violet-400">
+        {p.slice(2, -2)}
+      </strong>
+    ) : (
+      p
+    ),
+  )
+}
+
 function renderMarkdown(text: string): React.ReactNode[] {
   return text
     .split(/\n{2,}/)
@@ -31,7 +67,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
       if (!t) return null
       if (/^#{1,3} /.test(t)) {
         return (
-          <h3 key={i} className="neo-proposal-bubble" style={{ marginTop: i > 0 ? 10 : 0 }}>
+          <h3 key={i} className="mb-1 mt-2 text-sm font-bold leading-relaxed text-zinc-50 first:mt-0">
             {inlineFmt(t.replace(/^#{1,3} /, ''))}
           </h3>
         )
@@ -39,7 +75,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
       const lines = t.split('\n')
       if (lines.every((l) => /^[-*] /.test(l.trim()))) {
         return (
-          <ul key={i} className="neo-proposal-bubble" style={{ paddingLeft: 14, marginBottom: 6 }}>
+          <ul key={i} className="mb-2 list-disc space-y-1 pl-4 text-sm leading-relaxed text-zinc-300">
             {lines.map((l, j) => (
               <li key={j}>{inlineFmt(l.replace(/^[-*] /, ''))}</li>
             ))}
@@ -48,7 +84,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
       }
       if (/^\d+\. /.test(lines[0]?.trim() ?? '')) {
         return (
-          <ol key={i} className="neo-proposal-bubble" style={{ paddingLeft: 16, marginBottom: 6 }}>
+          <ol key={i} className="mb-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-zinc-300">
             {lines.map((l, j) => (
               <li key={j}>{inlineFmt(l.replace(/^\d+\. /, ''))}</li>
             ))}
@@ -56,24 +92,12 @@ function renderMarkdown(text: string): React.ReactNode[] {
         )
       }
       return (
-        <p key={i} className="neo-proposal-bubble">
+        <p key={i} className="mb-2 text-sm leading-loose text-zinc-300 last:mb-0">
           {inlineFmt(t)}
         </p>
       )
     })
     .filter(Boolean)
-}
-
-function inlineFmt(text: string): React.ReactNode {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
-    /^\*\*[^*]+\*\*$/.test(p) ? (
-      <strong key={i} style={{ color: '#fafafa', fontWeight: 700 }}>
-        {p.slice(2, -2)}
-      </strong>
-    ) : (
-      p
-    ),
-  )
 }
 
 export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
@@ -100,9 +124,9 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
   const [isTyping, setIsTyping] = useState(false)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const prefersReducedMotion = useReducedMotion()
-  const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const lastProposalRef = useRef<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const { setNodeRef: setDropRef, isOver: isDropOver } = useDroppable({ id: 'chat-drop-zone' })
 
@@ -113,7 +137,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
       ...prev,
       {
         role: 'assistant',
-        content: proposal,
+        content: formatProposalWithEmojis(proposal),
         meta: isRefinement ? 'Propuesta refinada' : 'Propuesta generada',
         isProposal: true,
       },
@@ -122,8 +146,8 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
   }, [proposal])
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages, isTyping])
 
   const quickPrompts = useMemo(
     () =>
@@ -217,8 +241,13 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
     setTimeout(() => setCopiedIdx(null), 2000)
   }
 
+  const handleGenerateClick = () => {
+    if (!onGenerate || isGenerating) return
+    onGenerate()
+  }
+
   return (
-    <div className="neo-glass-card flex h-full flex-col overflow-hidden">
+    <div className="neo-glass-card h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-[#121212] p-3" style={{ flexShrink: 0 }}>
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 text-violet-400">
@@ -250,15 +279,15 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
 
       {selectedCaseIds.length > 0 && onGenerate && (
         <>
-          <div className="neo-generate-bar" style={{ flexShrink: 0 }}>
+          <div className="neo-generate-bar flex-shrink-0">
             <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-zinc-400">
               <Gauge className="h-3 w-3 text-violet-400" />
               {selectedCaseIds.length} caso{selectedCaseIds.length > 1 ? 's' : ''} seleccionado{selectedCaseIds.length > 1 ? 's' : ''}
             </span>
             <button
               type="button"
-              onClick={onGenerate}
-              disabled={isGenerating}
+              onClick={handleGenerateClick}
+              disabled={Boolean(isGenerating)}
               className="inline-flex items-center gap-1 rounded-md border border-violet-400 bg-violet-400 px-3 py-1 text-[11px] font-bold text-black disabled:opacity-50"
             >
               <WandSparkles size={13} />
@@ -302,7 +331,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#0e0e0e] p-4" aria-live="polite" style={{ minHeight: 0 }}>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0e0e0e]" aria-live="polite">
         {messages.map((m, idx) => (
           <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {m.isProposal ? (
@@ -365,11 +394,11 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       <form
-        className="border-t border-zinc-800 bg-[#121212] p-3"
-        style={{ flexShrink: 0 }}
+        className="mt-auto flex-shrink-0 border-t border-zinc-800 bg-[#121212] p-3"
         onSubmit={(e) => {
           e.preventDefault()
           void handleSend()

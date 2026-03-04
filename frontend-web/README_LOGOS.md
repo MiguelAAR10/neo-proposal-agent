@@ -1,22 +1,23 @@
-# Logos Empresariales
+# README Logos
 
-Este directorio está reservado para logos de empresas objetivo usados por el dashboard.
+Instrucciones de carga para logos corporativos usados por el header del dashboard.
 
-Ruta base:
-- `frontend-web/public/logos/`
+## Formato requerido
+- **PNG** con **fondo transparente**.
 
-Convención de nombres:
-- Formato: `nombreempresa.png`
-- Todo en minúsculas
-- Sin espacios
-- Sin tildes ni caracteres especiales
+## Nomenclatura estricta
+- Todo en minúsculas.
+- Sin espacios.
+- Sin tildes ni caracteres especiales.
+- Ejemplos válidos:
+  - `bcp.png`
+  - `pacifico.png`
+  - `alicorp.png`
 
-Ejemplos:
-- `bcp.png`
-- `pacifico.png`
-- `interbank.png`
-- `scotiabank.png`
+## Ubicación obligatoria
+- Guardar los archivos **directamente** en:
+  - `frontend-web/public/logos/`
 
-Comportamiento en UI:
-- El header intentará cargar dinámicamente `/logos/{empresa}.png` según la empresa seleccionada.
-- Si el archivo no existe, se mostrará automáticamente un ícono de fallback (`Building`) para mantener consistencia visual.
+## Comportamiento en UI
+- El header intenta cargar automáticamente `/logos/{empresa}.png` según la empresa objetivo.
+- Si el archivo no existe, se muestra fallback con icono `Building`.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { AlertCircle, History, X } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
@@ -60,6 +60,10 @@ export default function HomePage() {
   };
 
   const hasError = Boolean(dashboard.searchMutation.error || dashboard.generateMutation.error);
+  const handleGenerateProposal = useCallback(() => {
+    if (dashboard.generateMutation.isPending) return;
+    dashboard.generateMutation.mutate();
+  }, [dashboard.generateMutation]);
 
   return (
     <main className="neo-two-panel-page">
@@ -262,7 +266,7 @@ export default function HomePage() {
             {/* ── PANEL DERECHO: CHAT CENTRO DE MANDO ── */}
             <section className="neo-right-col">
               <ChatPanel
-                onGenerate={() => dashboard.generateMutation.mutate()}
+                onGenerate={handleGenerateProposal}
                 isGenerating={dashboard.generateMutation.isPending}
               />
             </section>
