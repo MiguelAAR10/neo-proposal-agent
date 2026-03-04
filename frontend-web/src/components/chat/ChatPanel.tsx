@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Send, Bot, Loader2, X, WandSparkles, Copy, CheckCheck } from 'lucide-react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { apiClient } from '@/lib/api'
 import { getErrorMessage } from '@/lib/error'
 import { useAgentStore } from '@/stores/agentStore'
@@ -67,6 +68,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+  const prefersReducedMotion = useReducedMotion()
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const lastProposalRef = useRef<string | null>(null)
@@ -272,17 +274,20 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
         {messages.map((m, idx) => (
           <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {m.isProposal ? (
-              <div
+              <motion.div
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
+                animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                 style={{
                   width: '100%',
-                  background: 'rgba(14,23,46,0.7)',
-                  border: '1px solid rgba(108,140,255,0.35)',
+                  background: 'rgba(12,17,28,0.74)',
+                  border: '1px solid rgba(255,255,255,0.14)',
                   borderRadius: 16,
                   padding: '12px 14px',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontSize: 10, color: '#7bf7ff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <span style={{ fontSize: 10, color: 'var(--primary-brand)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {m.meta ?? 'Propuesta generada'}
                   </span>
                   <button
@@ -290,7 +295,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
                     onClick={() => handleCopy(m.content, idx)}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4,
-                      fontSize: 10, color: copiedIdx === idx ? '#8ff8be' : '#7a93b8',
+                      fontSize: 10, color: copiedIdx === idx ? 'var(--op-cost)' : '#8ea5c8',
                       background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
                       borderRadius: 6, padding: '2px 7px', cursor: 'pointer',
                     }}
@@ -300,14 +305,14 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
                   </button>
                 </div>
                 <div>{renderMarkdown(m.content)}</div>
-              </div>
+              </motion.div>
             ) : (
               <div className={`max-w-[88%] p-3 rounded-2xl text-sm ${
                 m.role === 'user'
                   ? 'bg-[var(--accent-soft)] text-white rounded-tr-none'
                   : 'bg-white/10 text-[var(--foreground)] rounded-tl-none border border-white/10'
               }`}>
-                <p style={{ fontSize: 13, lineHeight: 1.5 }}>{m.content}</p>
+                <p style={{ fontSize: 13, lineHeight: 1.66, color: 'var(--text-main)' }}>{m.content}</p>
                 {m.meta && <p className="mt-1 text-[10px] text-slate-300">{m.meta}</p>}
               </div>
             )}

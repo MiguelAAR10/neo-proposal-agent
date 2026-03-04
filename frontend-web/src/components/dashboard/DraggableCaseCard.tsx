@@ -27,10 +27,18 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
   const matchStyle = MATCH_STYLE[card.matchType ?? ""] ?? { bg: "rgba(255,255,255,0.06)", color: "#a8b8d4" };
   const techs = Array.isArray(card.tecnologias) ? card.tecnologias.slice(0, 3) : [];
   const score = Math.round((card.scoreClientFit ?? card.scoreRaw ?? 0) * 100);
+  const lowerProblem = card.problema.toLowerCase();
+  const tone =
+    lowerProblem.includes("fraude") || lowerProblem.includes("riesgo")
+      ? "risk"
+      : card.matchType === "exacto"
+        ? "op"
+        : "brand";
 
   return (
     <article
       ref={setNodeRef}
+      data-tone={tone}
       style={style}
       className={`neo-case-card${isDropped ? " neo-case-card--selected" : ""}${isDragging ? " neo-case-card--dragging" : ""}`}
     >
@@ -123,14 +131,7 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
           <button
             type="button"
             onClick={() => onToggle?.(card.id)}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 3,
-              padding: "3px 8px", borderRadius: 7, border: "none",
-              background: isDropped ? "rgba(110,255,170,0.15)" : "rgba(255,255,255,0.07)",
-              color: isDropped ? "#8ff8be" : "#8ab0d0",
-              fontSize: 10, fontWeight: 600, cursor: "pointer",
-              transition: "background 130ms ease, color 130ms ease",
-            }}
+            className={`neo-case-select-btn${isDropped ? " neo-case-select-btn--active" : ""}`}
             title={isDropped ? "Quitar de propuesta" : "Seleccionar para propuesta"}
           >
             <BadgeCheck className="h-3.5 w-3.5" />

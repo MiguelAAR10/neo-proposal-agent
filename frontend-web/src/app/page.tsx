@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { AlertCircle, History, X } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DraggableCaseCard } from "@/components/dashboard/DraggableCaseCard";
 import { DraggableContextCard } from "@/components/dashboard/DraggableContextCard";
@@ -37,6 +38,8 @@ export default function HomePage() {
   const dashboard = useDashboardController();
   const [activeDrag, setActiveDrag] = useState<DragPayload | null>(null);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+  const shouldAnimate = !prefersReducedMotion;
 
   const companyOptions = useMemo(
     () => dashboard.catalog.map((entry) => ({ value: entry.name, label: entry.display_name })),
@@ -78,7 +81,12 @@ export default function HomePage() {
           <div className="neo-app-body">
 
             {/* ── PANEL IZQUIERDO ── */}
-            <aside className="neo-left-col neo-panel">
+            <motion.aside
+              className="neo-left-col neo-panel"
+              initial={shouldAnimate ? { opacity: 0, y: 10 } : false}
+              animate={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            >
 
               {/* Contexto del cliente */}
               <ClientProfilePanel />
@@ -86,11 +94,27 @@ export default function HomePage() {
               {/* Fichas de contexto sectorial */}
               <div>
                 <h3 className="neo-panel-title">Contexto Sectorial</h3>
-                <div className="neo-context-list">
+                <motion.div
+                  className="neo-context-list"
+                  initial={shouldAnimate ? "hidden" : false}
+                  animate={shouldAnimate ? "show" : undefined}
+                  variants={{
+                    hidden: { opacity: 0 },
+                    show: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
+                  }}
+                >
                   {dashboard.contextCards.map((card) => (
-                    <DraggableContextCard key={card.id} card={card} />
+                    <motion.div
+                      key={card.id}
+                      variants={{
+                        hidden: { opacity: 0, y: 8 },
+                        show: { opacity: 1, y: 0, transition: { duration: 0.24, ease: [0.22, 1, 0.36, 1] } },
+                      }}
+                    >
+                      <DraggableContextCard card={card} />
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               </div>
 
               {/* Radar mini */}
@@ -192,14 +216,32 @@ export default function HomePage() {
                     </span>
                   </div>
                   <div className="neo-cases-list">
-                    {dashboard.visibleCases.map((card) => (
-                      <DraggableCaseCard
-                        key={card.id}
-                        card={card}
-                        isDropped={dashboard.selectedCaseIds.includes(card.id)}
-                        onToggle={dashboard.onToggleCase}
-                      />
-                    ))}
+                    <motion.div
+                      key={`${dashboard.threadId ?? "idle"}-${dashboard.visibleCases.length}`}
+                      initial={shouldAnimate ? "hidden" : false}
+                      animate={shouldAnimate ? "show" : undefined}
+                      variants={{
+                        hidden: { opacity: 0 },
+                        show: { opacity: 1, transition: { staggerChildren: 0.045 } },
+                      }}
+                      style={{ display: "grid", gap: 7 }}
+                    >
+                      {dashboard.visibleCases.map((card) => (
+                        <motion.div
+                          key={card.id}
+                          variants={{
+                            hidden: { opacity: 0, y: 10 },
+                            show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } },
+                          }}
+                        >
+                          <DraggableCaseCard
+                            card={card}
+                            isDropped={dashboard.selectedCaseIds.includes(card.id)}
+                            onToggle={dashboard.onToggleCase}
+                          />
+                        </motion.div>
+                      ))}
+                    </motion.div>
                   </div>
                 </div>
               )}
@@ -210,7 +252,7 @@ export default function HomePage() {
                 </p>
               )}
 
-            </aside>
+            </motion.aside>
 
             {/* ── PANEL DERECHO: CHAT CENTRO DE MANDO ── */}
             <section className="neo-right-col">
