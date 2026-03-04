@@ -85,7 +85,7 @@ export function DashboardHeader({
                 unoptimized
               />
             ) : (
-              <Building className="h-4 w-4" />
+              <Building className="h-4 w-4 text-zinc-400" />
             )}
           </span>
           <div className="neo-company-badge__meta">

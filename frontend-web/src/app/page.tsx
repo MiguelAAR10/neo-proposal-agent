@@ -211,7 +211,7 @@ export default function HomePage() {
                     <h3 className="neo-panel-title" style={{ marginBottom: 0 }}>
                       Casos sugeridos
                     </h3>
-                    <span style={{ fontSize: 10, color: "#7a93b8" }}>
+                    <span style={{ fontSize: 10, color: "#a1a1aa", fontFamily: "var(--font-mono), monospace" }}>
                       {dashboard.selectedCaseIds.length} seleccionado{dashboard.selectedCaseIds.length !== 1 ? "s" : ""}
                     </span>
                   </div>
