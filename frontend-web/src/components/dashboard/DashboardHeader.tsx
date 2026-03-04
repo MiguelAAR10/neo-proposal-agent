@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { RefreshCcw, LayoutDashboard } from "lucide-react";
+import { Building, RefreshCcw, LayoutDashboard } from "lucide-react";
 
 interface DashboardHeaderProps {
   companyLabel: string;
@@ -12,6 +13,15 @@ interface DashboardHeaderProps {
   onReset: () => void;
 }
 
+function slugifyCompany(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "");
+}
+
 export function DashboardHeader({
   companyLabel,
   companyValue,
@@ -19,6 +29,16 @@ export function DashboardHeader({
   onCompanyChange,
   onReset,
 }: DashboardHeaderProps) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const companyLogoSrc = useMemo(() => {
+    const slug = slugifyCompany(companyValue);
+    return slug ? `/logos/${slug}.png` : "";
+  }, [companyValue]);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [companyLogoSrc]);
+
   return (
     <header className="neo-main-header">
       <div className="neo-main-header__left">
@@ -52,6 +72,27 @@ export function DashboardHeader({
         </datalist>
       </div>
       <div className="neo-main-header__right">
+        <div className="neo-company-badge" title={companyValue || "Sin empresa seleccionada"}>
+          <span className="neo-company-badge__logo">
+            {!logoFailed && companyLogoSrc ? (
+              <Image
+                src={companyLogoSrc}
+                alt={`Logo ${companyValue}`}
+                width={22}
+                height={22}
+                className="neo-company-badge__logo-img"
+                onError={() => setLogoFailed(true)}
+                unoptimized
+              />
+            ) : (
+              <Building className="h-4 w-4" />
+            )}
+          </span>
+          <div className="neo-company-badge__meta">
+            <span className="neo-company-badge__label">Empresa objetivo</span>
+            <span className="neo-company-badge__value">{companyValue || "Sin seleccionar"}</span>
+          </div>
+        </div>
         <Link href="/ops" className="neo-pill neo-pill--header">
           <LayoutDashboard className="h-4 w-4" />
           Panel Ops

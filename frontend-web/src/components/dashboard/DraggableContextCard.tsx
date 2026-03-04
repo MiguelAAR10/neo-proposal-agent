@@ -12,9 +12,9 @@ const CATEGORY_ICON: Record<string, React.ReactNode> = {
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
-  high: "#ffb3b3",
-  medium: "#ffd89f",
-  low: "#b4ffd2",
+  high: "#d97706",
+  medium: "#7c3aed",
+  low: "#0f766e",
 };
 
 interface Props {

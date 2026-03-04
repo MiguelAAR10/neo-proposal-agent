@@ -6,9 +6,9 @@ import { useAgentStore } from "@/stores/agentStore";
 import type { ClientProfileInsight } from "@/types/dashboard";
 
 const SENTIMENT_COLOR: Record<string, { dot: string; label: string }> = {
-  positive: { dot: "#8ff8be", label: "Oportunidad" },
-  neutral:  { dot: "#b3d5ff", label: "Info" },
-  negative: { dot: "#ffb3b3", label: "Riesgo" },
+  positive: { dot: "#16a34a", label: "Oportunidad" },
+  neutral:  { dot: "#7c3aed", label: "Info" },
+  negative: { dot: "#f59e0b", label: "Riesgo" },
 };
 
 const DUMMY_INSIGHTS: ClientProfileInsight[] = [
@@ -91,38 +91,40 @@ export function ClientProfilePanel() {
         aria-expanded={open}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <User className="h-4 w-4 text-cyan-300" />
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#e4f2ff" }}>Contexto del Cliente</span>
+          <User className="h-4 w-4 text-violet-600" />
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#020617" }}>Contexto del Cliente</span>
           <span
             style={{
-              fontSize: 9,
-              padding: "1px 6px",
+              fontSize: 10,
+              padding: "2px 7px",
               borderRadius: 999,
-              background: currentEmpresa !== "—" ? "rgba(110,255,170,0.12)" : "rgba(255,255,255,0.08)",
-              color: currentEmpresa !== "—" ? "#8ff8be" : "#8ab0d0",
-              border: "1px solid rgba(255,255,255,0.1)",
+              fontFamily: "var(--font-mono), monospace",
+              fontWeight: 700,
+              background: currentEmpresa !== "—" ? "rgba(139,92,246,0.10)" : "#f8fafc",
+              color: currentEmpresa !== "—" ? "#7c3aed" : "#64748b",
+              border: "1px solid #cbd5e1",
             }}
           >
             {currentEmpresa !== "—" ? currentEmpresa : "Sin sesión"}
           </span>
         </div>
-        {open ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+        {open ? <ChevronUp className="h-4 w-4 text-slate-600" /> : <ChevronDown className="h-4 w-4 text-slate-600" />}
       </button>
 
       {open && (
         <div className="neo-context-panel__body">
-          <p style={{ fontSize: 10, color: "#7a93b8", marginBottom: 2 }}>
+          <p style={{ fontSize: 10, color: "#334155", marginBottom: 2, fontFamily: "var(--font-mono), monospace", fontWeight: 700 }}>
             {currentArea !== "—" ? `Área: ${currentArea}` : "Selecciona una empresa para activar su perfil"}
           </p>
-          <p style={{ fontSize: 9, color: "#5a6e88", marginTop: -2 }}>
+          <p style={{ fontSize: 10, color: "#64748b", marginTop: -2 }}>
             Haz clic en cualquier item para añadirlo al chat
           </p>
 
           {objetivos.length > 0 && (
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5 }}>
-                <TrendingUp className="h-3 w-3 text-cyan-400" />
-                <span style={{ fontSize: 9, color: "#7dd9f7", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                <TrendingUp className="h-3 w-3 text-violet-600" />
+                <span style={{ fontSize: 10, color: "#111827", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "var(--font-mono), monospace" }}>
                   Objetivos
                 </span>
               </div>
@@ -144,8 +146,8 @@ export function ClientProfilePanel() {
           {painPoints.length > 0 && (
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5 }}>
-                <AlertTriangle className="h-3 w-3 text-amber-400" />
-                <span style={{ fontSize: 9, color: "#ffd89f", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                <AlertTriangle className="h-3 w-3 text-amber-600" />
+                <span style={{ fontSize: 10, color: "#111827", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "var(--font-mono), monospace" }}>
                   Pain Points
                 </span>
               </div>
@@ -166,11 +168,11 @@ export function ClientProfilePanel() {
 
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5 }}>
-              <MessageSquare className="h-3 w-3 text-violet-400" />
-              <span style={{ fontSize: 9, color: "#c9b8ff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              <MessageSquare className="h-3 w-3 text-violet-600" />
+              <span style={{ fontSize: 10, color: "#111827", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "var(--font-mono), monospace" }}>
                 Insights del equipo
               </span>
-              <span style={{ fontSize: 8, color: "#5a6e88", marginLeft: 4 }}>datos demo</span>
+              <span style={{ fontSize: 9, color: "#64748b", marginLeft: 4 }}>datos demo</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               {DUMMY_INSIGHTS.map((ins, i) => {
@@ -182,8 +184,8 @@ export function ClientProfilePanel() {
                     type="button"
                     onClick={() => toggleInsightChip(ins, i)}
                     style={{
-                      background: active ? "rgba(108,140,255,0.14)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${active ? "rgba(108,140,255,0.45)" : "rgba(255,255,255,0.1)"}`,
+                      background: active ? "rgba(139,92,246,0.08)" : "#ffffff",
+                      border: `1px solid ${active ? "rgba(139,92,246,0.45)" : "#e2e8f0"}`,
                       borderRadius: 9,
                       padding: "6px 8px",
                       cursor: "pointer",
@@ -192,13 +194,15 @@ export function ClientProfilePanel() {
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                      <span style={{ fontSize: 10, color: s.dot, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 10, color: s.dot, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono), monospace" }}>
                         <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot, display: "inline-block" }} />
                         {ins.author} · {s.label}
                       </span>
-                      <span style={{ fontSize: 9, color: "#5a6e88" }}>{ins.timestamp}</span>
+                      <span style={{ fontSize: 9, color: "#64748b", fontFamily: "var(--font-mono), monospace", fontWeight: 700 }}>
+                        {ins.timestamp}
+                      </span>
                     </div>
-                    <p style={{ fontSize: 11, color: active ? "#c8daf5" : "#9ab0cc", lineHeight: 1.35 }}>{ins.text}</p>
+                    <p style={{ fontSize: 11, color: active ? "#111827" : "#334155", lineHeight: 1.45 }}>{ins.text}</p>
                   </button>
                 );
               })}

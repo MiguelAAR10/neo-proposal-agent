@@ -186,23 +186,23 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
   return (
     <div className="neo-glass-card flex flex-col overflow-hidden" style={{ height: '100%' }}>
       {/* Header */}
-      <div className="p-3 border-b border-white/10 bg-white/5 flex items-center justify-between gap-3" style={{ flexShrink: 0 }}>
+      <div className="p-3 border-b border-slate-200 bg-white flex items-center justify-between gap-3" style={{ flexShrink: 0 }}>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] flex items-center justify-center text-white">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-sm">
             <Bot size={18} />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-[var(--foreground)]">Asistente de Valor</h3>
-            <p className="text-[10px] text-slate-300">Chat · propuesta · refinamiento</p>
+            <h3 className="text-sm font-bold text-black">Asistente de Valor</h3>
+            <p className="text-[10px] text-slate-500">Chat · propuesta · refinamiento</p>
           </div>
         </div>
-        <div className="inline-flex rounded-lg border border-white/15 bg-white/5 p-1">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
           <button type="button" onClick={() => setMode('chat')}
-            className={`px-2.5 py-1 text-[11px] rounded-md ${mode === 'chat' ? 'bg-[var(--accent-soft)] text-white' : 'text-slate-200 hover:bg-white/10'}`}>
+            className={`px-2.5 py-1 text-[11px] rounded-md ${mode === 'chat' ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-sm' : 'text-black hover:bg-slate-100'}`}>
             Chat
           </button>
           <button type="button" onClick={() => setMode('refine')} disabled={!proposal}
-            className={`px-2.5 py-1 text-[11px] rounded-md ${mode === 'refine' ? 'bg-[var(--accent-soft)] text-white' : 'text-slate-200 hover:bg-white/10'} disabled:opacity-50`}>
+            className={`px-2.5 py-1 text-[11px] rounded-md ${mode === 'refine' ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-sm' : 'text-black hover:bg-slate-100'} disabled:opacity-50`}>
             Refinar
           </button>
         </div>
@@ -211,7 +211,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
       {/* Barra de generar propuesta */}
       {selectedCaseIds.length > 0 && onGenerate && (
         <div className="neo-generate-bar" style={{ flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#b3d5ff' }}>
+          <span style={{ fontSize: 11, color: '#475569', fontFamily: "var(--font-mono), monospace", fontWeight: 700 }}>
             {selectedCaseIds.length} caso{selectedCaseIds.length > 1 ? 's' : ''} seleccionado{selectedCaseIds.length > 1 ? 's' : ''}
           </span>
           <button
@@ -221,8 +221,8 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '5px 12px', borderRadius: 8,
-              background: 'linear-gradient(135deg, #5678ff, #3ab8ff)',
-              border: '1px solid rgba(166,192,255,0.6)',
+              background: 'linear-gradient(90deg, #8b5cf6, #d946ef)',
+              border: '1px solid rgba(139,92,246,0.48)',
               color: 'white', fontSize: 11, fontWeight: 700,
               cursor: isGenerating ? 'not-allowed' : 'pointer',
               opacity: isGenerating ? 0.6 : 1,
@@ -240,9 +240,9 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
         ref={setDropRef}
         style={{
           padding: '5px 14px', fontSize: 10, flexShrink: 0,
-          color: isDropOver ? '#7bf7ff' : '#4a5e7a',
-          background: isDropOver ? 'rgba(74,111,255,0.1)' : 'transparent',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          color: isDropOver ? '#7c3aed' : '#64748b',
+          background: isDropOver ? 'rgba(139,92,246,0.08)' : 'transparent',
+          borderBottom: '1px solid #e2e8f0',
           transition: 'background 140ms ease, color 140ms ease',
           textAlign: 'center',
         }}
@@ -270,7 +270,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
       )}
 
       {/* Mensajes */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3" aria-live="polite" style={{ minHeight: 0 }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/70" aria-live="polite" style={{ minHeight: 0 }}>
         {messages.map((m, idx) => (
           <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {m.isProposal ? (
@@ -280,10 +280,11 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
                 transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                 style={{
                   width: '100%',
-                  background: 'rgba(12,17,28,0.74)',
-                  border: '1px solid rgba(255,255,255,0.14)',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
                   borderRadius: 16,
                   padding: '12px 14px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -295,8 +296,8 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
                     onClick={() => handleCopy(m.content, idx)}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4,
-                      fontSize: 10, color: copiedIdx === idx ? 'var(--op-cost)' : '#8ea5c8',
-                      background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                      fontSize: 10, color: copiedIdx === idx ? '#8b5cf6' : '#475569',
+                      background: 'transparent', border: '1px solid #cbd5e1',
                       borderRadius: 6, padding: '2px 7px', cursor: 'pointer',
                     }}
                   >
@@ -309,21 +310,21 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
             ) : (
               <div className={`max-w-[88%] p-3 rounded-2xl text-sm ${
                 m.role === 'user'
-                  ? 'bg-[var(--accent-soft)] text-white rounded-tr-none'
-                  : 'bg-white/10 text-[var(--foreground)] rounded-tl-none border border-white/10'
+                  ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-tr-none'
+                  : 'bg-white text-slate-700 rounded-tl-none border border-slate-200 shadow-sm'
               }`}>
-                <p style={{ fontSize: 13, lineHeight: 1.66, color: 'var(--text-main)' }}>{m.content}</p>
-                {m.meta && <p className="mt-1 text-[10px] text-slate-300">{m.meta}</p>}
+                <p style={{ fontSize: 13, lineHeight: 1.7, color: m.role === 'user' ? '#ffffff' : '#334155' }}>{m.content}</p>
+                {m.meta && <p className="mt-1 text-[10px] text-slate-500">{m.meta}</p>}
               </div>
             )}
           </div>
         ))}
         {isTyping && (
           <div className="flex justify-start">
-            <div className="bg-white/10 border border-white/10 p-3 rounded-2xl rounded-tl-none flex gap-1">
-              <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" />
-              <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.2s]" />
-              <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.4s]" />
+            <div className="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none flex gap-1">
+              <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" />
+              <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+              <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:0.4s]" />
             </div>
           </div>
         )}
@@ -331,7 +332,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
 
       {/* Input */}
       <form
-        className="p-3 border-t border-white/10"
+        className="p-3 border-t border-slate-200 bg-white"
         style={{ flexShrink: 0 }}
         onSubmit={(e) => { e.preventDefault(); void handleSend() }}
       >
@@ -339,7 +340,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
           {quickPrompts.map((prompt) => (
             <button key={prompt} type="button" disabled={isTyping}
               onClick={() => { setInput(prompt); inputRef.current?.focus() }}
-              className="text-[10px] px-2 py-1 rounded-full border border-white/15 bg-white/8 text-slate-100 hover:bg-white/12 disabled:opacity-50">
+              className="text-[10px] px-2 py-1 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-50">
               {prompt}
             </button>
           ))}
@@ -351,10 +352,10 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
             onChange={(e) => setInput(e.target.value)}
             maxLength={600}
             placeholder={mode === 'chat' ? 'Pregunta estratégica…' : 'Instrucción de refinamiento…'}
-            className="w-full pl-4 pr-11 py-2.5 bg-white/10 border border-white/10 rounded-lg text-sm text-[var(--foreground)] placeholder:text-slate-300/60 focus:ring-2 focus:ring-[var(--accent)] outline-none"
+            className="w-full pl-4 pr-11 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-violet-300 outline-none"
           />
           <button type="submit" disabled={isTyping || !input.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--accent)] hover:bg-white/10 disabled:opacity-50 rounded-md"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-violet-600 hover:bg-slate-100 disabled:opacity-50 rounded-md"
             aria-label="Enviar mensaje">
             {isTyping ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
           </button>

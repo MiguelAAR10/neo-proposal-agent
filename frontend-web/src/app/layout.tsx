@@ -1,23 +1,25 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Montserrat, Space_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 
-const bodyFont = Inter({
+const bodyFont = Montserrat({
   variable: "--font-body",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const headingFont = Playfair_Display({
+const headingFont = Space_Mono({
   variable: "--font-heading",
   subsets: ["latin"],
-  weight: ["500", "600"],
+  weight: ["400", "700"],
 });
 
-const monoFont = Inter({
+const monoFont = Space_Mono({
   variable: "--font-mono",
   subsets: ["latin"],
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
