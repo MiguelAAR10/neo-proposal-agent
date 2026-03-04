@@ -1,7 +1,7 @@
 # 05 - REQUISITOS TECNICOS (MVP V2)
 
-Fecha de corte: 2026-03-02  
-Version objetivo: MVP V2.1 estable + pipeline backend formal
+Fecha de corte: 2026-03-03  
+Version objetivo: MVP V2.1 integrado (frontend art + backend intelligence)
 
 ## 1) Stack real (backend)
 
@@ -28,6 +28,10 @@ Orquestacion:
 - `POST /agent/{thread_id}/refine`
 - `POST /agent/{thread_id}/chat`
 - `GET /agent/{thread_id}/state`
+
+Comportamiento vigente de `POST /agent/start`:
+- cliente priorizado: usa contexto enriquecido de cuenta.
+- cliente no priorizado: no bloquea; devuelve `warning` y continua con busqueda abierta centrada en problema.
 
 Operaciones:
 - `GET /health`
@@ -88,10 +92,14 @@ Operaciones:
 
 Implementado:
 - timeout embedding: 2s.
-- timeout qdrant: 1s.
+- timeout qdrant: configurable (default 2s en branch actual).
 - threshold configurable (default 0.50).
 - cache de embeddings Redis con fallback local.
 - normalizacion de query para hit-rate.
+- scoring final prioriza semantica + confianza fuente + evidencia (`url_slide`) con menor peso de recencia.
+- timeouts movidos a settings para operacion por entorno:
+  - `search_embedding_timeout_sec`
+  - `search_qdrant_timeout_sec`
 
 Objetivos SLA:
 - p50 < 500ms
@@ -165,3 +173,26 @@ Checklist:
 3. reporte persistente de calidad de ingesta por categoria.
 4. guardrails avanzados conversacionales (clasificacion semantica + auditoria persistente + alertas).
 5. migracion controlada de SQLite Repository a Postgres/pgvector (sin refactor de dominio).
+
+## 10) Plan tecnico ejecutable (alto valor primero)
+
+Semana 1 (estabilidad de integracion):
+1. Validar contrato `intel` en backend y consumo en frontend con tests de contrato.
+2. Congelar schemas de respuesta en `src/lib/api.ts` y DTOs del backend.
+3. Agregar smoke test E2E de flujo critico (`/agent/start`, `select`, `refine`, `intel profile`).
+
+Semana 2 (operacion y calidad):
+1. Persistir metricas clave (latencia, errores por codigo, guardrail block rate).
+2. Publicar reporte de calidad de ingesta por categoria de error.
+3. Endurecer controles admin: token y rate limiting baseline.
+
+Semana 3 (escalamiento controlado):
+1. Definir interfaz de repositorio compatible con SQLite y Postgres.
+2. Introducir migraciones y pruebas de compatibilidad de datos.
+3. Mantener paridad de contrato API sin breaking changes.
+
+Checklist tecnico de salida por PR:
+1. `python -m pytest -q backend/tests/test_intel_endpoint.py backend/tests/test_macro_radar_graph.py backend/tests/test_update_summary_node.py`
+2. `python -m pytest -q backend/tests/test_agent_state_mapper.py backend/tests/test_api_contracts.py`
+3. `npm --prefix frontend-web run build`
+4. Bitacora y requirements actualizados en el mismo PR.

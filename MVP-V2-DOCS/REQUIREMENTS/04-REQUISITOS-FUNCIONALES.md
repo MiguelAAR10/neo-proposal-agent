@@ -1,7 +1,7 @@
 # 04 - REQUISITOS FUNCIONALES (MVP V2)
 
-Fecha de corte: 2026-03-02  
-Version objetivo: MVP V2.1 estable + pipeline backend formal (7 fases)
+Fecha de corte: 2026-03-03  
+Version objetivo: MVP V2.1 integrado (frontend art + backend intelligence)
 
 ## Convencion de estado
 
@@ -24,6 +24,7 @@ Estado: `IMPLEMENTADO`
 ## RF-03 Flujo HITL start -> select
 Estado: `IMPLEMENTADO`
 - `POST /agent/start` crea sesion y retorna casos.
+- permite empresas no priorizadas: no bloquea el flujo, retorna `warning` y usa contexto abierto.
 - `POST /agent/{thread_id}/select` persiste seleccion y genera propuesta.
 - seleccion valida requerida para propuesta.
 
@@ -53,6 +54,7 @@ Estado: `IMPLEMENTADO`
 Estado: `IMPLEMENTADO`
 - endpoint dedicado `POST /agent/{thread_id}/chat`.
 - mantiene contexto de cliente priorizado, perfil, sector y casos seleccionados/disponibles.
+- cuando no hay cliente priorizado, el chat mantiene foco en problema/area sin contexto preferente.
 - persiste historial reciente por sesion para continuidad conversacional.
 - aplica guardrails de entrada (inyeccion de prompt, solicitud de secretos, intenciones destructivas, longitud maxima).
 - genera trazas de auditoria para operaciones (`GET /ops/chat-audit`).
@@ -122,6 +124,33 @@ Implementado:
 - endpoint `POST /intel/radar/run` para ejecución sync del radar en MVP.
 - extracción de triggers críticos (leyes/circulares, caída de ticker <= -5%, alertas de consultoras top).
 - persistencia de radiografía de industria en SQLite (`intel_industry_radiography`) con patrón Repository.
+
+## Priorizacion por valor para desarrollo (Q1 2026)
+
+Objetivo: enfocar desarrollo en lo que sube conversion y reduce riesgo operativo.
+
+1. Valor alto / esfuerzo medio:
+- RF-03 + RF-05 + RF-06 (flujo HITL y propuesta)
+- RF-13 (insights humanos aplicados a resumen final)
+- RF-14 (macro radar para contexto sectorial)
+
+2. Valor alto / esfuerzo bajo:
+- RF-10 (calidad de evidencia visible y confiable)
+- RF-11 (observabilidad de busqueda para detectar degradacion)
+- RF-12 (seguridad minima de endpoints operativos)
+
+3. Valor medio / esfuerzo medio:
+- RF-08 (chat contextual) con mejoras de guardrails y auditoria persistente.
+
+Orden recomendado de ejecucion:
+1. Calidad y confiabilidad base: RF-10, RF-11, RF-12.
+2. Diferenciadores comerciales: RF-13, RF-14.
+3. Pulido de experiencia y continuidad: RF-08.
+
+Definicion de terminado funcional por entrega:
+1. Endpoint y payload validados con test de contrato.
+2. Evidencia visible en UI (casos, resumen, señales macro o insight humano).
+3. Registro en bitacora con riesgo, tradeoff y validacion.
 
 ## Referencias
 - `backend/src/api/main.py`

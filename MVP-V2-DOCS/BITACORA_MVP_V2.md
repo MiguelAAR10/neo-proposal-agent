@@ -1162,3 +1162,24 @@ V2.2 se considera cerrada cuando:
     - sincronización exitosa a repositorio personal de GitHub (`MiguelAAR10`) vía SSH.
   - estado:
     - implementado (MVP V2 unificado).
+- 2026-03-03 14:45:00 -05:00: feat(search+agent): habilitar clientes no priorizados, recalibrar score por evidencia y endurecer timeouts configurables.
+  - objetivo:
+    - destrabar flujo comercial para empresas fuera del catálogo priorizado sin perder calidad técnica en ranking y SLA.
+  - razon_negocio:
+    - evita rechazar oportunidades nuevas en discovery comercial y mantiene una experiencia consistente en frontend con mensajes explícitos de contexto.
+  - cambio:
+    - `POST /agent/start` y `intake_node` dejan de bloquear cliente no priorizado.
+    - se incorpora `warning` de operación abierta cuando no aplica contexto VIP.
+    - `search_service` recalibra `score_final` con mayor peso semántico y evidencia (`url_slide`) para mejorar utilidad comercial.
+    - clasificación de afinidad (`exacto|relacionado|inspiracional`) y `match_reason` se alinean al nuevo criterio.
+    - timeouts de embedding/Qdrant pasan a settings (`search_embedding_timeout_sec`, `search_qdrant_timeout_sec`) para ajuste por entorno.
+    - CORS default amplía puertos locales (`3001`, `3002`) para operación multi-instancia en desarrollo.
+    - test de contrato actualizado: cliente no priorizado permitido en `start`.
+  - tradeoff:
+    - al abrir el flujo a no priorizados aumenta variabilidad de resultados; se compensa con scoring más estricto por evidencia y warning explícito.
+  - validacion:
+    - `python -m pytest -q backend/tests/test_api_contracts.py backend/tests/test_search_service.py backend/tests/test_config_settings.py` => OK (27 passed).
+    - `python -m pytest -q backend/tests/test_update_summary_node.py backend/tests/test_agent_state_mapper.py` => OK (4 passed).
+    - `npm --prefix frontend-web run build` => OK.
+  - estado:
+    - implementado.

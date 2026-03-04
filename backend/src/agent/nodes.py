@@ -26,19 +26,17 @@ def intake_node(state: ProposalState) -> ProposalState:
     if not empresa or not problema:
         state["error"] = "Los campos Empresa y Problema son obligatorios."
         return state
-    if not is_prioritized_client(empresa):
-        state["error"] = (
-            "En esta fase solo se permiten clientes priorizados: "
-            "BCP, Interbank, BBVA, Alicorp, Rimac, Pacifico, Scotiabank, MiBanco, "
-            "Credicorp, Plaza Vea, Falabella y Sodimac."
-        )
-        return state
+    prioritized = is_prioritized_client(empresa)
 
     state["empresa"] = empresa
     state["problema"] = problema
     state["area"] = area
     state["switch"] = switch
-    state["cliente_priorizado_contexto"] = get_prioritized_client_context(empresa)
+    state["cliente_priorizado_contexto"] = get_prioritized_client_context(empresa) if prioritized else {}
+    if not prioritized:
+        state["warning"] = (
+            "Cliente fuera del catalogo priorizado. Se usa busqueda abierta con foco en el problema."
+        )
     state["error"] = ""
     return state
 
@@ -242,30 +240,37 @@ def _rerank_cases_for_client(
     rescored: list[dict[str, Any]] = []
     for case in cases:
         score_raw = float(case.get("score_raw", case.get("score", 0.0)))
-        bonus = 0.0
+        base_semantic = 0.78 * score_raw
+        source_conf = 0.12 * float(case.get("confianza_fuente", 0.85))
+        evidence = 0.10 if case.get("url_slide") else 0.04
 
         case_empresa = str(case.get("empresa") or "").strip().lower()
         case_area = str(case.get("area") or "").strip().lower()
         case_industria = str(case.get("industria") or "").strip().lower()
+        context_bonus = 0.0
 
         if empresa_norm and case_empresa and (empresa_norm in case_empresa or case_empresa in empresa_norm):
-            bonus += 0.12
+            context_bonus += 0.05
         if area_norm and case_area and (area_norm == case_area):
-            bonus += 0.05
+            context_bonus += 0.04
         if rubro_norm and case_industria and (rubro_norm in case_industria or case_industria in rubro_norm):
-            bonus += 0.03
+            context_bonus += 0.03
 
+        final_score = min(1.0, base_semantic + source_conf + evidence + context_bonus)
         rescored_case = dict(case)
-        rescored_case["score_client_fit"] = round(min(1.0, score_raw + bonus), 4)
-        if bonus >= 0.12:
+        rescored_case["score_client_fit"] = round(final_score, 4)
+        if score_raw >= 0.72:
             rescored_case["match_type"] = "exacto"
-            rescored_case["match_reason"] = "Coincidencia directa con empresa/área objetivo"
-        elif bonus > 0:
+            rescored_case["match_reason"] = "Alta similitud con el problema objetivo."
+        elif context_bonus >= 0.08:
+            rescored_case["match_type"] = "exacto"
+            rescored_case["match_reason"] = "Alta afinidad combinando problema y contexto comercial."
+        elif score_raw >= 0.56 or context_bonus > 0:
             rescored_case["match_type"] = "relacionado"
-            rescored_case["match_reason"] = "Coincidencia parcial por industria/área"
+            rescored_case["match_reason"] = "Caso relacionado por similitud del problema."
         else:
             rescored_case["match_type"] = "inspiracional"
-            rescored_case["match_reason"] = "Referencia útil por similitud de problema"
+            rescored_case["match_reason"] = "Referencia inspiracional para ampliar opciones."
         rescored.append(rescored_case)
 
     rescored.sort(key=lambda c: c.get("score_client_fit", c.get("score_raw", 0.0)), reverse=True)

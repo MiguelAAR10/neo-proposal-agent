@@ -663,12 +663,7 @@ async def start_agent(data: StartRequest):
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
     empresa_normalized = normalize_company_name(data.empresa)
-    if not is_prioritized_client(data.empresa):
-        _raise_domain_http(
-            BusinessRuleError(
-                "En esta fase solo se permiten clientes priorizados para generar propuestas."
-            )
-        )
+    prioritized = is_prioritized_client(data.empresa)
     
     inputs = {
         "empresa": empresa_normalized,
@@ -676,9 +671,12 @@ async def start_agent(data: StartRequest):
         "area": data.area,
         "problema": data.problema,
         "switch": data.switch,
-        "cliente_priorizado_contexto": get_prioritized_client_context(data.empresa),
+        "cliente_priorizado_contexto": get_prioritized_client_context(data.empresa) if prioritized else {},
         "casos_seleccionados_ids": [],
-        "propuesta_versiones": []
+        "propuesta_versiones": [],
+        "warning": None if prioritized else (
+            "Cliente fuera del catalogo priorizado. Se ejecuta busqueda abierta centrada en problema."
+        ),
     }
     
     try:

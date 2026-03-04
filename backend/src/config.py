@@ -28,7 +28,11 @@ class Settings(BaseSettings):
     radar_tool_timeout_sec: float = 8.0
     admin_token: str | None = None
     app_env: str = "development"
-    allowed_origins_raw: str = "http://localhost:3000,http://127.0.0.1:3000"
+    allowed_origins_raw: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3001,http://127.0.0.1:3001,"
+        "http://localhost:3002,http://127.0.0.1:3002"
+    )
     chat_audit_max_events: int = 2000
     chat_audit_retention_days: int = 7
     chat_audit_redis_key: str = "ops:chat_audit:v1"
@@ -44,6 +48,8 @@ class Settings(BaseSettings):
     rate_limit_chat_per_window: int = 60
     rate_limit_redis_key_prefix: str = "ops:rate_limit:v1"
     session_funnel_redis_key: str = "ops:session_funnel:v1"
+    search_embedding_timeout_sec: float = 2.0
+    search_qdrant_timeout_sec: float = 2.0
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent.parent / ".env"),

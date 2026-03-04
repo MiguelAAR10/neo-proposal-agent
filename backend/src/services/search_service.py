@@ -150,16 +150,14 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
     link_status = raw.get("link_status") or "unknown"
 
     similitud_semantica = max(0.0, min(1.0, score_raw))
-    match_industria = 1.0 if industria and industria != "No mapeado" else 0.6
-    match_area = 1.0 if area and area != "No mapeado" else 0.6
     confianza_fuente = float(raw.get("confianza_fuente", 1.0 if tipo == "NEO" else 0.85))
+    evidencia = 1.0 if has_valid_url else 0.6
     recencia = 0.8
     final_score = (
-        0.40 * similitud_semantica
-        + 0.20 * match_industria
-        + 0.15 * match_area
+        0.70 * similitud_semantica
         + 0.15 * confianza_fuente
-        + 0.10 * recencia
+        + 0.10 * evidencia
+        + 0.05 * recencia
     )
 
     # Determinar match_type segun score final
@@ -193,12 +191,14 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
         "score_final": round(final_score, 4),
         "score_client_fit": round(final_score, 4),
         "match_type": match_type,
-        "match_reason": f"Afinidad de {int(final_score*100)}% basada en industria ({industria}), área ({area}) y similitud semántica.",
+        "match_reason": (
+            f"Afinidad de {int(final_score*100)}% con foco en similitud del problema"
+            f" y evidencia disponible."
+        ),
         "score_breakdown": {
             "similitud_semantica": round(similitud_semantica, 4),
-            "match_industria": round(match_industria, 4),
-            "match_area": round(match_area, 4),
             "confianza_fuente": round(confianza_fuente, 4),
+            "calidad_evidencia": round(evidencia, 4),
             "recencia": round(recencia, 4),
         },
         "confianza_fuente": confianza_fuente,
@@ -284,6 +284,7 @@ def search_cases_sync(
     limit: int = 6,
     score_threshold: float = 0.50,
 ) -> dict[str, Any]:
+    settings = get_settings()
     start = time.perf_counter()
     cached = _cache_get(problema)
     if cached is not None:
@@ -297,7 +298,7 @@ def search_cases_sync(
         switch=switch,
         limit=limit,
         score_threshold=score_threshold,
-        timeout_sec=1.0,
+        timeout_sec=settings.search_qdrant_timeout_sec,
     )
     total_ms = int((time.perf_counter() - start) * 1000)
     return _build_search_payload(problema, switch, raw_results, total_ms)
@@ -309,6 +310,9 @@ async def search_cases_with_sla(
     limit: int = 6,
     score_threshold: float = 0.50,
 ) -> dict[str, Any]:
+    settings = get_settings()
+    embed_timeout = settings.search_embedding_timeout_sec
+    qdrant_timeout = settings.search_qdrant_timeout_sec
     start = time.perf_counter()
 
     cached = _cache_get(problema)
@@ -320,13 +324,13 @@ async def search_cases_with_sla(
         try:
             query_vector = await asyncio.wait_for(
                 asyncio.to_thread(db_connection.embed_query, problema),
-                timeout=2.0,
+                timeout=embed_timeout,
             )
             _cache_set(problema, query_vector)
         except asyncio.TimeoutError:
             fallback = _cache_get(problema)
             if fallback is None:
-                raise ExternalDependencyTimeout("Gemini", 2.0)
+                raise ExternalDependencyTimeout("Gemini", embed_timeout)
             query_vector = fallback
     embedding_ms = int((time.perf_counter() - embed_start) * 1000)
 
@@ -339,12 +343,12 @@ async def search_cases_with_sla(
                 switch,
                 limit,
                 score_threshold,
-                1.0,
+                qdrant_timeout,
             ),
-            timeout=1.0,
+            timeout=qdrant_timeout,
         )
     except asyncio.TimeoutError as exc:
-        raise ExternalDependencyTimeout("Qdrant", 1.0) from exc
+        raise ExternalDependencyTimeout("Qdrant", qdrant_timeout) from exc
     qdrant_ms = int((time.perf_counter() - qdrant_start) * 1000)
 
     latencia_ms = int((time.perf_counter() - start) * 1000)

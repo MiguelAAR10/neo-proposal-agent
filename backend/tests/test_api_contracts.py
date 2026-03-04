@@ -80,24 +80,36 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(exc.status_code, 404)
         self.assertEqual(exc.detail["code"], "SESSION_NOT_FOUND")
 
-    def test_start_agent_rejects_non_prioritized_client(self) -> None:
-        async def run() -> None:
-            await start_agent(
-                StartRequest(
-                    empresa="Cliente No Priorizado",
-                    rubro="Banca",
-                    area="Operaciones",
-                    problema="Necesitamos mejorar tiempos de respuesta en conciliaciones",
-                    switch="both",
-                )
-            )
+    def test_start_agent_allows_non_prioritized_client(self) -> None:
+        fake_state = {
+            "empresa": "CLIENTE NO PRIORIZADO",
+            "area": "Operaciones",
+            "problema": "Necesitamos mejorar tiempos de respuesta en conciliaciones",
+            "casos_encontrados": [{"id": "CASE-1", "tipo": "AI"}],
+            "neo_cases": [],
+            "ai_cases": [{"id": "CASE-1", "tipo": "AI"}],
+            "casos_seleccionados_ids": [],
+            "perfil_cliente": {"empresa": "CLIENTE NO PRIORIZADO", "notas": "nuevo"},
+            "status": "awaiting_selection",
+            "warning": "Cliente fuera del catalogo priorizado. Se ejecuta busqueda abierta centrada en problema.",
+        }
 
-        with self.assertRaises(HTTPException) as ctx:
-            asyncio.run(run())
+        async def run():
+            with patch("src.api.main.graph.ainvoke", new=AsyncMock(return_value=fake_state)):
+                with patch("src.api.main.session_funnel_store.record_start", return_value=None):
+                    return await start_agent(
+                        StartRequest(
+                            empresa="Cliente No Priorizado",
+                            rubro="Banca",
+                            area="Operaciones",
+                            problema="Necesitamos mejorar tiempos de respuesta en conciliaciones",
+                            switch="both",
+                        )
+                    )
 
-        exc = ctx.exception
-        self.assertEqual(exc.status_code, 400)
-        self.assertEqual(exc.detail["code"], "BUSINESS_RULE_ERROR")
+        result = asyncio.run(run())
+        self.assertEqual(result.status, "awaiting_selection")
+        self.assertEqual(result.empresa, "CLIENTE NO PRIORIZADO")
 
     def test_select_cases_allows_selected_case_without_url_with_warning(self) -> None:
         mock_state = type(

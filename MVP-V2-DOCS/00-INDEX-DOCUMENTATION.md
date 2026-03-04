@@ -1,9 +1,9 @@
 # INDICE DE DOCUMENTACION - NEO PROPOSAL AGENT (MVP V2)
 
-Fecha de corte: 2026-03-02
-Version activa: MVP V2.1 estable + plan Pipeline Backend Formal (7 fases)
-Baseline recomendado para frontend: `7344c78c`
-Baseline funcional V2.1 (busqueda + HITL): `15bfc20b`
+Fecha de corte: 2026-03-03
+Version activa: MVP V2.1 integrado (frontend art + backend intelligence)
+Baseline recomendado para frontend: `19cb88d5`
+Baseline funcional V2.1 (busqueda + HITL + intel): `9b689b70`
 
 ## 1) Fuente de verdad
 
@@ -17,13 +17,15 @@ La bitacora define estado real por commit, riesgos y decisiones.
 Backend:
 - API activa: `/health`, `/api/search`, `/api/ingest`, `/agent/start`, `/agent/{thread_id}/select`, `/agent/{thread_id}/refine`, `/agent/{thread_id}/state`, `/ops/metrics`
 - Servicio unificado de busqueda y contrato `/agent/*` alineado.
-- Nuevo alcance aprobado (en implementacion): `Sales Insight Collector` HITL (`POST /intel/company/{company_id}/insights`) con storage SQLite + patron Repository.
+- `POST /agent/start` permite cliente no priorizado con `warning` y busqueda abierta centrada en problema.
+- `Sales Insight Collector` HITL (`POST /intel/company/{company_id}/insights`) implementado con storage SQLite + patron Repository.
 
 Frontend:
 - Pantalla unica (`idle -> curating -> complete`) operativa.
 - Chat conectado a `/agent/{thread_id}/refine` (ya no mock).
 - Accesibilidad base: foco visible, ARIA, navegacion por teclado, mensajes de error.
 - QA tecnico cerrado: `lint` y `build` OK.
+- Rama activa de integracion: `feat/mvp2-frontend-art-two-panel` (unica rama operativa para evolucion V2).
 
 ## 3) Prioridad documental (actualizar siempre en este orden)
 
@@ -57,3 +59,24 @@ Si se requiere limpiar en siguiente ciclo:
 1. Mantener `MVP-2.1-ARQUITECTURA-Y-LOGICA.md` como puente operativo de V2.1.
 2. Evitar crear otro archivo paralelo de arquitectura V2.x; extender este mismo.
 3. Consolidar cualquier nota suelta en bitacora en lugar de nuevos markdowns.
+
+## 6) Plan de desarrollo de alto valor (ejecucion inmediata)
+
+P0 - Impacto directo en propuesta comercial:
+1. Estabilizar contrato `intel` con frontend (`/intel/company/{company_id}/insights`, `/intel/radar/run`).
+2. Cerrar QA E2E sobre flujo principal (`start -> select -> proposal -> refine`).
+3. Reducir errores operativos visibles (mensajes claros y fallback controlado en UI).
+
+P1 - Confiabilidad operativa:
+1. Persistir metricas clave de busqueda/chat (no solo in-memory).
+2. Formalizar job operativo para calidad de links y reporte de rechazo de datos.
+3. Endurecer seguridad de endpoints admin (token + rate limit baseline).
+
+P2 - Escalamiento:
+1. Diseñar migracion gradual de storage (`SQLite -> Postgres/pgvector`) sin romper dominio.
+2. Versionar contratos API para cambios futuros de frontend.
+
+Criterio de salida por sprint:
+1. Cada entrega debe mapearse a un RF (archivo 04) y a un criterio tecnico (archivo 05).
+2. Todo cambio en backend con impacto en payload debe incluir test de contrato.
+3. Todo cambio visible en UI debe pasar `build` y registrar riesgo en bitacora.
