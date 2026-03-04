@@ -1,9 +1,9 @@
 # INDICE DE DOCUMENTACION - NEO PROPOSAL AGENT (MVP V2)
 
-Fecha de corte: 2026-03-03
+Fecha de corte: 2026-03-04
 Version activa: MVP V2.1 integrado (frontend art + backend intelligence)
 Baseline recomendado para frontend: `19cb88d5`
-Baseline funcional V2.1 (busqueda + HITL + intel): `9b689b70`
+Baseline funcional V2.1 (busqueda + HITL + intel): `1cac68a8`
 
 ## 1) Fuente de verdad
 
@@ -11,6 +11,9 @@ Leer primero:
 - `MVP-V2-DOCS/BITACORA_MVP_V2.md`
 
 La bitacora define estado real por commit, riesgos y decisiones.
+
+Control de ramas y versiones:
+- `MVP-V2-DOCS/07-ESTADO-RAMAS-GIT-MVP2.md`
 
 ## 2) Estado real por capa
 
