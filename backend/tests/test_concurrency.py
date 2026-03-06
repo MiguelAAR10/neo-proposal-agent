@@ -11,7 +11,8 @@ from httpx import ASGITransport, AsyncClient
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from src.api import main
+from src.api import deps
+from src.api.main import app
 from src.services.rate_limit import rate_limiter
 from src.services.session_funnel import session_funnel_store
 
@@ -32,8 +33,8 @@ def test_concurrent_agent_start_respects_rate_limit(monkeypatch) -> None:
     limit = 12
     total_requests = 50
 
-    monkeypatch.setattr(main.settings, "rate_limit_start_per_window", limit, raising=False)
-    monkeypatch.setattr(main.settings, "rate_limit_window_sec", 60, raising=False)
+    monkeypatch.setattr(deps.settings, "rate_limit_start_per_window", limit, raising=False)
+    monkeypatch.setattr(deps.settings, "rate_limit_window_sec", 60, raising=False)
 
     async def fake_ainvoke(inputs: dict, config: dict | None = None) -> dict:
         await asyncio.sleep(0.01)
@@ -49,10 +50,10 @@ def test_concurrent_agent_start_respects_rate_limit(monkeypatch) -> None:
             "error": "",
         }
 
-    monkeypatch.setattr(main.graph, "ainvoke", fake_ainvoke)
+    monkeypatch.setattr(deps.graph, "ainvoke", fake_ainvoke)
 
     async def _run() -> tuple[Counter, float]:
-        transport = ASGITransport(app=main.app)
+        transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             payload = {
                 "empresa": company,

@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from src.api.main import _map_state_response
+from src.api.deps import map_state_response
 
 
 class AgentStateMapperTests(unittest.TestCase):
@@ -16,7 +16,7 @@ class AgentStateMapperTests(unittest.TestCase):
             "casos_seleccionados_ids": [],
         }
 
-        response = _map_state_response("thread-1", state)
+        response = map_state_response("thread-1", state)
 
         self.assertEqual(response.thread_id, "thread-1")
         self.assertEqual(response.empresa, "BCP")
@@ -35,7 +35,7 @@ class AgentStateMapperTests(unittest.TestCase):
             "propuesta_final": "Texto final",
         }
 
-        response = _map_state_response("thread-2", state)
+        response = map_state_response("thread-2", state)
         self.assertEqual(response.status, "completed")
 
     def test_maps_human_insights_when_present(self) -> None:
@@ -47,7 +47,7 @@ class AgentStateMapperTests(unittest.TestCase):
             "casos_seleccionados_ids": [],
             "human_insights": [{"id": "h-1", "author": "Carlos Ruiz", "department": "TI"}],
         }
-        response = _map_state_response("thread-3", state)
+        response = map_state_response("thread-3", state)
         self.assertEqual(len(response.human_insights), 1)
         self.assertEqual(response.human_insights[0]["id"], "h-1")
 

@@ -10,7 +10,8 @@ from httpx import ASGITransport, AsyncClient
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from src.api import main
+from src.api import deps
+from src.api.main import app
 from src.services.rate_limit import rate_limiter
 from src.services.session_funnel import session_funnel_store
 
@@ -40,7 +41,7 @@ def test_agent_start_http_integration(monkeypatch) -> None:
             "error": "",
         }
 
-    monkeypatch.setattr(main.graph, "ainvoke", fake_ainvoke)
+    monkeypatch.setattr(deps.graph, "ainvoke", fake_ainvoke)
     company = f"ACME-{uuid.uuid4().hex[:8]}"
     payload = {
         "empresa": company,
@@ -51,7 +52,7 @@ def test_agent_start_http_integration(monkeypatch) -> None:
     }
 
     async def _run():
-        transport = ASGITransport(app=main.app)
+        transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             return await client.post("/agent/start", json=payload)
 
@@ -98,14 +99,14 @@ def test_agent_chat_http_integration(monkeypatch) -> None:
 
     class _FakeLLM:
         async def ainvoke(self, prompt: str) -> SimpleNamespace:
-            assert "CASOS DISPONIBLES PARA RESPONDER" in prompt
+            assert "Casos Disponibles como Base" in prompt
             return SimpleNamespace(content="Recomiendo CASE-NEO-1 por afinidad y evidencia.")
 
-    monkeypatch.setattr(main.graph, "aget_state", fake_aget_state)
-    monkeypatch.setattr(main.graph, "aupdate_state", fake_aupdate_state)
-    monkeypatch.setattr(main, "ChatGoogleGenerativeAI", lambda **kwargs: _FakeLLM())
+    monkeypatch.setattr(deps.graph, "aget_state", fake_aget_state)
+    monkeypatch.setattr(deps.graph, "aupdate_state", fake_aupdate_state)
+    monkeypatch.setattr(deps, "get_chat_llm", lambda: _FakeLLM())
     async def _run():
-        transport = ASGITransport(app=main.app)
+        transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             return await client.post(f"/agent/{thread_id}/chat", json={"message": "Que caso recomiendas?"})
 

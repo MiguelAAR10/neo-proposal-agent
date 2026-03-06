@@ -18,7 +18,7 @@ class SearchServicePayloadTests(unittest.TestCase):
                 "titulo": "AI top",
                 "problema": "p",
                 "solucion": "s",
-                "score": 0.94,
+                "score": 0.96,
                 "url_slide": "https://example.com/ai",
             },
             {
