@@ -12,7 +12,7 @@ interface Props {
 }
 
 const TAG_CLASS =
-  "px-2 py-1 bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-mono uppercase tracking-wider";
+  "neo-tag";
 
 export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -35,7 +35,7 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
           <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, flexWrap: "wrap" }}>
             <span className={TAG_CLASS}>{card.tipo}</span>
             <span className={`${TAG_CLASS} ${isDropped ? "neo-tag--active" : ""}`}>
-              <Gauge className="h-3 w-3 text-violet-400" />
+              <Gauge className="h-3 w-3 text-[#7ba3f0]" />
               {score}%
             </span>
             {card.matchType && <span className={TAG_CLASS}>{card.matchType}</span>}
@@ -46,9 +46,9 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
           {...listeners}
           {...attributes}
           style={{ cursor: "grab", padding: "2px 0", flexShrink: 0 }}
-          title="Arrastra al chat para anadir como contexto"
+          title="Arrastra al chat para añadir como contexto"
         >
-          <GripVertical className="h-4 w-4 text-zinc-400" />
+          <GripVertical className="h-4 w-4 text-[#7ba3f0]/60" />
         </div>
       </div>
 
@@ -60,16 +60,16 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
 
       <div className="neo-case-card__body">
         <div className="neo-case-card__col">
-          <p className="neo-case-card__col-label neo-case-card__col-label--problem">
-            <TriangleAlert className="h-3 w-3 text-zinc-400" />
+          <p className="neo-case-card__col-label">
+            <TriangleAlert className="h-3 w-3 text-[#7ba3f0]" />
             Problema del cliente
           </p>
           <p className="neo-case-card__col-text">{card.problema}</p>
         </div>
         <div className="neo-case-card__col">
-          <p className="neo-case-card__col-label neo-case-card__col-label--solution">
-            <Sparkles className="h-3 w-3 text-violet-400" />
-            Solucion
+          <p className="neo-case-card__col-label">
+            <Sparkles className="h-3 w-3 text-[#7ba3f0]" />
+            Solución
           </p>
           <p className="neo-case-card__col-text">{card.solucion}</p>
         </div>
@@ -77,7 +77,7 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
 
       {card.kpiImpacto && (
         <div className="neo-case-card__kpi">
-          <Gauge className="h-3.5 w-3.5 text-violet-400" />
+          <Gauge className="h-3.5 w-3.5 text-[#7ba3f0]" />
           {card.kpiImpacto}
         </div>
       )}
@@ -101,10 +101,10 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
               className="neo-case-url-btn"
               onClick={(e) => e.stopPropagation()}
             >
-              Ver diapositivas <ExternalLink className="h-3 w-3 text-zinc-400" />
+              Ver diapositivas <ExternalLink className="h-3 w-3 text-[#7ba3f0]" />
             </a>
           ) : (
-            <span className="text-[10px] text-zinc-400">Sin URL</span>
+            <span className="text-[11px] text-[#a8b8e8]">Sin URL</span>
           )}
           <button
             type="button"
@@ -112,7 +112,7 @@ export function DraggableCaseCard({ card, isDropped, onToggle }: Props) {
             className={`neo-case-select-btn${isDropped ? " neo-case-select-btn--active" : ""}`}
             title={isDropped ? "Quitar de propuesta" : "Seleccionar para propuesta"}
           >
-            <BadgeCheck className={`h-3.5 w-3.5 ${isDropped ? "text-violet-400" : "text-zinc-400"}`} />
+            <BadgeCheck className={`h-3.5 w-3.5 ${isDropped ? "text-[#7ba3f0]" : "text-[#a8b8e8]"}`} />
             {isDropped ? "Seleccionado" : "Seleccionar"}
           </button>
         </div>

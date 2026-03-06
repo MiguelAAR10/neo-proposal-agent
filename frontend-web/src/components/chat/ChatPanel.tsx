@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
-import { Send, Bot, Loader2, X, WandSparkles, Copy, CheckCheck, Gauge } from 'lucide-react'
+import { Send, Bot, Loader2, X, Copy, CheckCheck, Edit3 } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { apiClient } from '@/lib/api'
 import { getErrorMessage } from '@/lib/error'
@@ -19,38 +19,14 @@ interface Message {
 type ChatMode = 'chat' | 'refine'
 
 interface ChatPanelProps {
-  onGenerate?: () => void
   isGenerating?: boolean
 }
 
-function formatProposalWithEmojis(input: string): string {
-  const raw = input.trim()
-  if (!raw) return raw
-
-  let text = raw
-    .replace(/(^|\n)\s*(#+\s*)?dolor del cliente\s*:?/gi, '\n🎯 Dolor del Cliente:')
-    .replace(/(^|\n)\s*(#+\s*)?solucion propuesta\s*:?/gi, '\n💡 Solución Propuesta:')
-    .replace(/(^|\n)\s*(#+\s*)?impacto( y roi)?\s*:?/gi, '\n🚀 Impacto y ROI:')
-
-  const hasExecutiveBlocks = /🎯\s*Dolor del Cliente:/i.test(text) || /💡\s*Solución Propuesta:/i.test(text) || /🚀\s*Impacto y ROI:/i.test(text)
-  if (hasExecutiveBlocks) return text.trim()
-
-  const chunks = raw.split(/\n{2,}/).map((c) => c.trim()).filter(Boolean)
-  const dolor = chunks[0] ?? raw
-  const solucion = chunks[1] ?? 'Definir la solución propuesta con alcance funcional y operativo.'
-  const impacto = chunks.slice(2).join('\n\n') || 'Cuantificar impacto económico y métricas de ejecución esperadas.'
-
-  return [
-    `🎯 Dolor del Cliente: ${dolor}`,
-    `💡 Solución Propuesta: ${solucion}`,
-    `🚀 Impacto y ROI: ${impacto}`,
-  ].join('\n\n')
-}
-
+// ── Markdown renderer ────────────────────────────────────────────────────────
 function inlineFmt(text: string): React.ReactNode {
   return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
     /^\*\*[^*]+\*\*$/.test(p) ? (
-      <strong key={i} className="font-semibold text-violet-400">
+      <strong key={i} style={{ color: '#ffffff', fontWeight: 700 }}>
         {p.slice(2, -2)}
       </strong>
     ) : (
@@ -65,42 +41,100 @@ function renderMarkdown(text: string): React.ReactNode[] {
     .map((block, i) => {
       const t = block.trim()
       if (!t) return null
-      if (/^#{1,3} /.test(t)) {
+
+      if (/^#{1,4} /.test(t)) {
+        const level = (t.match(/^(#+) /)?.[1]?.length ?? 2) as 1 | 2 | 3 | 4
+        const sizes: Record<number, string> = { 1: '20px', 2: '18px', 3: '16px', 4: '15px' }
         return (
-          <h3 key={i} className="mb-1 mt-2 text-sm font-bold leading-relaxed text-zinc-50 first:mt-0">
-            {inlineFmt(t.replace(/^#{1,3} /, ''))}
-          </h3>
+          <p
+            key={i}
+            style={{
+              fontFamily: 'var(--font-serif), Georgia, serif',
+              color: '#7ba3f0',
+              fontSize: sizes[level] ?? '16px',
+              fontWeight: 700,
+              lineHeight: 1.35,
+              margin: '18px 0 8px',
+            }}
+          >
+            {inlineFmt(t.replace(/^#{1,4} /, ''))}
+          </p>
         )
       }
+
       const lines = t.split('\n')
-      if (lines.every((l) => /^[-*] /.test(l.trim()))) {
+      if (lines.length > 0 && lines.every((l) => /^[-*] /.test(l.trim()))) {
         return (
-          <ul key={i} className="mb-2 list-disc space-y-1 pl-4 text-sm leading-relaxed text-zinc-300">
+          <ul
+            key={i}
+            style={{
+              fontFamily: 'var(--font-body), sans-serif',
+              color: '#f5f5ff',
+              fontSize: '15px',
+              lineHeight: 1.85,
+              paddingLeft: 22,
+              marginBottom: 16,
+              listStyle: 'disc',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
             {lines.map((l, j) => (
-              <li key={j}>{inlineFmt(l.replace(/^[-*] /, ''))}</li>
+              <li key={j} style={{ paddingLeft: 4 }}>
+                {inlineFmt(l.replace(/^[-*] /, '').trim())}
+              </li>
             ))}
           </ul>
         )
       }
+
       if (/^\d+\. /.test(lines[0]?.trim() ?? '')) {
         return (
-          <ol key={i} className="mb-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-zinc-300">
+          <ol
+            key={i}
+            style={{
+              fontFamily: 'var(--font-body), sans-serif',
+              color: '#f5f5ff',
+              fontSize: '15px',
+              lineHeight: 1.85,
+              paddingLeft: 24,
+              marginBottom: 16,
+              listStyle: 'decimal',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
             {lines.map((l, j) => (
-              <li key={j}>{inlineFmt(l.replace(/^\d+\. /, ''))}</li>
+              <li key={j} style={{ paddingLeft: 4 }}>
+                {inlineFmt(l.replace(/^\d+\. /, '').trim())}
+              </li>
             ))}
           </ol>
         )
       }
+
       return (
-        <p key={i} className="mb-2 text-sm leading-loose text-zinc-300 last:mb-0">
+        <p
+          key={i}
+          style={{
+            fontFamily: 'var(--font-body), sans-serif',
+            color: '#f5f5ff',
+            fontSize: '15px',
+            lineHeight: 1.9,
+            marginBottom: 16,
+          }}
+        >
           {inlineFmt(t)}
         </p>
       )
     })
     .filter(Boolean)
 }
+// ────────────────────────────────────────────────────────────────────────────
 
-export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
+export function ChatPanel({ isGenerating }: ChatPanelProps) {
   const {
     threadId,
     proposal,
@@ -117,7 +151,7 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
     {
       role: 'assistant',
       content:
-        'Listo. Selecciona casos en el panel izquierdo y genera una propuesta, o escribeme una pregunta estrategica.',
+        'Listo para trabajar. Selecciona casos en el panel de la izquierda y genera una propuesta, o escríbeme una pregunta estratégica sobre el cliente o la oportunidad.',
     },
   ])
   const [input, setInput] = useState('')
@@ -137,28 +171,35 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
       ...prev,
       {
         role: 'assistant',
-        content: formatProposalWithEmojis(proposal),
+        content: proposal,
         meta: isRefinement ? 'Propuesta refinada' : 'Propuesta generada',
         isProposal: true,
       },
     ])
     lastProposalRef.current = proposal
+    if (!isRefinement) setMode('refine')
   }, [proposal])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages, isTyping])
 
+  useEffect(() => {
+    if (isGenerating) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+  }, [isGenerating])
+
   const quickPrompts = useMemo(
     () =>
       mode === 'chat'
         ? [
-            'Que 2 casos dan mayor evidencia para esta cuenta?',
+            '¿Qué 2 casos dan mayor evidencia para esta cuenta?',
             'Dame 3 propuestas de valor ejecutivas.',
-            'Que riesgo de implementacion debemos anticipar?',
+            '¿Qué riesgo de implementación debemos anticipar?',
           ]
         : [
-            'Hazla mas ejecutiva en 6 bullets.',
+            'Hazla más ejecutiva en 6 bullets.',
             'Enfatiza ROI y payback en 12 meses.',
             'Reduce a 180 palabras con cierre comercial.',
           ],
@@ -184,14 +225,28 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
     if (!threadId) {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'No hay sesion activa. Completa el formulario de busqueda primero.' },
+        { role: 'assistant', content: 'No hay sesión activa. Completa el formulario de búsqueda primero.' },
       ])
       setIsTyping(false)
       return
     }
 
     try {
-      if (mode === 'chat') {
+      if (mode === 'refine' && proposal) {
+        const response = await apiClient.post(`/agent/${threadId}/refine`, {
+          instruction: fullMsg,
+          use_client_profile: useClientProfile,
+        })
+        const refined = response.data?.propuesta_final
+        if (typeof refined === 'string' && refined.trim()) {
+          setProposal(refined)
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: 'No pude refinar la propuesta en este intento.' },
+          ])
+        }
+      } else {
         const response = await apiClient.post(`/agent/${threadId}/chat`, {
           message: fullMsg,
           use_client_profile: useClientProfile,
@@ -205,31 +260,21 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
             {
               role: 'assistant',
               content: answer,
-              meta: status === 'guardrail_blocked' ? `Guardrail${guardrailCode ? ` (${guardrailCode})` : ''}` : undefined,
+              meta:
+                status === 'guardrail_blocked'
+                  ? `Guardrail${guardrailCode ? ` (${guardrailCode})` : ''}`
+                  : undefined,
             },
           ])
         } else {
-          setMessages((prev) => [...prev, { role: 'assistant', content: 'No se recibio respuesta valida.' }])
-        }
-      } else {
-        if (!proposal) {
-          setMessages((prev) => [...prev, { role: 'assistant', content: 'Primero genera una propuesta para refinarla.' }])
-          setIsTyping(false)
-          return
-        }
-        const response = await apiClient.post(`/agent/${threadId}/refine`, {
-          instruction: fullMsg,
-          use_client_profile: useClientProfile,
-        })
-        const refined = response.data?.propuesta_final
-        if (typeof refined === 'string' && refined.trim()) {
-          setProposal(refined)
-        } else {
-          setMessages((prev) => [...prev, { role: 'assistant', content: 'No pude refinar la propuesta en este intento.' }])
+          setMessages((prev) => [...prev, { role: 'assistant', content: 'No se recibió respuesta válida.' }])
         }
       }
     } catch (error: unknown) {
-      setMessages((prev) => [...prev, { role: 'assistant', content: getErrorMessage(error, 'Error procesando tu solicitud.') }])
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: getErrorMessage(error, 'Error procesando tu solicitud.') },
+      ])
     } finally {
       setIsTyping(false)
     }
@@ -241,78 +286,110 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
     setTimeout(() => setCopiedIdx(null), 2000)
   }
 
-  const handleGenerateClick = () => {
-    if (!onGenerate || isGenerating) return
-    onGenerate()
-  }
-
   return (
-    <div className="h-full min-h-0 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-[#121212] p-3" style={{ flexShrink: 0 }}>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 text-violet-400">
-            <Bot size={18} />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-zinc-50">Asistente de Valor</h3>
-            <p className="text-[10px] text-zinc-400">Chat · propuesta · refinamiento</p>
-          </div>
+    <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+      {/* Header bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '10px 16px',
+          borderBottom: '1px solid rgba(123,163,240,0.20)',
+          background: 'rgba(5,5,140,0.18)',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 8,
+            border: '1px solid rgba(123,163,240,0.30)',
+            background: 'rgba(123,163,240,0.12)',
+            color: '#7ba3f0',
+            flexShrink: 0,
+          }}
+        >
+          <Bot size={18} />
         </div>
-        <div className="inline-flex rounded-md border border-zinc-800 bg-zinc-900 p-1">
+        <div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 16,
+              fontWeight: 700,
+              color: '#f5f5ff',
+              fontFamily: 'var(--font-serif), Georgia, serif',
+            }}
+          >
+            NEO Strategy Co-Pilot
+          </p>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-body), sans-serif',
+            }}
+          >
+            {mode === 'chat' ? 'Análisis estratégico · Propuesta de valor' : 'Modo refinamiento activo'}
+          </p>
+        </div>
+        {proposal && (
           <button
             type="button"
-            onClick={() => setMode('chat')}
-            className={`rounded-md px-2.5 py-1 text-[11px] ${mode === 'chat' ? 'bg-violet-400 text-black' : 'text-zinc-300 hover:text-zinc-50'}`}
+            onClick={() => setMode(mode === 'chat' ? 'refine' : 'chat')}
+            style={{
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '6px 14px',
+              border: `1px solid ${mode === 'refine' ? '#7ba3f0' : 'rgba(123,163,240,0.20)'}`,
+              borderRadius: 8,
+              background: mode === 'refine' ? 'rgba(123,163,240,0.15)' : 'rgba(5,5,140,0.40)',
+              color: mode === 'refine' ? '#7ba3f0' : 'var(--text-muted)',
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: 'var(--font-body), sans-serif',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 200ms ease',
+            }}
           >
-            Chat
+            <Edit3 size={13} />
+            {mode === 'refine' ? 'Modo Chat' : 'Refinar'}
           </button>
-          <button
-            type="button"
-            onClick={() => setMode('refine')}
-            disabled={!proposal}
-            className={`rounded-md px-2.5 py-1 text-[11px] ${mode === 'refine' ? 'bg-violet-400 text-black' : 'text-zinc-300 hover:text-zinc-50'} disabled:opacity-50`}
-          >
-            Refinar
-          </button>
-        </div>
+        )}
       </div>
 
-      {selectedCaseIds.length > 0 && onGenerate && (
-        <>
-          <div className="neo-generate-bar flex-shrink-0">
-            <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-zinc-400">
-              <Gauge className="h-3 w-3 text-violet-400" />
-              {selectedCaseIds.length} caso{selectedCaseIds.length > 1 ? 's' : ''} seleccionado{selectedCaseIds.length > 1 ? 's' : ''}
-            </span>
-            <button
-              type="button"
-              onClick={handleGenerateClick}
-              disabled={Boolean(isGenerating)}
-              className="inline-flex items-center gap-1 rounded-md border border-violet-400 bg-violet-400 px-3 py-1 text-[11px] font-bold text-black disabled:opacity-50"
-            >
-              <WandSparkles size={13} />
-              {isGenerating ? 'Generando...' : 'Generar propuesta'}
-            </button>
-          </div>
-          {isGenerating && <NeoLoader compact className="border-t-0 rounded-none" />}
-        </>
-      )}
-
+      {/* DnD drop zone */}
       <div
         ref={setDropRef}
         style={{
-          padding: '5px 14px',
-          fontSize: 10,
+          padding: isDropOver ? '8px 16px' : '3px 16px',
+          fontSize: 12,
           flexShrink: 0,
-          color: isDropOver ? '#a78bfa' : '#a1a1aa',
-          background: isDropOver ? '#18181b' : 'transparent',
-          borderBottom: '1px solid #27272a',
+          color: isDropOver ? '#7ba3f0' : 'transparent',
+          background: isDropOver ? 'rgba(123,163,240,0.08)' : 'transparent',
+          borderBottom: isDropOver ? '1px solid rgba(123,163,240,0.3)' : '1px solid transparent',
           textAlign: 'center',
+          transition: 'all 150ms ease',
+          fontFamily: 'var(--font-body), sans-serif',
+          fontWeight: 600,
+          pointerEvents: 'all',
+          minHeight: isDropOver ? 32 : 4,
         }}
       >
-        {isDropOver ? '↓ Suelta aqui para anadir como contexto' : 'Arrastra una ficha de caso aqui para usarla como contexto ->'}
+        {isDropOver ? '↓ Suelta aquí para añadir como contexto' : ''}
       </div>
 
+      {/* Context chips */}
       {contextChips.length > 0 && (
         <div className="neo-chips-bar" style={{ flexShrink: 0 }}>
           {contextChips.map((chip) => (
@@ -331,24 +408,61 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0e0e0e]" aria-live="polite">
+      {/* Loading indicator when generating */}
+      {isGenerating && <NeoLoader compact className="border-t-0 rounded-none" />}
+
+      {/* Message list */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '18px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+          background: 'transparent',
+        }}
+        aria-live="polite"
+      >
         {messages.map((m, idx) => (
-          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div
+            key={idx}
+            style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}
+          >
             {m.isProposal ? (
+              /* ── Proposal bubble ── */
               <motion.div
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
                 animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
-                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 style={{
                   width: '100%',
-                  background: '#121212',
-                  border: '1px solid #27272a',
-                  borderRadius: 6,
-                  padding: '12px 14px',
+                  background: 'rgba(5,5,140,0.40)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(123,163,240,0.25)',
+                  borderRadius: 12,
+                  padding: '18px 20px',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 14,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: '#7ba3f0',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      fontFamily: 'var(--font-mono), monospace',
+                    }}
+                  >
                     {m.meta ?? 'Propuesta generada'}
                   </span>
                   <button
@@ -357,54 +471,128 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 4,
-                      fontSize: 10,
-                      color: copiedIdx === idx ? '#a78bfa' : '#a1a1aa',
-                      background: '#0f0f0f',
-                      border: '1px solid #27272a',
-                      borderRadius: 6,
-                      padding: '2px 7px',
+                      gap: 5,
+                      fontSize: 11,
+                      color: copiedIdx === idx ? '#7ba3f0' : 'var(--text-muted)',
+                      background: 'rgba(5,5,140,0.4)',
+                      border: '1px solid rgba(123,163,240,0.20)',
+                      borderRadius: 8,
+                      padding: '4px 10px',
                       cursor: 'pointer',
+                      fontFamily: 'var(--font-body), sans-serif',
+                      transition: 'all 200ms ease',
                     }}
                   >
                     {copiedIdx === idx ? <CheckCheck size={12} /> : <Copy size={12} />}
                     {copiedIdx === idx ? 'Copiado' : 'Copiar'}
                   </button>
                 </div>
-                <div>{renderMarkdown(m.content)}</div>
+                <div className="neo-proposal-bubble">{renderMarkdown(m.content)}</div>
               </motion.div>
-            ) : (
+            ) : m.role === 'user' ? (
+              /* ── User message ── */
               <div
-                className={`max-w-[88%] rounded-md border p-3 text-sm ${
-                  m.role === 'user' ? 'border-violet-400 bg-[#121212] text-zinc-50' : 'border-zinc-800 bg-[#121212] text-zinc-300'
-                }`}
+                style={{
+                  maxWidth: '82%',
+                  background: 'rgba(123,163,240,0.12)',
+                  border: '1px solid rgba(123,163,240,0.35)',
+                  borderRadius: '12px 12px 2px 12px',
+                  padding: '12px 16px',
+                  fontFamily: 'var(--font-body), sans-serif',
+                  fontSize: 15,
+                  lineHeight: 1.7,
+                  color: '#f5f5ff',
+                }}
               >
-                <p style={{ fontSize: 13, lineHeight: 1.75 }}>{m.content}</p>
-                {m.meta && <p className="mt-1 text-[10px] text-zinc-400">{m.meta}</p>}
+                {m.content}
+              </div>
+            ) : (
+              /* ── Assistant message ── */
+              <div
+                className="neo-chat-assistant-msg"
+                style={{ maxWidth: '88%' }}
+              >
+                <div className="neo-proposal-bubble">{renderMarkdown(m.content)}</div>
+                {m.meta && (
+                  <p
+                    style={{
+                      marginTop: 8,
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-mono), monospace',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                    }}
+                  >
+                    {m.meta}
+                  </p>
+                )}
               </div>
             )}
           </div>
         ))}
+
         {isTyping && (
-          <div className="flex justify-start">
-            <div className="flex gap-1 rounded-md border border-zinc-800 bg-[#121212] p-3">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-sm bg-zinc-500" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-sm bg-zinc-500 [animation-delay:0.2s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-sm bg-zinc-500 [animation-delay:0.4s]" />
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 6,
+                padding: '12px 16px',
+                background: 'rgba(5,5,140,0.40)',
+                border: '1px solid rgba(123,163,240,0.20)',
+                borderRadius: 12,
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: '#7ba3f0',
+                  animation: 'bounce 1s infinite',
+                }}
+              />
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: '#7ba3f0',
+                  animation: 'bounce 1s 0.2s infinite',
+                }}
+              />
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: '#7ba3f0',
+                  animation: 'bounce 1s 0.4s infinite',
+                }}
+              />
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input form */}
       <form
-        className="mt-auto flex-shrink-0 border-t border-zinc-800 bg-[#121212] p-3"
+        style={{
+          flexShrink: 0,
+          borderTop: '1px solid rgba(123,163,240,0.20)',
+          background: 'rgba(5,5,140,0.18)',
+          padding: '12px 16px',
+        }}
         onSubmit={(e) => {
           e.preventDefault()
           void handleSend()
         }}
       >
-        <div className="mb-2 flex flex-wrap gap-1.5">
+        {/* Quick prompts */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           {quickPrompts.map((prompt) => (
             <button
               key={prompt}
@@ -414,30 +602,100 @@ export function ChatPanel({ onGenerate, isGenerating }: ChatPanelProps) {
                 setInput(prompt)
                 inputRef.current?.focus()
               }}
-              className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[10px] text-zinc-300 hover:text-zinc-50 disabled:opacity-50"
+              style={{
+                padding: '5px 12px',
+                border: '1px solid rgba(123,163,240,0.25)',
+                borderRadius: 999,
+                background: 'rgba(123,163,240,0.08)',
+                color: '#7ba3f0',
+                fontSize: 12,
+                fontWeight: 600,
+                fontFamily: 'var(--font-body), sans-serif',
+                cursor: 'pointer',
+                opacity: isTyping ? 0.5 : 1,
+                transition: 'all 200ms ease',
+              }}
             >
               {prompt}
             </button>
           ))}
         </div>
-        <div className="relative">
+
+        {/* Input field */}
+        <div style={{ position: 'relative' }}>
           <input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             maxLength={600}
-            placeholder={mode === 'chat' ? 'Pregunta estrategica...' : 'Instruccion de refinamiento...'}
-            className="w-full rounded-md border border-zinc-800 bg-zinc-900 py-2.5 pl-4 pr-11 text-sm text-zinc-50 placeholder:text-zinc-500 outline-none focus:border-violet-400"
+            placeholder={
+              mode === 'refine'
+                ? 'Instrucción de refinamiento de propuesta...'
+                : 'Pregunta estratégica sobre el cliente o la oportunidad...'
+            }
+            style={{
+              width: '100%',
+              padding: '12px 48px 12px 16px',
+              border: '1px solid rgba(123,163,240,0.20)',
+              borderRadius: 10,
+              background: 'rgba(5,5,140,0.40)',
+              backdropFilter: 'blur(8px)',
+              color: '#f5f5ff',
+              fontSize: 15,
+              fontFamily: 'var(--font-body), sans-serif',
+              outline: 'none',
+              boxSizing: 'border-box',
+              transition: 'border-color 200ms ease, box-shadow 200ms ease',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#7ba3f0'
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(123,163,240,0.2)'
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(123,163,240,0.20)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
           />
           <button
             type="submit"
             disabled={isTyping || !input.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-violet-400 hover:bg-zinc-900 disabled:opacity-50"
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              padding: 8,
+              borderRadius: 8,
+              border: 'none',
+              background: input.trim() ? 'linear-gradient(135deg, #05058c, #7ba3f0)' : 'transparent',
+              color: '#7ba3f0',
+              cursor: 'pointer',
+              opacity: isTyping || !input.trim() ? 0.4 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 200ms ease',
+            }}
             aria-label="Enviar mensaje"
           >
-            {isTyping ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
+            {isTyping ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={18} color="#ffffff" />}
           </button>
         </div>
+
+        {/* Selected cases count hint */}
+        {selectedCaseIds.length > 0 && (
+          <p
+            style={{
+              marginTop: 8,
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono), monospace',
+              textAlign: 'center',
+            }}
+          >
+            {selectedCaseIds.length} caso{selectedCaseIds.length !== 1 ? 's' : ''} seleccionado{selectedCaseIds.length !== 1 ? 's' : ''} como base de evidencia
+          </p>
+        )}
       </form>
     </div>
   )

@@ -38,13 +38,13 @@ export function NeoLoader({ compact = false, className = "" }: NeoLoaderProps) {
 
   return (
     <div className={`neo-loader${compact ? " neo-loader--compact" : ""}${className ? ` ${className}` : ""}`}>
-      <div className="inline-flex items-center gap-2 text-xs font-mono text-violet-400 tracking-widest uppercase">
-        <span className="h-2 w-px bg-violet-400 animate-pulse" aria-hidden="true" />
+      <div className="inline-flex items-center gap-2 text-xs font-mono text-[#7ba3f0] tracking-widest uppercase">
+        <span className="h-2 w-px bg-[#7ba3f0] animate-pulse" aria-hidden="true" />
         <span>{PHRASES[phraseIndex]}</span>
       </div>
-      <div className="mt-2 h-px w-full overflow-hidden bg-zinc-800" aria-hidden="true">
+      <div className="mt-2 h-px w-full overflow-hidden bg-[#1e2a6e]" aria-hidden="true">
         <div
-          className={`h-px bg-violet-400 transition-[width] duration-[1400ms] ease-linear ${fillLine ? "w-full" : "w-0"}`}
+          className={`h-px bg-[#7ba3f0] transition-[width] duration-[1400ms] ease-linear ${fillLine ? "w-full" : "w-0"}`}
         />
       </div>
     </div>

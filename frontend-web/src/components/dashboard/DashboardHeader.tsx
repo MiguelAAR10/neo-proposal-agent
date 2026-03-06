@@ -19,7 +19,7 @@ function slugifyCompany(value: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "");
+    .replace(/\s+/g, "-");
 }
 
 export function DashboardHeader({
@@ -30,9 +30,10 @@ export function DashboardHeader({
   onReset,
 }: DashboardHeaderProps) {
   const [logoFailed, setLogoFailed] = useState(false);
+  const [clientLogoFailed, setClientLogoFailed] = useState(false);
   const companyLogoSrc = useMemo(() => {
     const slug = slugifyCompany(companyValue);
-    return slug ? `/logos/${slug}.png` : "";
+    return slug ? `/logos/companies/${slug}.png` : "";
   }, [companyValue]);
 
   useEffect(() => {
@@ -41,20 +42,25 @@ export function DashboardHeader({
 
   return (
     <header className="neo-main-header">
-      <div className="neo-main-header__left">
+      {/* Left: Official logo + separator + title */}
+      <div className="flex items-center gap-6 pl-4">
         <Image
-          src="/logos/neo-primary.svg"
-          alt="NEO Logo"
+          src={clientLogoFailed ? "/logos/neo-primary.svg" : "/logos/client-logo.png"}
+          alt="NEO 25 Años"
           width={180}
           height={52}
-          className="h-11 w-auto"
+          className="h-10 w-auto object-contain brightness-0 invert opacity-95"
           priority
+          unoptimized
+          onError={() => setClientLogoFailed(true)}
         />
-        <div className="neo-main-header__meta">
-          <p className="neo-main-header__title">NEO Commercial Intelligence</p>
-          <p className="neo-main-header__subtitle">{companyLabel || "Exploración abierta por problema"}</p>
-        </div>
+        <div className="h-8 w-px bg-[#7ba3f0]/30 hidden md:block" />
+        <h1 className="text-[#f5f5ff] text-xl font-serif tracking-wide m-0 hidden md:block">
+          Commercial Intelligence
+        </h1>
       </div>
+
+      {/* Center: search */}
       <div className="neo-main-header__center">
         <input
           value={companyValue}
@@ -71,6 +77,8 @@ export function DashboardHeader({
           ))}
         </datalist>
       </div>
+
+      {/* Right: company badge + actions */}
       <div className="neo-main-header__right">
         <div className="neo-company-badge" title={companyValue || "Sin empresa seleccionada"}>
           <span className="neo-company-badge__logo">
@@ -85,7 +93,7 @@ export function DashboardHeader({
                 unoptimized
               />
             ) : (
-              <Building className="h-4 w-4 text-zinc-400" />
+              <Building className="h-4 w-4 text-[#7ba3f0]" />
             )}
           </span>
           <div className="neo-company-badge__meta">
@@ -93,15 +101,14 @@ export function DashboardHeader({
             <span className="neo-company-badge__value">{companyValue || "Sin seleccionar"}</span>
           </div>
         </div>
-        <Link href="/ops" className="neo-pill neo-pill--header">
+        <Link href="/ops" className="neo-header-action-btn">
           <LayoutDashboard className="h-4 w-4" />
           Panel Ops
         </Link>
-        <button type="button" onClick={onReset} className="neo-pill neo-pill--header">
+        <button type="button" onClick={onReset} className="neo-header-action-btn">
           <RefreshCcw className="h-4 w-4" />
           Reiniciar
         </button>
-        <span className="neo-main-header__version">[ v2.0 - 25 YRS ]</span>
       </div>
     </header>
   );
