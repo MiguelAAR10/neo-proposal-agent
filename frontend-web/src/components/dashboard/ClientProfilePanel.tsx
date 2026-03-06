@@ -99,16 +99,16 @@ export function ClientProfilePanel() {
 
       {open && (
         <div className="neo-context-panel__body">
-          <p className="text-[10px] font-mono font-bold text-zinc-400">
+          <p className="text-[11px] font-mono font-bold text-zinc-400">
             {currentArea !== "-" ? `Area: ${currentArea}` : "Selecciona una empresa para activar su perfil"}
           </p>
-          <p className="text-[10px] text-zinc-400">Haz clic en cualquier item para anadirlo al chat</p>
+          <p className="text-[11px] text-zinc-400">Haz clic en cualquier item para anadirlo al chat</p>
 
           {objetivos.length > 0 && (
             <div>
               <div className="mb-1 flex items-center gap-1.5">
                 <TrendingUp className="h-3 w-3 text-zinc-400" />
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-50">Objetivos</span>
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-50">Objetivos</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {objetivos.map((obj, i) => (
@@ -129,7 +129,7 @@ export function ClientProfilePanel() {
             <div>
               <div className="mb-1 flex items-center gap-1.5">
                 <AlertTriangle className="h-3 w-3 text-zinc-400" />
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-50">Pain Points</span>
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-50">Pain Points</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {painPoints.map((pp, i) => (
@@ -149,7 +149,7 @@ export function ClientProfilePanel() {
           <div>
             <div className="mb-1 flex items-center gap-1.5">
               <MessageSquare className="h-3 w-3 text-zinc-400" />
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-50">Insights del equipo</span>
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-50">Insights del equipo</span>
             </div>
             <div className="flex flex-col gap-2">
               {DUMMY_INSIGHTS.map((ins, i) => {
@@ -162,11 +162,11 @@ export function ClientProfilePanel() {
                     className={`w-full rounded-md border p-3 text-left ${active ? "border-violet-400" : "border-zinc-800"} bg-[#121212]`}
                   >
                     <div className="mb-1 flex items-center justify-between">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold ${active ? "text-violet-400" : "text-zinc-400"}`}>
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-mono font-bold ${active ? "text-violet-400" : "text-zinc-400"}`}>
                         <span className={`inline-block h-1.5 w-1.5 rounded-sm ${active ? "bg-violet-400" : "bg-zinc-500"}`} />
                         {ins.author}
                       </span>
-                      <span className="text-[10px] font-mono text-zinc-400">{ins.timestamp}</span>
+                      <span className="text-[11px] font-mono text-zinc-400">{ins.timestamp}</span>
                     </div>
                     <p className="text-[11px] leading-relaxed text-zinc-300">{ins.text}</p>
                   </button>

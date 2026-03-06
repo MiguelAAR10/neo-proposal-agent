@@ -172,13 +172,13 @@ export function InitialForm({ compact = false }: InitialFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
           <div className="md:col-span-3">
             <div className="flex items-center justify-between mb-0.5">
-              <label htmlFor="empresaPreset" className="block text-[10px] font-semibold text-slate-200">Empresa objetivo</label>
+              <label htmlFor="empresaPreset" className="block text-[11px] font-semibold text-slate-200">Empresa objetivo</label>
               {selectedEntry?.logo_path ? (
                 <span
                   className="h-7 w-7 rounded-md border border-white/20 bg-white/10 overflow-hidden flex items-center justify-center"
                   style={{ boxShadow: selectedEntry.brand_color ? `0 0 0 1px ${selectedEntry.brand_color}44 inset` : undefined }}
                 >
-                  <span className="text-[10px] font-semibold text-slate-100">
+                  <span className="text-[11px] font-semibold text-slate-100">
                     {selectedEntry.display_name.slice(0, 2).toUpperCase()}
                   </span>
                 </span>
@@ -218,7 +218,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="rubro" className="block text-[10px] font-semibold text-slate-200 mb-0.5">Industria</label>
+            <label htmlFor="rubro" className="block text-[11px] font-semibold text-slate-200 mb-0.5">Industria</label>
             <input
               id="rubro"
               {...register('rubro')}
@@ -229,7 +229,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="area" className="block text-[10px] font-semibold text-slate-200 mb-0.5">Área</label>
+            <label htmlFor="area" className="block text-[11px] font-semibold text-slate-200 mb-0.5">Área</label>
             <input
               id="area"
               list="area-suggestions"
@@ -246,7 +246,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
           </div>
 
           <div className="md:col-span-3">
-            <label htmlFor="switch" className="block text-[10px] font-semibold text-slate-200 mb-0.5">Fuente</label>
+            <label htmlFor="switch" className="block text-[11px] font-semibold text-slate-200 mb-0.5">Fuente</label>
             <select
               id="switch"
               {...register('switch')}
@@ -271,7 +271,7 @@ export function InitialForm({ compact = false }: InitialFormProps) {
 
         <div>
           <div className="mb-0.5 flex items-center justify-between">
-            <label htmlFor="problema" className="block text-[10px] font-semibold text-slate-200">Problema de negocio</label>
+            <label htmlFor="problema" className="block text-[11px] font-semibold text-slate-200">Problema de negocio</label>
             <span className="text-[11px] text-slate-300">{problemaValue.trim().length}/500</span>
           </div>
           <textarea

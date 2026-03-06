@@ -45,7 +45,7 @@ export function CaseCard({ caseData }: CaseCardProps) {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className={cn(
-              "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+              "text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
               caseData.tipo === 'AI' ? "bg-blue-200/20 text-blue-100" : "bg-emerald-200/20 text-emerald-100"
             )}>
               {caseData.tipo}
@@ -54,13 +54,13 @@ export function CaseCard({ caseData }: CaseCardProps) {
               {caseData.score_label ?? 'Muy relevante'} ({caseData.confidence ?? `Score: ${Math.round((caseData.score ?? 0) * 100)}%`})
             </span>
             {caseData.badge && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-100 font-semibold">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-slate-100 font-semibold">
                 {caseData.badge}
               </span>
             )}
           </div>
           {caseData.score_breakdown && (
-            <p className="text-[10px] text-slate-300 mt-1">
+            <p className="text-[11px] text-slate-300 mt-1">
               Semántica {Math.round((caseData.score_breakdown.similitud_semantica ?? 0) * 100)}% •
               Fuente {Math.round((caseData.score_breakdown.confianza_fuente ?? 0) * 100)}%
             </p>
@@ -100,7 +100,7 @@ export function CaseCard({ caseData }: CaseCardProps) {
 
         {caseData.kpi_impacto && caseData.kpi_impacto !== 'No mapeado' && (
           <div className="rounded-lg border border-emerald-200/30 bg-emerald-200/10 px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-100">KPI de impacto</p>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-100">KPI de impacto</p>
             <p className="text-xs text-emerald-50">{caseData.kpi_impacto}</p>
           </div>
         )}
@@ -115,14 +115,14 @@ export function CaseCard({ caseData }: CaseCardProps) {
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: 0.03 * index }}
-              className="flex items-center gap-1 text-[10px] px-2 py-1 bg-white/8 text-slate-200 rounded-md border border-white/10"
+              className="flex items-center gap-1 text-[11px] px-2 py-1 bg-white/8 text-slate-200 rounded-md border border-white/10"
             >
               <Tag className="w-2.5 h-2.5" />
               {tech}
             </motion.div>
           ))}
           {caseData.tecnologias.length > 3 && (
-            <span className="text-[10px] text-slate-200 font-medium px-1">+{caseData.tecnologias.length - 3}</span>
+            <span className="text-[11px] text-slate-200 font-medium px-1">+{caseData.tecnologias.length - 3}</span>
           )}
         </div>
       )}
@@ -143,24 +143,24 @@ export function CaseCard({ caseData }: CaseCardProps) {
               <ExternalLink className="w-3 h-3" />
             </a>
           ) : (
-            <span className="text-[10px] text-amber-200 font-medium">Evidencia no verificable</span>
+            <span className="text-[11px] text-amber-200 font-medium">Evidencia no verificable</span>
           )}
 
           {caseData.link_status === 'verified' && (
-            <span className="text-[10px] text-emerald-200 font-semibold flex items-center gap-1">
+            <span className="text-[11px] text-emerald-200 font-semibold flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
               Link verificado
             </span>
           )}
           {caseData.link_status === 'inaccessible' && (
-            <span className="text-[10px] text-amber-200 font-semibold flex items-center gap-1">
+            <span className="text-[11px] text-amber-200 font-semibold flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" />
               Link no accesible
             </span>
           )}
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-slate-200">Completitud</p>
+          <p className="text-[11px] text-slate-200">Completitud</p>
           <p className="text-xs font-bold text-slate-100">
             {Math.round((caseData.data_quality_score ?? 0) * 100)}%
           </p>

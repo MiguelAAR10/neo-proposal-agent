@@ -67,9 +67,9 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
           <header className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100 uppercase tracking-wider">{caseData.tipo}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100">{(caseData.match_type || 'relacionado').toUpperCase()}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100">{scorePct}%</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100 uppercase tracking-wider">{caseData.tipo}</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100">{(caseData.match_type || 'relacionado').toUpperCase()}</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-slate-100">{scorePct}%</span>
               </div>
               <h4 className="text-sm font-semibold text-white leading-snug line-clamp-2">{caseData.titulo}</h4>
             </div>
@@ -80,26 +80,26 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
 
           <div className="mt-3 grid grid-cols-1 gap-2">
             <section className="rounded-2xl border border-white/15 bg-white/8 p-3 min-h-[122px]">
-              <p className="text-[10px] uppercase tracking-wide text-slate-300 mb-1">Valor clave</p>
+              <p className="text-[11px] uppercase tracking-wide text-slate-300 mb-1">Valor clave</p>
               <p className="text-[11px] text-slate-100 leading-4 select-text">{compactText(caseData.problema, 'Problema no disponible')}</p>
               <p className="text-[11px] text-slate-300 mt-1.5 leading-4 select-text">{compactText(caseData.solucion, 'Solución no disponible')}</p>
-              <p className="text-[10px] text-slate-300 mt-2 select-text">
+              <p className="text-[11px] text-slate-300 mt-2 select-text">
                 <span className="text-slate-200">Impacto:</span> {compactText(caseData.kpi_impacto, 'Pendiente de cuantificación', 72)}
               </p>
             </section>
           </div>
 
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">{caseData.area || 'General'}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">{caseData.industria || 'Multisector'}</span>
+            <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">{caseData.area || 'General'}</span>
+            <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">{caseData.industria || 'Multisector'}</span>
             {topTech.length > 0 ? (
               topTech.map((tech) => (
-                <span key={`${caseData.id}-${tech}`} className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">
+                <span key={`${caseData.id}-${tech}`} className="text-[11px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-200">
                   {tech}
                 </span>
               ))
             ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-300">
+              <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/20 bg-white/8 text-slate-300">
                 Tecnología por definir
               </span>
             )}
@@ -126,7 +126,7 @@ export function CaseFlashCard({ caseData }: CaseFlashCardProps) {
                 Ver diapositivas <ExternalLink className="w-3.5 h-3.5" />
               </a>
             ) : (
-              <span className="text-[10px] text-amber-200">Sin diapositivas</span>
+              <span className="text-[11px] text-amber-200">Sin diapositivas</span>
             )}
           </div>
 
