@@ -1,107 +1,113 @@
-# NEO Proposal Agent (V2 en curso)
+# NEO Proposal Agent (V2)
 
-Plataforma para generar propuestas comerciales asistidas por IA usando una arquitectura **Backend-First** con **FastAPI + LangGraph + Qdrant** y UI principal en **Next.js**.
+Aplicación para generar propuestas comerciales asistidas por IA con arquitectura Backend-First:
 
-Este repositorio mantiene artefactos de V1 (Streamlit) por continuidad histórica, pero el flujo objetivo de V2 corre en `backend/` + `frontend-web/`.
-
-## Estado actual del desarrollo
-
-- Backend V2 operativo con flujo HITL (Human in the Loop):
-  - `POST /agent/start`
-  - `POST /agent/{thread_id}/select`
-  - `POST /agent/{thread_id}/chat`
-  - `POST /agent/{thread_id}/refine`
-  - `GET /agent/{thread_id}/state`
-- Frontend Next.js integrado para:
-  - intake inicial
-  - curación/selección de casos en barra lateral desplegable + flashcards dinámicas
-  - generación de propuesta final
-- chat contextual y refinamiento conectados a backend real.
-- panel operativo `/ops` con:
-  - funnel de conversión por sesión,
-  - analytics/alertas de chat,
-  - filtros server-side, paginación, ordenamiento y export CSV.
-- Streamlit (`frontend/app.py`) se considera **legacy de V1** y no representa el contrato API actual de V2.
-
-## Estructura del proyecto
-
-```text
-backend/         FastAPI + LangGraph + integraciones Qdrant/Gemini
-frontend-web/    Next.js (UI V2 principal)
-frontend/        Streamlit legacy (V1, referencia)
-MVP-V2-DOCS/     Requisitos, arquitectura y bitácora V2
-```
+- `backend/`: FastAPI + LangGraph + integraciones (Qdrant/Gemini/Redis).
+- `frontend-web/`: Next.js (UI principal V2).
+- `frontend/`: Streamlit legado de V1 (solo referencia histórica).
 
 ## Requisitos
 
 1. Python 3.11+
 2. Node.js 20+
-3. Variables en `.env` (raíz del repo):
+3. npm 10+
 
-```env
-QDRANT_URL="..."
-QDRANT_API_KEY="..."
-GEMINI_API_KEY="..."
-GEMINI_CHAT_MODEL="gemini-2.0-flash"
-REDIS_URL="redis://localhost:6379"
-NEXT_PUBLIC_API_URL="http://localhost:8000"
+## Configuración de entorno
+
+Desde la raíz del repo:
+
+```bash
+cp .env.example .env
 ```
 
-## Arranque V2 (recomendado)
+Variables mínimas recomendadas en `.env` (backend):
 
-### Terminal 1: Backend
+```env
+# Qdrant
+QDRANT_URL=https://tu-cluster.qdrant.tech
+QDRANT_API_KEY=tu_api_key
+QDRANT_COLLECTION_CASES=neo_cases_v1
+QDRANT_COLLECTION_PROFILES=neo_profiles_v1
+
+# Redis (opcional en local)
+REDIS_URL=redis://localhost:6379
+
+# Gemini
+GEMINI_API_KEY=tu_gemini_api_key
+GEMINI_CHAT_MODEL=gemini-2.0-flash
+GEMINI_EMBEDDING_MODEL=models/gemini-embedding-001
+
+# App
+APP_ENV=development
+```
+
+Para el frontend, usa `frontend-web/.env.local` si necesitas cambiar la URL del backend:
+
+```env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+```
+
+## Instalación de dependencias
+
+```bash
+python -m venv my_venv
+source my_venv/bin/activate
+python -m pip install -r backend/requirements.txt
+npm --prefix frontend-web install
+```
+
+## Arranque local V2
+
+Terminal 1 (backend):
 
 ```bash
 source my_venv/bin/activate
-cd backend
-uvicorn src.api.main:app --reload --port 8000
+python -m uvicorn src.api.main:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
 
-### Terminal 2: Frontend Web (Next.js)
+Terminal 2 (frontend):
 
 ```bash
-cd frontend-web
-npm install
-npm run dev
+npm --prefix frontend-web run dev -- -H 127.0.0.1 -p 3000
 ```
 
-- API: `http://localhost:8000`
-- UI Web: `http://localhost:3000`
+URLs:
 
-## Flujo funcional V2
+- API: `http://127.0.0.1:8000`
+- Frontend: `http://127.0.0.1:3000`
 
-1. Completar formulario inicial (empresa, rubro, área, problema, switch).
-2. Backend ejecuta `intake_node` + `retrieve_node` y devuelve casos sugeridos.
-3. UI muestra fichas dinámicas (flashcards) con evidencia y selección explícita (HITL).
-4. Usuario selecciona casos relevantes y genera propuesta.
-5. Chat contextual + refine itera la propuesta sin romper trazabilidad.
-
-## UX actual (Frontend principal)
-
-- Estructura de 2 paneles:
-  - Izquierdo: barra lateral de casos desplegable (visible/oculta).
-  - Derecho: generación/refinamiento y propuesta viva.
-- Fichas con modo flashcard (frente/reverso) para reducir densidad textual.
-- Muestra etiquetas de afinidad (`exacto`, `relacionado`, `inspiracional`) y evidencia URL cuando existe.
-- Si no hay match exacto, backend devuelve casos relacionados/inspiracionales para evitar estado vacío.
-
-## Pruebas rápidas
+## Verificación rápida
 
 ```bash
+curl -sS http://127.0.0.1:8000/health
+curl -I http://127.0.0.1:3000
+```
+
+Notas:
+
+- En local, `/health` puede devolver `status: "degraded"` si Qdrant/Redis no están disponibles.
+- El backend puede iniciar con `MemorySaver` cuando Redis no está configurado.
+
+## Endpoints V2 principales
+
+- `POST /agent/start`
+- `POST /agent/{thread_id}/select`
+- `POST /agent/{thread_id}/chat`
+- `POST /agent/{thread_id}/refine`
+- `GET /agent/{thread_id}/state`
+- `GET /ops/*` (panel operativo)
+
+## Prueba de flujo
+
+```bash
+source my_venv/bin/activate
 python -u test_v2_flow.py
 ```
 
-Nota: esta prueba depende de servicios externos (Qdrant/Gemini). Si no están accesibles, puede quedar en timeout.
+Depende de servicios externos (Qdrant/Gemini). Si no están accesibles, puede fallar por timeout.
 
-## Documentación clave
+## Documentación adicional
 
-- Estado y decisiones V2: `MVP-V2-DOCS/BITACORA_MVP_V2.md`
-- Índice general: `MVP-V2-DOCS/00-INDEX-DOCUMENTATION.md`
-- Arquitectura objetivo: `MVP-V2-DOCS/REQUIREMENTS/02-ARQUITECTURA-SISTEMA.md`
-- Guía de logos/datos para empresas priorizadas: `MVP-V2-DOCS/REQUIREMENTS/06-GUIA-DATOS-LOGOS-EMPRESA.md`
-
-## Convención de evolución
-
-- Mantener backend como fuente de verdad del negocio.
-- Frontend como capa de presentación.
-- Registrar decisiones técnicas en la bitácora V2 (no solo cambios de código).
+- `MVP-V2-DOCS/BITACORA_MVP_V2.md`
+- `MVP-V2-DOCS/00-INDEX-DOCUMENTATION.md`
+- `MVP-V2-DOCS/REQUIREMENTS/02-ARQUITECTURA-SISTEMA.md`

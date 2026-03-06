@@ -1,5 +1,5 @@
 # Entornos virtuales
-my_venv/
+.venv/
 venv/
 env/
 

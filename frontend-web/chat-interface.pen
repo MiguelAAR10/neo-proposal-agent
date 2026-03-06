@@ -1,0 +1,516 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "ZuMJp",
+      "x": 0,
+      "y": 0,
+      "name": "Chat Interface Panel",
+      "width": 520,
+      "height": 720,
+      "fill": "#000033",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "jTkf6",
+          "name": "Header",
+          "width": "fill_container",
+          "height": 60,
+          "fill": "#05058c2e",
+          "stroke": {
+            "thickness": 1,
+            "fill": "#7ba3f033"
+          },
+          "gap": 12,
+          "padding": [
+            10,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "fR7aM",
+              "name": "botIconBox",
+              "width": 34,
+              "height": 34,
+              "fill": "#7ba3f01f",
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#7ba3f04d"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "H72hu",
+                  "x": 8,
+                  "y": 8,
+                  "name": "botIcon",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "bot",
+                  "iconFontFamily": "lucide",
+                  "fill": "#7ba3f0"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "k0X3B",
+              "name": "headerText",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ID4Iu",
+                  "name": "headerTitle",
+                  "fill": "#f5f5ff",
+                  "content": "NEO Strategy Co-Pilot",
+                  "fontFamily": "serif",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "8MoQw",
+                  "name": "headerSubtitle",
+                  "fill": "#a8b8e8",
+                  "content": "Análisis estratégico · Propuesta de valor",
+                  "fontFamily": "Montserrat",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ekr8t",
+              "name": "modeBtn",
+              "height": 34,
+              "fill": "#05058c66",
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#7ba3f033"
+              },
+              "gap": 5,
+              "padding": [
+                6,
+                14
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hUetR",
+                  "name": "modeBtnText",
+                  "fill": "#7ba3f0",
+                  "content": "Refinar",
+                  "fontFamily": "Montserrat",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "VDDkY",
+          "name": "DnD Zone",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "#00000000",
+          "layout": "vertical",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "UBG03",
+              "name": "dropZoneText",
+              "fill": "#00000000",
+              "content": "↓ Suelta aquí para añadir como contexto",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "T8f9g",
+          "name": "Messages Area",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "#00000000",
+          "layout": "vertical",
+          "gap": 14,
+          "padding": 18,
+          "children": [
+            {
+              "type": "frame",
+              "id": "9ENqU",
+              "name": "assistantBubble",
+              "width": "fill_container",
+              "fill": "#05058c66",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#7ba3f040"
+              },
+              "effect": {
+                "type": "background_blur",
+                "radius": 12
+              },
+              "layout": "vertical",
+              "gap": 12,
+              "padding": [
+                18,
+                20
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "yO9cy",
+                  "name": "bubbleHeader",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "4B3Ek",
+                      "name": "bubbleLabel",
+                      "fill": "#7ba3f0",
+                      "content": "PROPUESTA GENERADA",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PZzqz",
+                      "name": "copyBtn",
+                      "height": 28,
+                      "fill": "#05058c66",
+                      "cornerRadius": 8,
+                      "gap": 5,
+                      "padding": [
+                        4,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "vO4RV",
+                          "name": "copyIcon",
+                          "width": 12,
+                          "height": 12,
+                          "iconFontName": "copy",
+                          "iconFontFamily": "lucide",
+                          "fill": "#a8b8e8"
+                        },
+                        {
+                          "type": "text",
+                          "id": "7OVqh",
+                          "name": "copyText",
+                          "fill": "#a8b8e8",
+                          "content": "Copiar",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "CKNjo",
+                  "name": "bubbleContent",
+                  "fill": "#f5f5ff",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "# Estrategia Propuesta\n\nBased on the selected cases, here's our recommendation:\n\n- **Value Proposition 1**\n- **Value Proposition 2**\n- **Value Proposition 3**",
+                  "lineHeight": 1.9,
+                  "fontFamily": "sans-serif",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "FYzDq",
+              "name": "userBubble",
+              "width": "fill_container",
+              "layout": "vertical",
+              "alignItems": "end",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "C8z9X",
+                  "name": "userMsg",
+                  "fill": "#7ba3f01f",
+                  "cornerRadius": 12,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#7ba3f059"
+                  },
+                  "layout": "vertical",
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "LiWrK",
+                      "name": "userText",
+                      "fill": "#f5f5ff",
+                      "content": "¿Qué 2 casos dan mayor evidencia para esta cuenta?",
+                      "fontFamily": "sans-serif",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "H78p6",
+              "name": "typingIndicator",
+              "fill": "#05058c66",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#7ba3f033"
+              },
+              "effect": {
+                "type": "background_blur",
+                "radius": 8
+              },
+              "gap": 6,
+              "padding": [
+                12,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "LOC1u",
+                  "name": "dot1",
+                  "fill": "#7ba3f0",
+                  "width": 7,
+                  "height": 7
+                },
+                {
+                  "type": "ellipse",
+                  "id": "wyvT1",
+                  "name": "dot2",
+                  "fill": "#7ba3f0",
+                  "width": 7,
+                  "height": 7
+                },
+                {
+                  "type": "ellipse",
+                  "id": "AWc0S",
+                  "name": "dot3",
+                  "fill": "#7ba3f0",
+                  "width": 7,
+                  "height": 7
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "V6vyu",
+          "name": "Input Form",
+          "width": "fill_container",
+          "fill": "#05058c2e",
+          "stroke": {
+            "thickness": 1,
+            "fill": "#7ba3f033"
+          },
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            12,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "Xi6Q7",
+              "name": "quickPrompts",
+              "width": "fill_container",
+              "gap": 6,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PxbGV",
+                  "name": "prompt1",
+                  "height": 32,
+                  "fill": "#7ba3f014",
+                  "cornerRadius": 999,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#7ba3f040"
+                  },
+                  "padding": [
+                    5,
+                    12
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "v8hlg",
+                      "name": "prompt1Text",
+                      "fill": "#7ba3f0",
+                      "content": "¿Qué 2 casos dan mayor evidencia?",
+                      "fontFamily": "Montserrat",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VUwDW",
+                  "name": "prompt2",
+                  "height": 32,
+                  "fill": "#7ba3f014",
+                  "cornerRadius": 999,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#7ba3f040"
+                  },
+                  "padding": [
+                    5,
+                    12
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "4mcKP",
+                      "name": "prompt2Text",
+                      "fill": "#7ba3f0",
+                      "content": "3 propuestas de valor ejecutivas",
+                      "fontFamily": "Montserrat",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "yE8gr",
+              "name": "inputWrapper",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "FROmA",
+                  "name": "inputField",
+                  "width": "fill_container",
+                  "height": 44,
+                  "fill": "#05058c66",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#7ba3f033"
+                  },
+                  "effect": {
+                    "type": "background_blur",
+                    "radius": 8
+                  },
+                  "layout": "vertical",
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "qA5Ev",
+                      "name": "inputText",
+                      "fill": "#a5b5e899",
+                      "content": "Pregunta estratégica sobre el cliente...",
+                      "fontFamily": "Montserrat",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "K8M9L",
+                  "name": "sendBtn",
+                  "width": 36,
+                  "height": 36,
+                  "fill": "linear-gradient(135deg, #05058c, #7ba3f0)",
+                  "cornerRadius": 8,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#7ba3f04d",
+                    "blur": 15
+                  },
+                  "layout": "vertical",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "PrEBq",
+                      "name": "sendIcon",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "send",
+                      "iconFontFamily": "lucide",
+                      "fill": "#ffffff"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "VDMiu",
+              "name": "casesHint",
+              "fill": "#a8b8e8",
+              "content": "1 caso seleccionado como base de evidencia",
+              "textAlign": "center",
+              "fontFamily": "Montserrat",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
