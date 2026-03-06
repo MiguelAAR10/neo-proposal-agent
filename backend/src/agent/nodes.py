@@ -1,9 +1,16 @@
 from datetime import datetime, timezone
+import json
 import logging
 from typing import Any, Literal
-from langchain_google_genai import ChatGoogleGenerativeAI
+
 from src.agent.state import ProposalState
 from src.config import get_settings
+from src.services.intel_storage import (
+    company_profile_repository,
+    human_insight_repository,
+    industry_radar_repository,
+)
+from src.services.llm_pool import get_chat_llm, get_flash_llm
 from src.services.prioritized_clients import get_prioritized_client_context, is_prioritized_client
 from src.services.proposal_context import (
     filter_selected_cases,
@@ -11,7 +18,6 @@ from src.services.proposal_context import (
     validate_selected_cases_have_url,
 )
 from src.services.search_service import search_cases_sync
-from src.services.intel_storage import company_profile_repository, human_insight_repository
 
 logger = logging.getLogger(__name__)
 
@@ -40,83 +46,57 @@ def intake_node(state: ProposalState) -> ProposalState:
     state["error"] = ""
     return state
 
+
 def retrieve_node(state: ProposalState) -> ProposalState:
-    """Busca casos (con switch) y recupera el perfil del cliente desde repositorio."""
+    """Busca casos (con switch) y recupera el perfil del cliente desde repositorio.
+
+    Scoring is fully delegated to search_service._normalize_case (unified scorer).
+    No local reranking — cases arrive pre-scored with client-context bonus.
+    """
     if state.get("error"):
         return state
 
+    empresa = state.get("empresa", "")
+    area = state.get("area", "")
+    rubro = state.get("rubro", "")
+
     try:
-        # 1. Buscar casos via primitiva compartida (/api/search)
+        # 1. Search with progressive thresholds — scoring includes client context
         search_payload = _search_with_progressive_thresholds(
             problema=state["problema"],
             switch=state["switch"],
             thresholds=(0.50, 0.40, 0.30, 0.20),
             limit=8,
+            client_empresa=empresa,
+            client_area=area,
+            client_rubro=rubro,
         )
-        reranked_all = _rerank_cases_for_client(
-            search_payload.get("casos", []),
-            empresa=state.get("empresa", ""),
-            area=state.get("area", ""),
-            rubro=state.get("rubro", ""),
-        )
-        reranked_neo = _rerank_cases_for_client(
-            search_payload.get("neo_cases", []),
-            empresa=state.get("empresa", ""),
-            area=state.get("area", ""),
-            rubro=state.get("rubro", ""),
-        )
-        reranked_ai = _rerank_cases_for_client(
-            search_payload.get("ai_cases", []),
-            empresa=state.get("empresa", ""),
-            area=state.get("area", ""),
-            rubro=state.get("rubro", ""),
-        )
-        filtered_cases = _prioritize_cases_with_evidence(reranked_all)
-        filtered_neo = _prioritize_cases_with_evidence(reranked_neo)
-        filtered_ai = _prioritize_cases_with_evidence(reranked_ai)
+        filtered_cases = _prioritize_cases_with_evidence(search_payload.get("casos", []))
+        filtered_neo = _prioritize_cases_with_evidence(search_payload.get("neo_cases", []))
+        filtered_ai = _prioritize_cases_with_evidence(search_payload.get("ai_cases", []))
 
-        # Fallback comercial: nunca dejar la UI sin fichas; ampliar búsqueda por rubro/área.
+        # Fallback: never leave UI without cards
         if not filtered_cases:
             fallback_query = (
-                f"Iniciativas de alto impacto para {state.get('rubro', 'negocio')} "
-                f"en el área {state.get('area', 'operaciones')} con evidencia verificable"
+                f"Iniciativas de alto impacto para {rubro or 'negocio'} "
+                f"en el área {area or 'operaciones'} con evidencia verificable"
             )
             fallback_payload = _search_with_progressive_thresholds(
                 problema=fallback_query,
                 switch="both",
                 thresholds=(0.40, 0.30, 0.20, 0.0),
                 limit=10,
+                client_empresa=empresa,
+                client_area=area,
+                client_rubro=rubro,
             )
-            fallback_cases = _rerank_cases_for_client(
-                fallback_payload.get("casos", []),
-                empresa=state.get("empresa", ""),
-                area=state.get("area", ""),
-                rubro=state.get("rubro", ""),
-            )
-            fallback_neo = _rerank_cases_for_client(
-                fallback_payload.get("neo_cases", []),
-                empresa=state.get("empresa", ""),
-                area=state.get("area", ""),
-                rubro=state.get("rubro", ""),
-            )
-            fallback_ai = _rerank_cases_for_client(
-                fallback_payload.get("ai_cases", []),
-                empresa=state.get("empresa", ""),
-                area=state.get("area", ""),
-                rubro=state.get("rubro", ""),
-            )
-            filtered_cases = _prioritize_cases_with_evidence(fallback_cases)
-            filtered_neo = _prioritize_cases_with_evidence(fallback_neo)
-            filtered_ai = _prioritize_cases_with_evidence(fallback_ai)
+            filtered_cases = _prioritize_cases_with_evidence(fallback_payload.get("casos", []))
+            filtered_neo = _prioritize_cases_with_evidence(fallback_payload.get("neo_cases", []))
+            filtered_ai = _prioritize_cases_with_evidence(fallback_payload.get("ai_cases", []))
 
-            # Etiquetar explícitamente como relacionados/inspiracionales para transparencia UX.
-            for item in filtered_cases:
+            for item in filtered_cases + filtered_neo + filtered_ai:
                 item.setdefault("match_type", "inspiracional")
                 item.setdefault("match_reason", "Sugerencia por afinidad de industria/área")
-            for item in filtered_neo:
-                item.setdefault("match_type", "inspiracional")
-            for item in filtered_ai:
-                item.setdefault("match_type", "inspiracional")
 
         state["casos_encontrados"] = filtered_cases
         state["neo_cases"] = filtered_neo
@@ -127,10 +107,10 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             state["top_match_global"] = top_match
             state["top_match_global_reason"] = search_payload.get("top_match_global_reason", "")
 
-        # 2. Buscar perfil del cliente desde SQLite Repository
+        # 2. Client profile from SQLite
         profile_row = company_profile_repository.get_profile(
-            company_id=state["empresa"],
-            area=state["area"],
+            company_id=empresa,
+            area=area,
         )
         if profile_row:
             perfil = profile_row.profile_payload
@@ -138,28 +118,24 @@ def retrieve_node(state: ProposalState) -> ProposalState:
             has_objectives = bool(perfil.get("objetivos"))
             has_pains = bool(perfil.get("pain_points"))
             state["profile_status"] = "found" if (has_objectives and has_pains) else "incomplete"
-            logger.info("Perfil encontrado para empresa=%s area=%s", state["empresa"], state["area"])
+            logger.info("Perfil encontrado para empresa=%s area=%s", empresa, area)
         else:
-            # Si no existe, podemos crear un placeholder o dejarlo vacío
             state["perfil_cliente"] = {
-                "empresa": state["empresa"],
-                "area": state["area"],
+                "empresa": empresa,
+                "area": area,
                 "notas": "Empresa nueva sin historial previo.",
             }
             state["profile_status"] = "not_found"
 
-        # 3. Contexto sectorial (placeholder estructurado para el layout lateral)
-        state["inteligencia_sector"] = _build_sector_intel(
-            rubro=state.get("rubro", ""),
-            area=state.get("area", ""),
-        )
+        # 3. Sector intel from real radiography (SQLite), fallback to template
+        state["inteligencia_sector"] = _build_sector_intel(rubro=rubro, area=area)
 
         if not state["casos_encontrados"]:
             state["error"] = (
                 "No se encontraron casos para el problema ingresado. "
                 "Intenta reformular en términos de industria/área."
             )
-            
+
     except Exception as exc:
         state["error"] = f"Error en retrieve_node: {exc}"
 
@@ -167,11 +143,7 @@ def retrieve_node(state: ProposalState) -> ProposalState:
 
 
 def update_summary_node(state: ProposalState) -> ProposalState:
-    """
-    Consolida perfil empresa usando:
-    - data web/sectorial ya recuperada en retrieve_node
-    - ultimos HumanInsights de ventas (SQLite)
-    """
+    """Consolida perfil empresa usando HumanInsights + time-decay."""
     if state.get("error"):
         return state
 
@@ -227,58 +199,12 @@ def update_summary_node(state: ProposalState) -> ProposalState:
     return state
 
 
-def _rerank_cases_for_client(
-    cases: list[dict[str, Any]],
-    empresa: str,
-    area: str,
-    rubro: str,
-) -> list[dict[str, Any]]:
-    empresa_norm = (empresa or "").strip().lower()
-    area_norm = (area or "").strip().lower()
-    rubro_norm = (rubro or "").strip().lower()
-
-    rescored: list[dict[str, Any]] = []
-    for case in cases:
-        score_raw = float(case.get("score_raw", case.get("score", 0.0)))
-        base_semantic = 0.78 * score_raw
-        source_conf = 0.12 * float(case.get("confianza_fuente", 0.85))
-        evidence = 0.10 if case.get("url_slide") else 0.04
-
-        case_empresa = str(case.get("empresa") or "").strip().lower()
-        case_area = str(case.get("area") or "").strip().lower()
-        case_industria = str(case.get("industria") or "").strip().lower()
-        context_bonus = 0.0
-
-        if empresa_norm and case_empresa and (empresa_norm in case_empresa or case_empresa in empresa_norm):
-            context_bonus += 0.05
-        if area_norm and case_area and (area_norm == case_area):
-            context_bonus += 0.04
-        if rubro_norm and case_industria and (rubro_norm in case_industria or case_industria in rubro_norm):
-            context_bonus += 0.03
-
-        final_score = min(1.0, base_semantic + source_conf + evidence + context_bonus)
-        rescored_case = dict(case)
-        rescored_case["score_client_fit"] = round(final_score, 4)
-        if score_raw >= 0.72:
-            rescored_case["match_type"] = "exacto"
-            rescored_case["match_reason"] = "Alta similitud con el problema objetivo."
-        elif context_bonus >= 0.08:
-            rescored_case["match_type"] = "exacto"
-            rescored_case["match_reason"] = "Alta afinidad combinando problema y contexto comercial."
-        elif score_raw >= 0.56 or context_bonus > 0:
-            rescored_case["match_type"] = "relacionado"
-            rescored_case["match_reason"] = "Caso relacionado por similitud del problema."
-        else:
-            rescored_case["match_type"] = "inspiracional"
-            rescored_case["match_reason"] = "Referencia inspiracional para ampliar opciones."
-        rescored.append(rescored_case)
-
-    rescored.sort(key=lambda c: c.get("score_client_fit", c.get("score_raw", 0.0)), reverse=True)
-    return rescored
-
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
 
 def _prioritize_cases_with_evidence(cases: list[dict[str, Any]], limit: int = 10) -> list[dict[str, Any]]:
-    """Prioriza casos con URL, pero nunca deja fuera casos útiles sin evidencia."""
+    """Prioritize cases with URL evidence, but never drop useful cases without it."""
     with_url = [c for c in cases if c.get("url_slide")]
     without_url = [c for c in cases if not c.get("url_slide")]
     ordered = with_url + without_url
@@ -290,11 +216,12 @@ def _search_with_progressive_thresholds(
     switch: Literal["neo", "ai", "both"],
     thresholds: tuple[float, ...] = (0.40, 0.30, 0.20, 0.0),
     limit: int = 10,
+    *,
+    client_empresa: str = "",
+    client_area: str = "",
+    client_rubro: str = "",
 ) -> dict[str, Any]:
-    """
-    Ejecuta búsqueda con umbrales decrecientes hasta obtener resultados.
-    Evita estado vacío cuando el problema es demasiado específico.
-    """
+    """Search with decreasing thresholds until results are found."""
     last_payload: dict[str, Any] = {"casos": [], "neo_cases": [], "ai_cases": []}
     for threshold in thresholds:
         payload = search_cases_sync(
@@ -302,6 +229,9 @@ def _search_with_progressive_thresholds(
             switch=switch,
             limit=limit,
             score_threshold=threshold,
+            client_empresa=client_empresa,
+            client_area=client_area,
+            client_rubro=client_rubro,
         )
         last_payload = payload
         if payload.get("casos"):
@@ -310,8 +240,25 @@ def _search_with_progressive_thresholds(
 
 
 def _build_sector_intel(rubro: str, area: str) -> dict:
+    """Look up real radiography from SQLite; fallback to structured template."""
     rubro_norm = (rubro or "General").strip()
     area_norm = (area or "General").strip()
+
+    radiography = industry_radar_repository.get_radiography(industry_target=rubro_norm)
+    if radiography:
+        profile = radiography.profile_payload or {}
+        triggers = radiography.triggers_payload or []
+        return {
+            "industria": rubro_norm,
+            "area": area_norm,
+            "tendencias": profile.get("tendencias", profile.get("trends", [])),
+            "benchmarks": profile.get("benchmarks", {}),
+            "oportunidades": profile.get("oportunidades", profile.get("opportunities", [])),
+            "triggers": triggers,
+            "updated_at": radiography.updated_at,
+            "source": "industry_radiography_sqlite",
+        }
+
     return {
         "industria": rubro_norm,
         "area": area_norm,
@@ -328,7 +275,7 @@ def _build_sector_intel(rubro: str, area: str) -> dict:
             "Priorización de quick wins con casos comparables",
             "Escalado modular por unidades de negocio",
         ],
-        "source": "placeholder_v2",
+        "source": "fallback_template",
     }
 
 
@@ -471,20 +418,16 @@ def _generate_departmental_time_decay_summary(
             "source": "fallback_local_time_decay",
         }
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash",
-        temperature=0.2,
-        google_api_key=settings.gemini_api_key,
-    )
+    llm = get_flash_llm()
     prompt = (
         "Eres un analista comercial senior. Genera un resumen JSON segmentado por departamentos.\n"
         "Regla estricta de Time-Decay:\n"
         "1) Da PESO ALTISIMO a insights de los últimos 30 días para definir el estado actual.\n"
         "2) Insights antiguos tienen peso menor y sirven solo para evolución histórica.\n"
         "3) No mezcles departamentos; separa TI, Finanzas, Marketing, Operaciones, Comercial o General.\n"
-        "4) Responde SOLO JSON con schema:\n"
-        "{\"departments\":[{\"department\":\"...\",\"current_state\":\"...\",\"priority_signals_recent\":[\"...\"],\"historical_notes\":\"...\"}],"
-        "\"historical_evolution\":\"...\"}\n\n"
+        '4) Responde SOLO JSON con schema:\n'
+        '{"departments":[{"department":"...","current_state":"...","priority_signals_recent":["..."],"historical_notes":"..."}],'
+        '"historical_evolution":"..."}\n\n'
         f"EMPRESA: {company_id}\n"
         f"AREA PRINCIPAL: {area}\n"
         f"CONTEXTO SECTORIAL: {sector_context}\n\n"
@@ -495,8 +438,6 @@ def _generate_departmental_time_decay_summary(
         text = str(response.content).strip()
         if text.startswith("```"):
             text = text.replace("```json", "").replace("```", "").strip()
-        import json
-
         parsed = json.loads(text)
         if not isinstance(parsed, dict):
             raise ValueError("Formato JSON inválido")
@@ -510,40 +451,54 @@ def _generate_departmental_time_decay_summary(
             "source": "llm_error_fallback",
         }
 
+
 def _format_profile_for_prompt(perfil: dict | None) -> str:
     if not perfil or not perfil.get("empresa"):
-        return "No hay información previa del cliente."
-    
+        return "ℹ️ No hay información previa del cliente — propuesta se genera con enfoque genérico de industria."
+
     return (
-        f"Información sobre {perfil.get('empresa')}:\n"
-        f"- Objetivos: {perfil.get('objetivos', 'N/A')}\n"
-        f"- Pain Points: {perfil.get('pain_points', 'N/A')}\n"
-        f"- Decisores: {perfil.get('decision_makers', 'N/A')}\n"
-        f"- Sentimiento comercial: {perfil.get('sentimiento_comercial', 'N/A')}\n"
-        f"- Estilo/Cultura: {perfil.get('notas', 'N/A')}"
+        f"### 👤 Perfil de {perfil.get('empresa')}\n"
+        f"- **Objetivos estratégicos:** {perfil.get('objetivos', 'No disponible')}\n"
+        f"- **Pain Points identificados:** {perfil.get('pain_points', 'No disponible')}\n"
+        f"- **Decisores clave:** {perfil.get('decision_makers', 'No identificados')}\n"
+        f"- **Sentimiento comercial:** {perfil.get('sentimiento_comercial', 'Neutral')}\n"
+        f"- **Cultura/Estilo organizacional:** {perfil.get('notas', 'No disponible')}"
     )
 
 
 def _format_sector_for_prompt(sector: dict | None) -> str:
     if not sector:
-        return "No hay inteligencia sectorial disponible."
+        return "ℹ️ No hay inteligencia sectorial disponible — se usarán tendencias generales del mercado."
+    triggers = sector.get("triggers", [])
+    triggers_txt = ""
+    if triggers:
+        trigger_lines = []
+        for t in triggers[:5]:
+            if isinstance(t, dict):
+                trigger_lines.append(
+                    f"  - **{t.get('trigger_type', 'signal')}:** {t.get('title', 'N/A')} "
+                    f"(Severidad: {t.get('severity', 'N/A')})"
+                )
+        if trigger_lines:
+            triggers_txt = "\n- **🚨 Triggers activos:**\n" + "\n".join(trigger_lines)
     return (
-        f"Sector: {sector.get('industria', 'N/A')} / Área: {sector.get('area', 'N/A')}\n"
-        f"- Tendencias: {sector.get('tendencias', [])}\n"
-        f"- Benchmarks: {sector.get('benchmarks', {})}\n"
-        f"- Oportunidades: {sector.get('oportunidades', [])}"
+        f"**Sector:** {sector.get('industria', 'N/A')} / **Área:** {sector.get('area', 'N/A')}\n"
+        f"- **📈 Tendencias clave:** {sector.get('tendencias', [])}\n"
+        f"- **📊 Benchmarks:** {sector.get('benchmarks', {})}\n"
+        f"- **🎯 Oportunidades:** {sector.get('oportunidades', [])}"
+        f"{triggers_txt}"
     )
 
 
 def _format_prioritized_client_context(context: dict | None) -> str:
     if not context:
-        return "No hay contexto estrategico del cliente priorizado."
+        return "ℹ️ Cliente no priorizado — se genera propuesta con enfoque abierto basado en el problema."
 
     return (
-        f"Vertical: {context.get('vertical', 'N/A')}\n"
-        f"- Prioridades: {context.get('priorities', [])}\n"
-        f"- Restricciones: {context.get('constraints', [])}\n"
-        f"- Fuente: {context.get('source', 'N/A')}"
+        f"**Vertical:** {context.get('vertical', 'N/A')}\n"
+        f"- **🎯 Prioridades estratégicas:** {context.get('priorities', [])}\n"
+        f"- **⚠️ Restricciones conocidas:** {context.get('constraints', [])}\n"
+        f"- **📋 Fuente de contexto:** {context.get('source', 'N/A')}"
     )
 
 
@@ -572,40 +527,80 @@ def draft_node(state: ProposalState) -> ProposalState:
 
     try:
         logger.info("draft_node llamando a Gemini con %s casos", len(filtered_cases))
-        settings = get_settings()
-        llm = ChatGoogleGenerativeAI(
-            model=settings.gemini_chat_model,
-            temperature=0.3,
-            google_api_key=settings.gemini_api_key,
-        )
+        llm = get_chat_llm()
 
         prompt = (
-            "Eres un consultor comercial senior experto en estrategia de negocios.\n"
-            "Tu objetivo es redactar una PROPUESTA DE VALOR que resuelva un problema técnico "
-            "pero que hable el lenguaje de negocio del cliente.\n\n"
-            
-            "--- CONTEXTO DEL CLIENTE ---\n"
-            f"Empresa: {state['empresa']}\n"
-            f"Área: {state['area']}\n"
-            f"Problema actual: {state['problema']}\n"
+            "# 🧠 NEO Strategy Co-Pilot — Generación de Propuesta de Valor\n\n"
+
+            "Eres un **consultor estratégico senior** de una firma de consultoría global "
+            "(nivel McKinsey, BCG, Accenture Strategy). Tu misión es generar una **propuesta de valor "
+            "de clase mundial** que combine evidencia de casos reales con visión estratégica innovadora.\n\n"
+
+            "---\n\n"
+
+            "## 📋 CONTEXTO DEL CLIENTE\n"
+            f"**🏢 Empresa:** {state['empresa']}\n"
+            f"**🎯 Área:** {state['area']}\n"
+            f"**⚠️ Problema/Necesidad:** {state['problema']}\n"
             f"{_format_profile_for_prompt(state.get('perfil_cliente'))}\n\n"
 
-            "--- CONTEXTO CLIENTE PRIORIZADO ---\n"
+            "## 🏆 CONTEXTO CLIENTE PRIORIZADO\n"
             f"{_format_prioritized_client_context(state.get('cliente_priorizado_contexto'))}\n\n"
 
-            "--- INTELIGENCIA DE MERCADO / SECTOR ---\n"
+            "## 🌐 INTELIGENCIA DE MERCADO / SECTOR\n"
             f"{_format_sector_for_prompt(state.get('inteligencia_sector'))}\n\n"
-            
-            "--- CASOS DE ÉXITO SELECCIONADOS (BASE TECNOLÓGICA) ---\n"
+
+            "## 📌 CASOS DE ÉXITO SELECCIONADOS (BASE DE EVIDENCIA)\n"
             f"{format_cases_for_prompt(filtered_cases)}\n\n"
-            
-            "INSTRUCCIONES DE REDACCIÓN:\n"
-            "1. Usa el 'Enfoque Propuesto' basado en los casos de éxito, pero ADÁPTALO a los objetivos del cliente.\n"
-            "2. Si el cliente es adverso al riesgo (ver perfil), propón una implementación modular.\n"
-            "3. Resalta el IMPACTO de negocio, no solo la tecnología.\n"
-            "4. Incluye al menos 2 KPI/impactos cuantificables cuando la evidencia lo permita.\n"
-            "5. Mantén un tono ejecutivo, profesional y persuasivo.\n"
-            "6. Máximo 500 palabras."
+
+            "---\n\n"
+
+            "## ✍️ INSTRUCCIONES DE GENERACIÓN DE PROPUESTA\n\n"
+
+            "Genera la propuesta con **EXACTAMENTE** estas secciones en **Markdown rico con emojis**:\n\n"
+
+            "### Sección 1: 🔍 Diagnóstico del Problema\n"
+            "- Reformula el problema del cliente con lenguaje de negocio\n"
+            "- Identifica el **impacto real** que tiene este problema (costos, eficiencia, competitividad)\n"
+            "- Conecta con tendencias del sector que hacen URGENTE resolverlo\n"
+            "- Usa datos o benchmarks del sector cuando estén disponibles\n\n"
+
+            "### Sección 2: 💡 Solución Propuesta\n"
+            "- Describe la solución en términos de **valor de negocio**, no solo tecnología\n"
+            "- Adapta los casos de éxito al contexto ESPECÍFICO de este cliente\n"
+            "- NO te limites a copiar casos — **combina, innova y propón enfoques nuevos**\n"
+            "- Si hay más de un camino viable, presenta **2-3 opciones** con trade-offs\n\n"
+
+            "### Sección 3: 🏗️ Características de la Solución y Arquitectura\n"
+            "- Detalla los componentes clave de la solución\n"
+            "- Describe el proceso de implementación en **fases claras** (Quick Win → Escala → Optimización)\n"
+            "- Incluye stack tecnológico recomendado si es relevante\n"
+            "- Define el modelo de governanza y equipo sugerido\n\n"
+
+            "### Sección 4: 📊 Resultados Estimados y Áreas de Impacto\n"
+            "- Estima **KPIs cuantificables**: ROI, ahorro, mejora de eficiencia, time-to-market\n"
+            "- Identifica áreas de impacto: operaciones, revenue, customer experience, risk reduction\n"
+            "- Usa referencias de los casos de éxito como benchmark de resultados alcanzables\n"
+            "- Presenta en formato tabular si hay múltiples KPIs\n\n"
+
+            "### Sección 5: 🗓️ Roadmap Sugerido\n"
+            "- **Fase 1 (Quick Win):** Primeros resultados visibles\n"
+            "- **Fase 2 (Consolidación):** Escala y madurez\n"
+            "- **Fase 3 (Optimización):** Mejora continua y nuevas oportunidades\n\n"
+
+            "### Sección 6: 🎯 Siguiente Paso Recomendado\n"
+            "- Propón una acción concreta e inmediata para avanzar\n"
+            "- Incluye qué necesitas del cliente para dar el siguiente paso\n\n"
+
+            "---\n\n"
+            "## ⚡ REGLAS DE CALIDAD\n"
+            "1. **Markdown rico obligatorio** — Encabezados con emojis, negritas, bullets, tablas\n"
+            "2. **Tono ejecutivo y persuasivo** — Habla como un Partner ante el C-Suite\n"
+            "3. **Mínimo 600 palabras** — Profundidad y valor, no relleno\n"
+            "4. Si el cliente es adverso al riesgo (ver perfil), prioriza implementación modular y quick wins\n"
+            "5. Cita casos como evidencia: `📌 Caso [ID]: [Título]`\n"
+            "6. Si los casos no cubren todo el problema, **genera propuestas inspiracionales** basadas en tendencias\n"
+            "7. NUNCA generes una propuesta plana sin estructura — SIEMPRE usa las 6 secciones"
         )
 
         response = llm.invoke(prompt)

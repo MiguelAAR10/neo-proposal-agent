@@ -1,16 +1,27 @@
+# NEO Proposal Agent — Backend Requirements (MVP 2.1)
+# Core API
 fastapi==0.115.0
 uvicorn[standard]==0.34.0
-streamlit==1.42.0
-qdrant-client==1.13.3
-google-genai==1.5.0
-pandas==2.2.3
-python-dotenv==1.0.1
 pydantic==2.10.0
-requests==2.32.3
-tqdm==4.67.0
-langchain-google-genai
-langgraph
 pydantic-settings
+
+# Data layer
+qdrant-client==1.13.3
 sqlalchemy==2.0.38
 redis==5.2.1
+pandas==2.2.3
+
+# LLM / LangChain
+langchain-google-genai
+langgraph
 langchain-redis
+google-genai==1.5.0
+
+# Utilities
+python-dotenv==1.0.1
+requests==2.32.3
+tqdm==4.67.0
+
+# Testing
+pytest
+httpx

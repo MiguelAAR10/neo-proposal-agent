@@ -12,8 +12,11 @@ from src.config import get_settings
 from src.services.errors import ExternalDependencyTimeout
 from src.tools.qdrant_tool import db_connection
 
+import threading
+
 SwitchType = Literal["neo", "ai", "both"]
 _EMBED_CACHE: dict[str, tuple[float, list[float]]] = {}
+_EMBED_CACHE_LOCK = threading.Lock()
 _EMBED_CACHE_TTL_SEC = 60 * 60 * 24
 _EMBED_CACHE_MAX = 500
 _REDIS_CACHE_PREFIX = "embed:v1:"
@@ -77,7 +80,8 @@ def _cache_get(query: str) -> list[float] | None:
         return None
     ts, vector = row
     if (time.time() - ts) > _EMBED_CACHE_TTL_SEC:
-        _EMBED_CACHE.pop(normalized, None)
+        with _EMBED_CACHE_LOCK:
+            _EMBED_CACHE.pop(normalized, None)
         return None
     return vector
 
@@ -93,10 +97,11 @@ def _cache_set(query: str, vector: list[float]) -> None:
         except Exception:
             pass
 
-    if len(_EMBED_CACHE) >= _EMBED_CACHE_MAX:
-        oldest_key = min(_EMBED_CACHE, key=lambda k: _EMBED_CACHE[k][0])
-        _EMBED_CACHE.pop(oldest_key, None)
-    _EMBED_CACHE[normalized] = (time.time(), vector)
+    with _EMBED_CACHE_LOCK:
+        if len(_EMBED_CACHE) >= _EMBED_CACHE_MAX:
+            oldest_key = min(_EMBED_CACHE, key=lambda k: _EMBED_CACHE[k][0])
+            _EMBED_CACHE.pop(oldest_key, None)
+        _EMBED_CACHE[normalized] = (time.time(), vector)
 
 
 def _is_valid_http_url(value: str | None) -> bool:
@@ -115,7 +120,26 @@ def _score_to_label(score: float) -> tuple[str, str]:
     return "Relevante", f"{pct}% match con tu problema"
 
 
-def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
+def _normalize_case(
+    raw: dict[str, Any],
+    *,
+    client_empresa: str = "",
+    client_area: str = "",
+    client_rubro: str = "",
+) -> dict[str, Any]:
+    """Unified composite scorer — single source of truth for ranking.
+
+    Weights (base):
+        0.70 * similitud_semantica
+        0.15 * confianza_fuente
+        0.10 * calidad_evidencia
+        0.05 * recencia
+
+    Client-context bonus (additive, capped at 1.0):
+        +0.05  empresa match
+        +0.04  area match
+        +0.03  industria/rubro match
+    """
     case_id = str(raw.get("case_id") or raw.get("id") or "")
     tipo = str(raw.get("tipo") or "AI").upper()
     score_raw = float(raw.get("score", 0.0))
@@ -153,20 +177,44 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
     confianza_fuente = float(raw.get("confianza_fuente", 1.0 if tipo == "NEO" else 0.85))
     evidencia = 1.0 if has_valid_url else 0.6
     recencia = 0.8
-    final_score = (
+    base_score = (
         0.70 * similitud_semantica
         + 0.15 * confianza_fuente
         + 0.10 * evidencia
         + 0.05 * recencia
     )
 
-    # Determinar match_type segun score final
-    if final_score >= 0.85:
+    # Client-context bonus
+    context_bonus = 0.0
+    empresa_norm = (client_empresa or "").strip().lower()
+    area_norm = (client_area or "").strip().lower()
+    rubro_norm = (client_rubro or "").strip().lower()
+    case_empresa = str(empresa or "").strip().lower()
+    case_area = str(area or "").strip().lower()
+    case_industria = str(industria or "").strip().lower()
+
+    if empresa_norm and case_empresa and (empresa_norm in case_empresa or case_empresa in empresa_norm):
+        context_bonus += 0.05
+    if area_norm and case_area and area_norm == case_area:
+        context_bonus += 0.04
+    if rubro_norm and case_industria and (rubro_norm in case_industria or case_industria in rubro_norm):
+        context_bonus += 0.03
+
+    final_score = min(1.0, base_score + context_bonus)
+
+    # Unified match_type thresholds
+    if score_raw >= 0.72 or final_score >= 0.85:
         match_type = "exacto"
-    elif final_score >= 0.70:
+        match_reason = "Alta similitud con el problema objetivo."
+    elif context_bonus >= 0.08:
+        match_type = "exacto"
+        match_reason = "Alta afinidad combinando problema y contexto comercial."
+    elif final_score >= 0.70 or (score_raw >= 0.56 and context_bonus > 0):
         match_type = "relacionado"
+        match_reason = "Caso relacionado por similitud del problema."
     else:
         match_type = "inspiracional"
+        match_reason = "Referencia inspiracional para ampliar opciones."
 
     return {
         "case_id": case_id,
@@ -191,15 +239,13 @@ def _normalize_case(raw: dict[str, Any]) -> dict[str, Any]:
         "score_final": round(final_score, 4),
         "score_client_fit": round(final_score, 4),
         "match_type": match_type,
-        "match_reason": (
-            f"Afinidad de {int(final_score*100)}% con foco en similitud del problema"
-            f" y evidencia disponible."
-        ),
+        "match_reason": match_reason,
         "score_breakdown": {
             "similitud_semantica": round(similitud_semantica, 4),
             "confianza_fuente": round(confianza_fuente, 4),
             "calidad_evidencia": round(evidencia, 4),
             "recencia": round(recencia, 4),
+            "context_bonus": round(context_bonus, 4),
         },
         "confianza_fuente": confianza_fuente,
         "origen": raw.get("origen") or "unknown",
@@ -215,8 +261,8 @@ def _segment_cases(cases: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], l
     neo_cases = [c for c in cases if c.get("tipo") == "NEO"]
     ai_cases = [c for c in cases if c.get("tipo") == "AI"]
 
-    neo_cases.sort(key=lambda c: c.get("score_raw", 0.0), reverse=True)
-    ai_cases.sort(key=lambda c: c.get("score_raw", 0.0), reverse=True)
+    neo_cases.sort(key=lambda c: c.get("score_final", 0.0), reverse=True)
+    ai_cases.sort(key=lambda c: c.get("score_final", 0.0), reverse=True)
 
     combined = neo_cases + ai_cases
     return neo_cases, ai_cases, combined
@@ -230,21 +276,33 @@ def _build_search_payload(
     embedding_ms: int | None = None,
     qdrant_ms: int | None = None,
     cache_hit: bool | None = None,
+    *,
+    client_empresa: str = "",
+    client_area: str = "",
+    client_rubro: str = "",
 ) -> dict[str, Any]:
-    normalized_all = [_normalize_case(c) for c in raw_results]
+    normalized_all = [
+        _normalize_case(
+            c,
+            client_empresa=client_empresa,
+            client_area=client_area,
+            client_rubro=client_rubro,
+        )
+        for c in raw_results
+    ]
     with_evidence = [c for c in normalized_all if c.get("has_critical_evidence")]
     normalized = with_evidence if with_evidence else normalized_all
-    global_top = max(normalized, key=lambda c: c.get("score_raw", 0.0), default=None)
+    global_top = max(normalized, key=lambda c: c.get("score_final", 0.0), default=None)
 
     if switch == "both":
         neo_cases, ai_cases, casos = _segment_cases(normalized)
     elif switch == "neo":
-        neo_cases = sorted(normalized, key=lambda c: c.get("score_raw", 0.0), reverse=True)
+        neo_cases = sorted(normalized, key=lambda c: c.get("score_final", 0.0), reverse=True)
         ai_cases = []
         casos = neo_cases
     else:
         neo_cases = []
-        ai_cases = sorted(normalized, key=lambda c: c.get("score_raw", 0.0), reverse=True)
+        ai_cases = sorted(normalized, key=lambda c: c.get("score_final", 0.0), reverse=True)
         casos = ai_cases
 
     response: dict[str, Any] = {
@@ -260,9 +318,9 @@ def _build_search_payload(
         "casos": casos,
     }
     if switch == "both" and global_top is not None:
-        neo_top = max(neo_cases, key=lambda c: c.get("score_raw", 0.0), default=None)
-        ai_top = max(ai_cases, key=lambda c: c.get("score_raw", 0.0), default=None)
-        if ai_top and (not neo_top or (ai_top["score_raw"] - neo_top["score_raw"]) >= 0.08):
+        neo_top = max(neo_cases, key=lambda c: c.get("score_final", 0.0), default=None)
+        ai_top = max(ai_cases, key=lambda c: c.get("score_final", 0.0), default=None)
+        if ai_top and (not neo_top or (ai_top["score_final"] - neo_top["score_final"]) >= 0.08):
             response["top_match_global"] = ai_top
             response["top_match_global_reason"] = (
                 "AI supera significativamente al mejor NEO en similitud; se muestra para transparencia."
@@ -283,6 +341,10 @@ def search_cases_sync(
     switch: SwitchType = "both",
     limit: int = 6,
     score_threshold: float = 0.50,
+    *,
+    client_empresa: str = "",
+    client_area: str = "",
+    client_rubro: str = "",
 ) -> dict[str, Any]:
     settings = get_settings()
     start = time.perf_counter()
@@ -301,7 +363,12 @@ def search_cases_sync(
         timeout_sec=settings.search_qdrant_timeout_sec,
     )
     total_ms = int((time.perf_counter() - start) * 1000)
-    return _build_search_payload(problema, switch, raw_results, total_ms)
+    return _build_search_payload(
+        problema, switch, raw_results, total_ms,
+        client_empresa=client_empresa,
+        client_area=client_area,
+        client_rubro=client_rubro,
+    )
 
 
 async def search_cases_with_sla(
@@ -309,6 +376,10 @@ async def search_cases_with_sla(
     switch: SwitchType = "both",
     limit: int = 6,
     score_threshold: float = 0.50,
+    *,
+    client_empresa: str = "",
+    client_area: str = "",
+    client_rubro: str = "",
 ) -> dict[str, Any]:
     settings = get_settings()
     embed_timeout = settings.search_embedding_timeout_sec
@@ -360,4 +431,7 @@ async def search_cases_with_sla(
         embedding_ms=embedding_ms,
         qdrant_ms=qdrant_ms,
         cache_hit=cache_hit,
+        client_empresa=client_empresa,
+        client_area=client_area,
+        client_rubro=client_rubro,
     )

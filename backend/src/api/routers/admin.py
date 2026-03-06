@@ -1,28 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from fastapi import APIRouter, Header, HTTPException
 
+from src.api.deps import db_connection, raise_internal_server_error, require_admin_access
 from src.api.schemas import IngestRequest
 
 router = APIRouter(tags=["admin"])
 
 
-def _main():
-    from src.api import main as main_module
-
-    return main_module
-
-
 @router.post("/api/ingest")
 async def ingest_cases(data: IngestRequest, authorization: str | None = Header(default=None)):
-    """
-    Endpoint administrativo de ingesta de casos hacia Qdrant.
-    Si ADMIN_TOKEN está configurado, exige header Authorization Bearer.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
+    """Endpoint administrativo de ingesta de casos hacia Qdrant."""
+    require_admin_access(authorization)
 
     base = Path(__file__).resolve().parents[4] / "data"
     csv_paths = [str(base / name) for name in data.csv_files]
@@ -32,12 +24,12 @@ async def ingest_cases(data: IngestRequest, authorization: str | None = Header(d
 
     try:
         if data.force_rebuild:
-            await main_module.asyncio.to_thread(main_module.db_connection.reset_cases_collection, "neo_cases_v1")
-        ingest_summary = await main_module.asyncio.to_thread(
-            main_module.db_connection.load_csv_files, csv_paths, "neo_cases_v1"
+            await asyncio.to_thread(db_connection.reset_cases_collection, "neo_cases_v1")
+        ingest_summary = await asyncio.to_thread(
+            db_connection.load_csv_files, csv_paths, "neo_cases_v1"
         )
     except Exception:
-        main_module._raise_internal_server_error("Error en /api/ingest")
+        raise_internal_server_error("Error en /api/ingest")
 
     return {
         "status": "success",

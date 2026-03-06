@@ -7,31 +7,49 @@ from typing import Literal
 
 from fastapi import APIRouter, Header, Response
 
+from src.api.deps import (
+    chat_audit_store,
+    intel_metrics,
+    require_admin_access,
+    search_metrics,
+    session_funnel_store,
+    settings,
+)
 from src.services.chat_alerts import ChatAlertThresholds, build_chat_alerts
 
 router = APIRouter(tags=["ops"])
 
 
-def _main():
-    from src.api import main as main_module
+def _build_thresholds() -> ChatAlertThresholds:
+    return ChatAlertThresholds(
+        min_events=settings.chat_alert_min_events,
+        block_rate_warning=settings.chat_alert_block_rate_warning,
+        block_rate_critical=settings.chat_alert_block_rate_critical,
+        no_case_usage_warning=settings.chat_alert_no_case_usage_warning,
+        company_concentration_warning=settings.chat_alert_company_concentration_warning,
+    )
 
-    return main_module
+
+def _resolve_updated_after(time_range: str) -> str | None:
+    now_utc = datetime.now(timezone.utc)
+    if time_range == "1h":
+        return (now_utc - timedelta(hours=1)).isoformat()
+    if time_range == "24h":
+        return (now_utc - timedelta(hours=24)).isoformat()
+    if time_range == "7d":
+        return (now_utc - timedelta(days=7)).isoformat()
+    return None
 
 
 @router.get("/ops/metrics")
 async def get_ops_metrics(authorization: str | None = Header(default=None)):
-    """
-    Métricas operativas livianas para seguimiento de SLA de búsqueda.
-    En no-local exige ADMIN_TOKEN.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
-
+    """Métricas operativas livianas para seguimiento de SLA de búsqueda."""
+    require_admin_access(authorization)
     return {
         "status": "ok",
-        "environment": main_module.settings.app_env,
-        "search": main_module.search_metrics.snapshot(),
-        "intel": main_module.intel_metrics.snapshot(),
+        "environment": settings.app_env,
+        "search": search_metrics.snapshot(),
+        "intel": intel_metrics.snapshot(),
     }
 
 
@@ -41,15 +59,12 @@ async def get_chat_audit(
     limit: int = 100,
     status: str | None = None,
 ):
-    """
-    Traza operativa de chat/guardrails para auditoria.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
+    """Traza operativa de chat/guardrails para auditoria."""
+    require_admin_access(authorization)
     return {
         "status": "ok",
-        "environment": main_module.settings.app_env,
-        "chat_audit": main_module.chat_audit_store.snapshot(limit=limit, status=status),
+        "environment": settings.app_env,
+        "chat_audit": chat_audit_store.snapshot(limit=limit, status=status),
     }
 
 
@@ -60,17 +75,14 @@ async def export_chat_audit(
     limit: int = 200,
     status: str | None = None,
 ):
-    """
-    Exporta trazas operativas de chat en JSON/CSV para analisis externo.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
-    snap = main_module.chat_audit_store.snapshot(limit=limit, status=status)
+    """Exporta trazas operativas de chat en JSON/CSV."""
+    require_admin_access(authorization)
+    snap = chat_audit_store.snapshot(limit=limit, status=status)
 
     if format == "json":
         return {
             "status": "ok",
-            "environment": main_module.settings.app_env,
+            "environment": settings.app_env,
             "chat_audit_export": snap,
         }
 
@@ -78,28 +90,21 @@ async def export_chat_audit(
     writer = csv.DictWriter(
         output,
         fieldnames=[
-            "ts_utc",
-            "thread_id",
-            "status",
-            "guardrail_code",
-            "used_case_count",
-            "used_case_ids",
-            "message_preview",
+            "ts_utc", "thread_id", "status", "guardrail_code",
+            "used_case_count", "used_case_ids", "message_preview",
         ],
     )
     writer.writeheader()
     for row in snap.get("items", []):
-        writer.writerow(
-            {
-                "ts_utc": row.get("ts_utc", ""),
-                "thread_id": row.get("thread_id", ""),
-                "status": row.get("status", ""),
-                "guardrail_code": row.get("guardrail_code", ""),
-                "used_case_count": row.get("used_case_count", 0),
-                "used_case_ids": ",".join(str(v) for v in row.get("used_case_ids", [])),
-                "message_preview": row.get("message_preview", ""),
-            }
-        )
+        writer.writerow({
+            "ts_utc": row.get("ts_utc", ""),
+            "thread_id": row.get("thread_id", ""),
+            "status": row.get("status", ""),
+            "guardrail_code": row.get("guardrail_code", ""),
+            "used_case_count": row.get("used_case_count", 0),
+            "used_case_ids": ",".join(str(v) for v in row.get("used_case_ids", [])),
+            "message_preview": row.get("message_preview", ""),
+        })
 
     return Response(
         content=output.getvalue(),
@@ -113,15 +118,12 @@ async def get_chat_analytics(
     authorization: str | None = Header(default=None),
     status: str | None = None,
 ):
-    """
-    KPIs operativos de chat contextual y guardrails.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
+    """KPIs operativos de chat contextual y guardrails."""
+    require_admin_access(authorization)
     return {
         "status": "ok",
-        "environment": main_module.settings.app_env,
-        "chat_analytics": main_module.chat_audit_store.analytics(status=status),
+        "environment": settings.app_env,
+        "chat_analytics": chat_audit_store.analytics(status=status),
     }
 
 
@@ -130,23 +132,14 @@ async def get_chat_alerts(
     authorization: str | None = Header(default=None),
     status: str | None = None,
 ):
-    """
-    Alertas operativas automáticas sobre analítica de chat.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
-    analytics = main_module.chat_audit_store.analytics(status=status)
-    thresholds = ChatAlertThresholds(
-        min_events=main_module.settings.chat_alert_min_events,
-        block_rate_warning=main_module.settings.chat_alert_block_rate_warning,
-        block_rate_critical=main_module.settings.chat_alert_block_rate_critical,
-        no_case_usage_warning=main_module.settings.chat_alert_no_case_usage_warning,
-        company_concentration_warning=main_module.settings.chat_alert_company_concentration_warning,
-    )
+    """Alertas operativas automáticas sobre analítica de chat."""
+    require_admin_access(authorization)
+    analytics = chat_audit_store.analytics(status=status)
+    thresholds = _build_thresholds()
     alerts = build_chat_alerts(analytics, thresholds)
     return {
         "status": "ok",
-        "environment": main_module.settings.app_env,
+        "environment": settings.app_env,
         "thresholds": {
             "min_events": thresholds.min_events,
             "block_rate_warning": thresholds.block_rate_warning,
@@ -166,37 +159,24 @@ async def get_chat_alerts_history(
     limit_buckets: int = 48,
     status: str | None = None,
 ):
-    """
-    Historial temporal de alertas de chat para analisis de tendencia.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
-    thresholds = ChatAlertThresholds(
-        min_events=main_module.settings.chat_alert_min_events,
-        block_rate_warning=main_module.settings.chat_alert_block_rate_warning,
-        block_rate_critical=main_module.settings.chat_alert_block_rate_critical,
-        no_case_usage_warning=main_module.settings.chat_alert_no_case_usage_warning,
-        company_concentration_warning=main_module.settings.chat_alert_company_concentration_warning,
-    )
-    history = main_module.chat_audit_store.analytics_history(
-        bucket=bucket,
-        limit_buckets=limit_buckets,
-        status=status,
+    """Historial temporal de alertas de chat para analisis de tendencia."""
+    require_admin_access(authorization)
+    thresholds = _build_thresholds()
+    history = chat_audit_store.analytics_history(
+        bucket=bucket, limit_buckets=limit_buckets, status=status,
     )
     enriched_series: list[dict] = []
     for item in history.get("series", []):
         metrics = item.get("metrics", {})
-        enriched_series.append(
-            {
-                "bucket_start_utc": item.get("bucket_start_utc"),
-                "metrics": metrics,
-                "alerts": build_chat_alerts(metrics, thresholds),
-            }
-        )
+        enriched_series.append({
+            "bucket_start_utc": item.get("bucket_start_utc"),
+            "metrics": metrics,
+            "alerts": build_chat_alerts(metrics, thresholds),
+        })
 
     return {
         "status": "ok",
-        "environment": main_module.settings.app_env,
+        "environment": settings.app_env,
         "bucket": bucket,
         "thresholds": {
             "min_events": thresholds.min_events,
@@ -224,51 +204,30 @@ async def get_ops_funnel(
     page: int = 1,
     page_size: int = 25,
 ):
-    """
-    Conversión operativa del flujo MVP por sesiones (thread).
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
+    """Conversión operativa del flujo MVP por sesiones (thread)."""
+    require_admin_access(authorization)
     safe_page = max(1, int(page))
     safe_page_size = max(1, min(int(page_size), 200))
     offset = (safe_page - 1) * safe_page_size
-    now_utc = datetime.now(timezone.utc)
-    updated_after_utc: str | None = None
-    if time_range == "1h":
-        updated_after_utc = (now_utc - timedelta(hours=1)).isoformat()
-    elif time_range == "24h":
-        updated_after_utc = (now_utc - timedelta(hours=24)).isoformat()
-    elif time_range == "7d":
-        updated_after_utc = (now_utc - timedelta(days=7)).isoformat()
+    updated_after_utc = _resolve_updated_after(time_range)
 
-    funnel_summary = main_module.session_funnel_store.summary(
-        company=company,
-        updated_after_utc=updated_after_utc,
-        completed_only=completed_only,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
+    funnel_summary = session_funnel_store.summary(
+        company=company, updated_after_utc=updated_after_utc,
+        completed_only=completed_only, sort_by=sort_by, sort_dir=sort_dir,
     )
-    sessions = main_module.session_funnel_store.snapshot(
-        limit=safe_page_size,
-        offset=offset,
-        company=company,
-        updated_after_utc=updated_after_utc,
-        completed_only=completed_only,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
+    sessions = session_funnel_store.snapshot(
+        limit=safe_page_size, offset=offset, company=company,
+        updated_after_utc=updated_after_utc, completed_only=completed_only,
+        sort_by=sort_by, sort_dir=sort_dir,
     )
     return {
         "status": "ok",
-        "environment": main_module.settings.app_env,
+        "environment": settings.app_env,
         "query": {
-            "company": company,
-            "time_range": time_range,
-            "completed_only": completed_only,
-            "sort_by": sort_by,
-            "sort_dir": sort_dir,
-            "page": safe_page,
-            "page_size": safe_page_size,
-            "offset": offset,
+            "company": company, "time_range": time_range,
+            "completed_only": completed_only, "sort_by": sort_by,
+            "sort_dir": sort_dir, "page": safe_page,
+            "page_size": safe_page_size, "offset": offset,
         },
         "funnel": funnel_summary,
         "sessions": sessions,
@@ -285,39 +244,22 @@ async def export_ops_funnel(
     sort_by: str = "last_update_utc",
     sort_dir: Literal["asc", "desc"] = "desc",
 ):
-    """
-    Exporta sesiones de funnel con filtros server-side.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
-    now_utc = datetime.now(timezone.utc)
-    updated_after_utc: str | None = None
-    if time_range == "1h":
-        updated_after_utc = (now_utc - timedelta(hours=1)).isoformat()
-    elif time_range == "24h":
-        updated_after_utc = (now_utc - timedelta(hours=24)).isoformat()
-    elif time_range == "7d":
-        updated_after_utc = (now_utc - timedelta(days=7)).isoformat()
+    """Exporta sesiones de funnel con filtros server-side."""
+    require_admin_access(authorization)
+    updated_after_utc = _resolve_updated_after(time_range)
 
-    snap = main_module.session_funnel_store.snapshot(
-        limit=5000,
-        offset=0,
-        company=company,
-        updated_after_utc=updated_after_utc,
-        completed_only=completed_only,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
+    snap = session_funnel_store.snapshot(
+        limit=5000, offset=0, company=company,
+        updated_after_utc=updated_after_utc, completed_only=completed_only,
+        sort_by=sort_by, sort_dir=sort_dir,
     )
     if format == "json":
         return {
             "status": "ok",
-            "environment": main_module.settings.app_env,
+            "environment": settings.app_env,
             "query": {
-                "company": company,
-                "time_range": time_range,
-                "completed_only": completed_only,
-                "sort_by": sort_by,
-                "sort_dir": sort_dir,
+                "company": company, "time_range": time_range,
+                "completed_only": completed_only, "sort_by": sort_by, "sort_dir": sort_dir,
             },
             "sessions": snap,
         }
@@ -326,36 +268,26 @@ async def export_ops_funnel(
     writer = csv.DictWriter(
         output,
         fieldnames=[
-            "thread_id",
-            "empresa",
-            "area",
-            "total_cases",
-            "selected_count",
-            "proposal_generated",
-            "refined_count",
-            "chat_count",
-            "guardrail_blocked_count",
-            "started_at_utc",
-            "last_update_utc",
+            "thread_id", "empresa", "area", "total_cases", "selected_count",
+            "proposal_generated", "refined_count", "chat_count",
+            "guardrail_blocked_count", "started_at_utc", "last_update_utc",
         ],
     )
     writer.writeheader()
     for row in snap.get("items", []):
-        writer.writerow(
-            {
-                "thread_id": row.get("thread_id", ""),
-                "empresa": row.get("empresa", ""),
-                "area": row.get("area", ""),
-                "total_cases": row.get("total_cases", 0),
-                "selected_count": row.get("selected_count", 0),
-                "proposal_generated": row.get("proposal_generated", False),
-                "refined_count": row.get("refined_count", 0),
-                "chat_count": row.get("chat_count", 0),
-                "guardrail_blocked_count": row.get("guardrail_blocked_count", 0),
-                "started_at_utc": row.get("started_at_utc", ""),
-                "last_update_utc": row.get("last_update_utc", ""),
-            }
-        )
+        writer.writerow({
+            "thread_id": row.get("thread_id", ""),
+            "empresa": row.get("empresa", ""),
+            "area": row.get("area", ""),
+            "total_cases": row.get("total_cases", 0),
+            "selected_count": row.get("selected_count", 0),
+            "proposal_generated": row.get("proposal_generated", False),
+            "refined_count": row.get("refined_count", 0),
+            "chat_count": row.get("chat_count", 0),
+            "guardrail_blocked_count": row.get("guardrail_blocked_count", 0),
+            "started_at_utc": row.get("started_at_utc", ""),
+            "last_update_utc": row.get("last_update_utc", ""),
+        })
 
     return Response(
         content=output.getvalue(),
@@ -373,35 +305,22 @@ async def get_ops_funnel_history(
     time_range: Literal["1h", "24h", "7d", "all"] = "24h",
     completed_only: bool = False,
 ):
-    """
-    Historial temporal del funnel para detectar tendencia de conversión.
-    """
-    main_module = _main()
-    main_module._require_admin_access(authorization)
-    now_utc = datetime.now(timezone.utc)
-    updated_after_utc: str | None = None
-    if time_range == "1h":
-        updated_after_utc = (now_utc - timedelta(hours=1)).isoformat()
-    elif time_range == "24h":
-        updated_after_utc = (now_utc - timedelta(hours=24)).isoformat()
-    elif time_range == "7d":
-        updated_after_utc = (now_utc - timedelta(days=7)).isoformat()
+    """Historial temporal del funnel para detectar tendencia de conversión."""
+    require_admin_access(authorization)
+    updated_after_utc = _resolve_updated_after(time_range)
 
-    history = main_module.session_funnel_store.history(
-        bucket=bucket,
-        limit_buckets=limit_buckets,
-        company=company,
-        updated_after_utc=updated_after_utc,
+    history = session_funnel_store.history(
+        bucket=bucket, limit_buckets=limit_buckets,
+        company=company, updated_after_utc=updated_after_utc,
         completed_only=completed_only,
     )
     return {
         "status": "ok",
-        "environment": main_module.settings.app_env,
+        "environment": settings.app_env,
         "query": {
             "bucket": bucket,
             "limit_buckets": max(1, min(int(limit_buckets), 720)),
-            "company": company,
-            "time_range": time_range,
+            "company": company, "time_range": time_range,
             "completed_only": completed_only,
         },
         "history": history,
