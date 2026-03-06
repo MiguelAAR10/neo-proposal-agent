@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
-import { AlertCircle, History, WandSparkles, X } from "lucide-react";
+import { AlertCircle, History, WandSparkles, X, PanelLeftClose, PanelLeft } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DraggableCaseCard } from "@/components/dashboard/DraggableCaseCard";
@@ -46,6 +46,7 @@ export default function HomePage() {
   const { addContextChip, removeContextChip } = useAgentStore();
   const [activeDrag, setActiveDrag] = useState<DragPayload | null>(null);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeContextIds, setActiveContextIds] = useState<Set<string>>(new Set());
   const prefersReducedMotion = useReducedMotion();
   const shouldAnimate = !prefersReducedMotion;
@@ -156,14 +157,24 @@ export default function HomePage() {
 
             {/* ── SLIM SIDEBAR: filters only ── */}
             <motion.aside
-              className="neo-left-col"
+              className={`neo-left-col${isSidebarCollapsed ? " neo-left-col--collapsed" : ""}`}
               initial={shouldAnimate ? { opacity: 0, x: -8 } : false}
               animate={shouldAnimate ? { opacity: 1, x: 0 } : undefined}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             >
               {/* Filter section */}
               <div className="neo-sidebar-section">
-                <h3 className="neo-panel-title">Filtros de Búsqueda</h3>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <h3 className="neo-panel-title" style={{ margin: 0 }}>Filtros de Búsqueda</h3>
+                  <button
+                    type="button"
+                    className="neo-sidebar-toggle"
+                    onClick={() => setIsSidebarCollapsed(true)}
+                    title="Colapsar panel"
+                  >
+                    <PanelLeftClose size={14} />
+                  </button>
+                </div>
                 <div className="neo-controls-grid">
                   <label className="neo-control-field">
                     <span>Industria</span>
@@ -233,6 +244,19 @@ export default function HomePage() {
 
             {/* ── WORK AREA ── */}
             <section className="neo-right-col">
+
+              {/* Expand sidebar button (visible when collapsed) */}
+              {isSidebarCollapsed && (
+                <button
+                  type="button"
+                  className="neo-sidebar-toggle"
+                  onClick={() => setIsSidebarCollapsed(false)}
+                  title="Expandir filtros"
+                  style={{ position: "absolute", top: 12, left: 8, zIndex: 15 }}
+                >
+                  <PanelLeft size={14} />
+                </button>
+              )}
 
               {/* Problem block: the primary focus */}
               <div className="neo-problem-block">
