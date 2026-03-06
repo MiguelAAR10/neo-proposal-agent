@@ -112,27 +112,183 @@ h1, h2, h3, h4, h5, h6 {
   max-width: 760px;
 }
 
-.neo-main-header__search {
+/* ── Company Logo Selector ───────────────── */
+
+.neo-company-selector-trigger {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border: 1px solid var(--glass-border);
   background: var(--glass-bg);
   backdrop-filter: blur(8px);
   color: var(--text-main);
-  border-radius: 8px;
-  padding: 9px 12px;
+  border-radius: 12px;
+  padding: 8px 14px;
   font-size: 14px;
   font-family: var(--font-body), sans-serif;
+  cursor: pointer;
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
-.neo-main-header__search::placeholder {
-  color: var(--text-muted);
-}
-
-.neo-main-header__search:focus {
+.neo-company-selector-trigger:hover,
+.neo-company-selector-trigger[aria-expanded="true"] {
   border-color: var(--accent);
   box-shadow: 0 0 12px rgba(123, 163, 240, 0.2);
-  outline: none;
+}
+
+.neo-company-selector-trigger__logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.neo-company-selector-trigger__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.neo-company-selector-trigger__text {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo-company-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: rgba(0, 0, 51, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(123, 163, 240, 0.1);
+  animation: neo-dropdown-in 150ms ease-out;
+}
+
+@keyframes neo-dropdown-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.neo-company-dropdown__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.neo-company-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--glass-bg);
+  cursor: pointer;
+  transition: all 200ms ease;
+  position: relative;
+}
+
+.neo-company-card:hover {
+  border-color: var(--accent);
+  background: var(--glass-hover-bg);
+  box-shadow: 0 0 14px rgba(123, 163, 240, 0.15);
+  transform: translateY(-1px);
+}
+
+.neo-company-card--selected {
+  border-color: var(--accent);
+  background: rgba(123, 163, 240, 0.15);
+  box-shadow: 0 0 14px rgba(123, 163, 240, 0.2);
+}
+
+.neo-company-card__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(245, 245, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.neo-company-card__logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.neo-company-card__name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+  font-family: var(--font-body), sans-serif;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.neo-company-card__check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+}
+
+/* ── Collapsible Sidebar ────────────────── */
+
+.neo-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: var(--glass-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 200ms ease;
+  flex-shrink: 0;
+}
+
+.neo-sidebar-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 8px rgba(123, 163, 240, 0.15);
+}
+
+.neo-left-col--collapsed {
+  width: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-right: 0 !important;
+}
+
+.neo-left-col {
+  transition: width 300ms ease, padding 300ms ease, border 300ms ease;
 }
 
 .neo-main-header__right {
@@ -209,7 +365,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .neo-company-badge__label {
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Building, RefreshCcw, LayoutDashboard } from "lucide-react";
+import { Building, RefreshCcw, LayoutDashboard, ChevronDown, Check } from "lucide-react";
 
 interface DashboardHeaderProps {
   companyLabel: string;
@@ -31,6 +31,9 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const [logoFailed, setLogoFailed] = useState(false);
   const [clientLogoFailed, setClientLogoFailed] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const companyLogoSrc = useMemo(() => {
     const slug = slugifyCompany(companyValue);
     return slug ? `/logos/companies/${slug}.png` : "";
@@ -39,6 +42,26 @@ export function DashboardHeader({
   useEffect(() => {
     setLogoFailed(false);
   }, [companyLogoSrc]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [isDropdownOpen]);
+
+  const handleSelectCompany = useCallback(
+    (value: string) => {
+      onCompanyChange(value);
+      setIsDropdownOpen(false);
+    },
+    [onCompanyChange],
+  );
 
   return (
     <header className="neo-main-header">
@@ -60,22 +83,81 @@ export function DashboardHeader({
         </h1>
       </div>
 
-      {/* Center: search */}
-      <div className="neo-main-header__center">
-        <input
-          value={companyValue}
-          onChange={(event) => onCompanyChange(event.target.value)}
-          list="neo-company-targets"
-          className="neo-main-header__search"
-          placeholder="Selecciona empresa objetivo..."
-        />
-        <datalist id="neo-company-targets">
-          {companyOptions.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
-          ))}
-        </datalist>
+      {/* Center: Company logo selector dropdown */}
+      <div className="neo-main-header__center" ref={dropdownRef} style={{ position: "relative" }}>
+        <button
+          type="button"
+          onClick={() => setIsDropdownOpen((prev) => !prev)}
+          className="neo-company-selector-trigger"
+          aria-expanded={isDropdownOpen}
+          aria-haspopup="listbox"
+        >
+          <span className="neo-company-selector-trigger__logo">
+            {!logoFailed && companyLogoSrc ? (
+              <Image
+                src={companyLogoSrc}
+                alt={companyValue}
+                width={28}
+                height={28}
+                className="neo-company-badge__logo-img"
+                onError={() => setLogoFailed(true)}
+                unoptimized
+              />
+            ) : (
+              <Building className="h-5 w-5 text-[#7ba3f0]" />
+            )}
+          </span>
+          <span className="neo-company-selector-trigger__text">
+            {companyValue || "Selecciona empresa"}
+          </span>
+          <ChevronDown
+            className="h-4 w-4 text-[#a8b8e8]"
+            style={{
+              marginLeft: "auto",
+              transition: "transform 200ms ease",
+              transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          />
+        </button>
+
+        {/* Dropdown grid */}
+        {isDropdownOpen && (
+          <div className="neo-company-dropdown" role="listbox" aria-label="Seleccionar empresa">
+            <div className="neo-company-dropdown__grid">
+              {companyOptions.map((option) => {
+                const slug = slugifyCompany(option.value);
+                const logoPath = `/logos/companies/${slug}.png`;
+                const isSelected = option.value === companyValue;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    className={`neo-company-card${isSelected ? " neo-company-card--selected" : ""}`}
+                    onClick={() => handleSelectCompany(option.value)}
+                  >
+                    <span className="neo-company-card__logo">
+                      <Image
+                        src={logoPath}
+                        alt={option.label}
+                        width={36}
+                        height={36}
+                        className="neo-company-card__logo-img"
+                        unoptimized
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </span>
+                    <span className="neo-company-card__name">{option.label}</span>
+                    {isSelected && <Check className="neo-company-card__check" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right: company badge + actions */}
