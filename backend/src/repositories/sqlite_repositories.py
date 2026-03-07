@@ -13,6 +13,7 @@ from src.repositories.base import CompanyProfileRepository, HumanInsightReposito
 try:
     from sqlalchemy import JSON, DateTime, Index, String, Text, UniqueConstraint, create_engine, select
     from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+    from sqlalchemy.orm.attributes import flag_modified
     from sqlalchemy.pool import StaticPool
 
     HAS_SQLALCHEMY = True
@@ -284,6 +285,7 @@ class _SQLAlchemyStorage:
             if row:
                 row.profile_payload = profile_payload
                 row.updated_at = now
+                flag_modified(row, "profile_payload")
             else:
                 row = CompanyProfileORM(
                     id=str(uuid.uuid4()),
@@ -337,6 +339,8 @@ class _SQLAlchemyStorage:
                 row.profile_payload = profile_payload
                 row.triggers_payload = triggers_payload
                 row.updated_at = now
+                flag_modified(row, "profile_payload")
+                flag_modified(row, "triggers_payload")
             else:
                 row = IndustryRadiographyORM(
                     id=str(uuid.uuid4()),

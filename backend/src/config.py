@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,7 @@ class Settings(BaseSettings):
 
     qdrant_url: str | None = None
     qdrant_api_key: str | None = None
+    qdrant_collection: str | None = None  # from .env QDRANT_COLLECTION
     qdrant_collection_cases: str = "neo_cases_v1"
     qdrant_collection_profiles: str = "neo_profiles_v1"
     qdrant_vector_size: int = 3072
@@ -60,6 +62,13 @@ class Settings(BaseSettings):
     @property
     def is_non_local_env(self) -> bool:
         return self.app_env.strip().lower() in {"prod", "production", "staging"}
+
+    @model_validator(mode="after")
+    def _sync_collection_name(self) -> "Settings":
+        """If QDRANT_COLLECTION is set in .env, use it as the cases collection."""
+        if self.qdrant_collection:
+            self.qdrant_collection_cases = self.qdrant_collection
+        return self
 
     @property
     def allowed_origins(self) -> list[str]:

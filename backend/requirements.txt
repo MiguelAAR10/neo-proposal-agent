@@ -6,7 +6,7 @@ pydantic==2.10.0
 pydantic-settings
 
 # Data layer
-qdrant-client==1.13.3
+qdrant-client>=1.13.3,<2.0.0
 sqlalchemy==2.0.38
 redis==5.2.1
 pandas==2.2.3

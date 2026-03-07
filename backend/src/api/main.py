@@ -52,8 +52,9 @@ async def _check_qdrant_health() -> str:
     if not settings.qdrant_url:
         return "not_configured"
     try:
+        client = db_connection._ensure_client()
         await asyncio.wait_for(
-            asyncio.to_thread(lambda: db_connection._ensure_client().get_collections()),
+            asyncio.to_thread(client.get_collections),
             timeout=_HEALTHCHECK_TIMEOUT_SEC,
         )
         return "connected"
