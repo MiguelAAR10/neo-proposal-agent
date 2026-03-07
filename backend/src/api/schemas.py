@@ -55,6 +55,20 @@ class IngestRequest(BaseModel):
     force_rebuild: bool = False
 
 
+class AssignRequest(BaseModel):
+    team_id: str = Field(..., min_length=1)
+    notes: Optional[str] = None
+
+
+class TeamResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    capabilities: List[str]
+    icon: str
+    is_best_match: bool = False
+
+
 class AgentStateResponse(BaseModel):
     thread_id: str
     empresa: str

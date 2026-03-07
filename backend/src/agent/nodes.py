@@ -130,6 +130,31 @@ def retrieve_node(state: ProposalState) -> ProposalState:
         # 3. Sector intel from real radiography (SQLite), fallback to template
         state["inteligencia_sector"] = _build_sector_intel(rubro=rubro, area=area)
 
+        # 4. Eagerly load human insights so they're available in the initial response
+        #    (update_summary_node will re-process them with time-decay after case selection)
+        try:
+            settings = get_settings()
+            recent_insights = human_insight_repository.list_recent(
+                company_id=empresa,
+                limit=max(1, int(settings.intel_summary_insights_limit)),
+            )
+            state["human_insights"] = [
+                {
+                    "id": insight.id,
+                    "author": insight.author,
+                    "department": insight.department,
+                    "sentiment": insight.sentiment,
+                    "source": insight.source,
+                    "created_at": insight.created_at,
+                    "created_at_label": _format_insight_age_label(insight.created_at),
+                    "structured_payload": [item.model_dump() for item in insight.structured_payload],
+                }
+                for insight in recent_insights
+            ]
+        except Exception as exc_insights:
+            logger.warning("Failed to load human insights in retrieve_node: %s", exc_insights)
+            state.setdefault("human_insights", [])
+
         if not state["casos_encontrados"]:
             state["error"] = (
                 "No se encontraron casos para el problema ingresado. "
@@ -240,7 +265,13 @@ def _search_with_progressive_thresholds(
 
 
 def _build_sector_intel(rubro: str, area: str) -> dict:
-    """Look up real radiography from SQLite; fallback to structured template."""
+    """Look up real radiography from SQLite; fallback to structured template.
+
+    Handles two possible schemas in profile_payload:
+    - Seed schema: industria, executive_summary, tendencias, benchmarks, oportunidades
+    - Radar pipeline schema: industry_target, executive_summary, critical_triggers,
+      recommendations, sources_checked
+    """
     rubro_norm = (rubro or "General").strip()
     area_norm = (area or "General").strip()
 
@@ -248,12 +279,23 @@ def _build_sector_intel(rubro: str, area: str) -> dict:
     if radiography:
         profile = radiography.profile_payload or {}
         triggers = radiography.triggers_payload or []
+
+        # Handle both seed schema (tendencias) and radar pipeline schema (critical_triggers)
+        tendencias = profile.get("tendencias", profile.get("trends", []))
+        oportunidades = profile.get("oportunidades", profile.get("opportunities", []))
+        benchmarks = profile.get("benchmarks", {})
+
+        # If radar pipeline schema, map recommendations -> oportunidades fallback
+        if not tendencias and not oportunidades:
+            oportunidades = profile.get("recommendations", [])
+
         return {
             "industria": rubro_norm,
             "area": area_norm,
-            "tendencias": profile.get("tendencias", profile.get("trends", [])),
-            "benchmarks": profile.get("benchmarks", {}),
-            "oportunidades": profile.get("oportunidades", profile.get("opportunities", [])),
+            "executive_summary": profile.get("executive_summary", ""),
+            "tendencias": tendencias,
+            "benchmarks": benchmarks,
+            "oportunidades": oportunidades,
             "triggers": triggers,
             "updated_at": radiography.updated_at,
             "source": "industry_radiography_sqlite",

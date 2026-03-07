@@ -29,12 +29,14 @@ from src.api.deps import (
 )
 from src.api.schemas import (
     AgentStateResponse,
+    AssignRequest,
     ChatRequest,
     ChatResponse,
     RefineRequest,
     SearchRequest,
     SelectRequest,
     StartRequest,
+    TeamResponse,
 )
 from src.services.errors import BackendDomainError, BusinessRuleError, SessionNotFoundError
 
@@ -411,3 +413,126 @@ async def get_agent_state(thread_id: str):
     if not state.values:
         raise_domain_http(SessionNotFoundError("Sesión no encontrada."))
     return map_state_response(thread_id, state.values)
+
+
+# ---------------------------------------------------------------------------
+# Teams (static catalog for MVP)
+# ---------------------------------------------------------------------------
+
+_TEAMS = [
+    TeamResponse(
+        id="analytics-ml",
+        name="Analytics & ML",
+        description="Equipo especializado en modelos predictivos, scoring, forecast de demanda y analítica avanzada. Experiencia en TensorFlow, scikit-learn, y plataformas de MLOps.",
+        capabilities=["Machine Learning", "Predictive Analytics", "MLOps", "Data Engineering", "Statistical Modeling"],
+        icon="brain",
+        is_best_match=False,
+    ),
+    TeamResponse(
+        id="ai-lab",
+        name="AI Lab",
+        description="Laboratorio de inteligencia artificial enfocado en NLP, computer vision, IA generativa y agentes autónomos. Especialistas en LLMs, RAG y soluciones de IA conversacional.",
+        capabilities=["NLP", "Computer Vision", "Generative AI", "LLM/RAG", "AI Agents"],
+        icon="sparkles",
+        is_best_match=False,
+    ),
+    TeamResponse(
+        id="growth-crm",
+        name="Growth & CRM",
+        description="Equipo de growth marketing, personalización, CRM analytics y optimización de customer journey. Experiencia en Salesforce, HubSpot, y plataformas de CDP.",
+        capabilities=["CRM Analytics", "Customer Journey", "Personalization", "Marketing Automation", "CDP"],
+        icon="target",
+        is_best_match=False,
+    ),
+    TeamResponse(
+        id="operaciones",
+        name="Operaciones & RPA",
+        description="Equipo de automatización robótica de procesos, BPM, workflow optimization e integración de sistemas. Experiencia en UiPath, Power Automate y procesos bancarios.",
+        capabilities=["RPA", "Process Mining", "BPM", "System Integration", "Workflow Automation"],
+        icon="cog",
+        is_best_match=False,
+    ),
+]
+
+_BEST_MATCH_RULES: dict[str, str] = {
+    "rpa": "operaciones",
+    "automatizacion": "operaciones",
+    "proceso": "operaciones",
+    "conciliacion": "operaciones",
+    "backoffice": "operaciones",
+    "scoring": "analytics-ml",
+    "forecast": "analytics-ml",
+    "prediccion": "analytics-ml",
+    "predictivo": "analytics-ml",
+    "ml": "analytics-ml",
+    "demanda": "analytics-ml",
+    "nlp": "ai-lab",
+    "chatbot": "ai-lab",
+    "generativa": "ai-lab",
+    "vision": "ai-lab",
+    "fraude": "analytics-ml",
+    "marketing": "growth-crm",
+    "crm": "growth-crm",
+    "personalizacion": "growth-crm",
+    "pricing": "analytics-ml",
+    "siniestro": "operaciones",
+}
+
+
+def _suggest_best_match(state_values: dict) -> str:
+    """Simple keyword-based best match suggestion."""
+    text_pool = " ".join([
+        str(state_values.get("problema", "")),
+        str(state_values.get("area", "")),
+        str(state_values.get("propuesta_final", "")),
+    ]).lower()
+    scores: dict[str, int] = {}
+    for keyword, team_id in _BEST_MATCH_RULES.items():
+        if keyword in text_pool:
+            scores[team_id] = scores.get(team_id, 0) + 1
+    if scores:
+        return max(scores, key=scores.get)  # type: ignore[arg-type]
+    return "analytics-ml"
+
+
+@router.get("/teams", response_model=list[TeamResponse])
+async def list_teams(thread_id: str | None = None):
+    """Lista de equipos disponibles con sugerencia de best match."""
+    best_match_id = "analytics-ml"
+    if thread_id:
+        config = {"configurable": {"thread_id": thread_id}}
+        try:
+            state = await graph.aget_state(config)
+            if state.values:
+                best_match_id = _suggest_best_match(state.values)
+        except Exception:
+            pass
+
+    teams = []
+    for t in _TEAMS:
+        copy = t.model_copy()
+        copy.is_best_match = (copy.id == best_match_id)
+        teams.append(copy)
+    return teams
+
+
+@router.post("/agent/{thread_id}/assign")
+async def assign_team(thread_id: str, data: AssignRequest):
+    """Asigna un equipo a la propuesta (MVP: registro en estado)."""
+    config = {"configurable": {"thread_id": thread_id}}
+    state = await graph.aget_state(config)
+    if not state.values:
+        raise_domain_http(SessionNotFoundError("Sesión no encontrada."))
+
+    team = next((t for t in _TEAMS if t.id == data.team_id), None)
+    if not team:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_TEAM", "message": f"Team '{data.team_id}' no existe."})
+
+    return {
+        "status": "assigned",
+        "thread_id": thread_id,
+        "team_id": data.team_id,
+        "team_name": team.name,
+        "notes": data.notes,
+        "proposal_id": f"prop-{thread_id[:8]}",
+    }
