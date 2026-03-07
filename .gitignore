@@ -20,3 +20,16 @@ Thumbs.db
 data/*.csv
 backend/data/*.sqlite3
 *.sqlite3
+
+# Agent / IDE tooling (local only)
+.agent/
+.agents/
+.continue/
+.claude/
+
+# Node
+node_modules/
+
+# Next.js
+.next/
+out/

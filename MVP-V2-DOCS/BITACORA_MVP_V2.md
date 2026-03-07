@@ -1,8 +1,9 @@
 # BITACORA MVP V2 - ESTADO REAL, ERRORES Y TRAZABILIDAD
 
-Fecha de corte: 2026-03-03  
-Version objetivo activa: `MVP V2.1 integrado`  
-Commit baseline operativo: `19cb88d5`
+Fecha de corte: 2026-03-07
+Version objetivo activa: `V4 — NEO ELECTRIC MIDNIGHT (6-screen wizard)`
+Rama activa: `feat/visual-refactor-v3`
+Commit baseline visual V4: `eb6e72d0`
 
 ## 1) Proposito
 
@@ -11,19 +12,32 @@ Cada entrada conecta: objetivo de version, cambio tecnico, error cometido y apre
 
 No reemplaza commits; los vuelve auditables.
 
-## 2) Estado real actual (rama vigente)
+## 2) Estado real actual (rama vigente: feat/visual-refactor-v3)
 
-Implementado:
-- Backend FastAPI con endpoints V2 productivos.
-- Primitiva de busqueda `/api/search` con SLA defensivo.
-- Orquestacion HITL `/agent/start -> /agent/{thread_id}/select`.
-- Refinamiento `/agent/{thread_id}/refine` con versionado en estado.
-- Frontend Next.js en pantalla unica con seleccion de casos y propuesta.
-- Segmentacion visual NEO/AI y `top_match_global`.
+Implementado y verificado:
+- Backend FastAPI: 27 rutas, 71/71 tests pass, Qdrant Cloud conectado.
+- Graph LangGraph: intake -> retrieve -> [INTERRUPT] -> update_summary -> draft.
+- Storage: SQLite (perfiles + radiografias + insights) + Qdrant Cloud (neo_cases_v1: 95 pts).
+- Seed data: 13 perfiles empresa, 6 radiografias sector, 6 human insights.
+- Frontend Next.js 16: design system V4 (NEO ELECTRIC MIDNIGHT), build OK.
+- ChatPanel migrado de agentStore (legacy) a appStore (V4).
+- setSessionFromSearch mapea correctamente: tendencias, oportunidades, benchmarks, pain_points, objetivos, decision_makers, kpis, human_insights.
+- Endpoints nuevos: GET /teams, POST /agent/{tid}/assign.
+- Schemas nuevos: TeamResponse, AssignRequest.
 
-En progreso / pendiente:
-- Falta tablero de metricas p95/p99 persistente.
-- Falta pipeline de validacion asincronica de links (`link_status`) fuera de ingesta.
+Fixes criticos aplicados (sesion 2026-03-07):
+- .env: QDRANT_COLLECTION=neo_casos (vieja, schema incompatible) -> neo_cases_v1 (correcta).
+- requirements.txt: qdrant-client pinneado -> flexible (>=1.13.3,<2.0.0) para compatibilidad con server v1.16.3.
+- Healthcheck: fix para nueva version de qdrant-client (lambda -> referencia directa).
+- SQLAlchemy: flag_modified() en upserts JSON para forzar deteccion de mutaciones.
+- _build_sector_intel: manejo dual de schema (seed vs radar pipeline).
+- retrieve_node: carga eager de human_insights (antes solo se cargaban post-interrupt).
+- Layout CSS: top-split fijo 340px -> max-height 40vh, chat min-height 200px.
+
+Pendiente:
+- Verificacion visual en browser del flujo completo 6 pantallas.
+- KPIs no se renderizan en ClientProfileInline (store los tiene, componente no los lee).
+- Redis no configurado: sesiones no persistentes (MemorySaver).
 
 ## 3) Matriz de trazabilidad por commit (V2 reciente)
 
@@ -79,8 +93,8 @@ Plantilla sugerida (obligatoria en V2):
 
 ## 6) Mapa de versiones y objetivo
 
-- `MVP V2.1 (actual)`: busqueda + curation + propuesta en una sola pantalla con segmentacion NEO/AI.
-- `MVP V2.2 (objetivo siguiente)`: endpoint dedicado de chat contextual, telemetria SLA y calidad de datos operativa.
+- `MVP V2.1`: busqueda + curation + propuesta en una sola pantalla con segmentacion NEO/AI. **CERRADO**.
+- `V4 (actual)`: 6-screen wizard (EmptyState > ClientSelection > ActiveWorkspace > ProfileInsights > ProposalReview > TeamAssignment) con design system NEO ELECTRIC MIDNIGHT, appStore centralizado, data real de Qdrant Cloud + SQLite seed.
 
 ## 7) Definicion de terminado por version
 
@@ -96,7 +110,21 @@ V2.2 se considera cerrada cuando:
 
 ## 8) Registro de actualizaciones de esta bitacora (fecha y hora obligatorias)
 
-- 2026-03-03 15:15 -0500: reconstrucción frontend corporativa Two-Panel con DnD tipado y arquitectura modular.
+- 2026-03-03 15:15 -0500: reconstruccion frontend corporativa Two-Panel con DnD tipado y arquitectura modular.
+- 2026-03-07 18:00 -0500: SESION CRITICA — sincronizacion backend-frontend V4.
+  - Root cause: .env apuntaba a coleccion Qdrant vieja (neo_casos vs neo_cases_v1), schema incompatible.
+  - Fix: qdrant-client upgrade, healthcheck fix, seed_demo_data.py creado con data realista.
+  - Fix: ChatPanel migrado de agentStore a appStore, setSessionFromSearch reescrito.
+  - Fix: SQLAlchemy flag_modified para JSON upserts, _build_sector_intel dual-schema.
+  - Fix: Human insights eager loading en retrieve_node (pre-interrupt).
+  - Resultado E2E: 8 casos, 5 tendencias, 4 oportunidades, 5 benchmarks, 4 pain_points, 3 objetivos, 2 insights, KPIs.
+  - 71/71 tests pass, frontend build OK.
+- 2026-03-07 22:30 -0500: Limpieza y reorganizacion de documentacion.
+  - Eliminados 7 MDs redundantes/obsoletos.
+  - Fusionados 2 SKILLS frontend en SKILL_FRONTEND_EXPERT.md.
+  - .gitignore actualizado (.agent/, .agents/, .continue/, .claude/).
+  - 00-INDEX-DOCUMENTATION.md reescrito con estado real V4.
+  - Bitacora actualizada con estado completo.
   - objetivo:
     - reemplazar implementación inestable por layout SaaS B2B definitivo, escalable y mantenible.
   - cambio:

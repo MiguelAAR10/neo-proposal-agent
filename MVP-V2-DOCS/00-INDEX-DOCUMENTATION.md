@@ -1,85 +1,87 @@
-# INDICE DE DOCUMENTACION - NEO PROPOSAL AGENT (MVP V2)
+# INDICE DE DOCUMENTACION - NEO PROPOSAL AGENT
 
-Fecha de corte: 2026-03-04
-Version activa: MVP V2.1 integrado (frontend art + backend intelligence)
-Baseline recomendado para frontend: `19cb88d5`
-Baseline funcional V2.1 (busqueda + HITL + intel): `1cac68a8`
+Fecha de corte: 2026-03-07
+Version activa: V4 (NEO ELECTRIC MIDNIGHT — 6-screen wizard)
+Rama activa: `feat/visual-refactor-v3`
 
 ## 1) Fuente de verdad
 
-Leer primero:
+Leer primero — define estado real, riesgos y decisiones:
 - `MVP-V2-DOCS/BITACORA_MVP_V2.md`
 
-La bitacora define estado real por commit, riesgos y decisiones.
+## 2) Documentos activos
 
-Control de ramas y versiones:
-- `MVP-V2-DOCS/07-ESTADO-RAMAS-GIT-MVP2.md`
+### Arquitectura y Especificacion
+| Archivo | Proposito |
+|---------|-----------|
+| `MVP-V2-DOCS/NEO_INTELLIGENCE_V4_SPEC.md` | Spec V4 completa: 6 pantallas, design system, API map, flujo usuario |
+| `MVP-V2-DOCS/V4_COMPLETE_IMPLEMENTATION_GUIDE.md` | Guia de implementacion con code examples y roadmap por fases |
+| `MVP-V2-DOCS/MVP-2.1-ARQUITECTURA-Y-LOGICA.md` | Arquitectura backend: storage, scoring, repositories, SLA |
 
-## 2) Estado real por capa
+### Operacional
+| Archivo | Proposito |
+|---------|-----------|
+| `MVP-V2-DOCS/BITACORA_MVP_V2.md` | Bitacora operativa — log de cada sesion, errores, decisiones |
 
-Backend:
-- API activa: `/health`, `/api/search`, `/api/ingest`, `/agent/start`, `/agent/{thread_id}/select`, `/agent/{thread_id}/refine`, `/agent/{thread_id}/state`, `/ops/metrics`
-- Servicio unificado de busqueda y contrato `/agent/*` alineado.
-- `POST /agent/start` permite cliente no priorizado con `warning` y busqueda abierta centrada en problema.
-- `Sales Insight Collector` HITL (`POST /intel/company/{company_id}/insights`) implementado con storage SQLite + patron Repository.
+### Skills (Personas de agente)
+| Archivo | Proposito |
+|---------|-----------|
+| `MVP-V2-DOCS/SKILLS/SKILL_BACKEND_EXPERT.md` | Persona backend: review protocol, engineering principles |
+| `MVP-V2-DOCS/SKILLS/SKILL_FRONTEND_EXPERT.md` | Persona frontend: art direction, UX, a11y, motion (fusionado) |
 
-Frontend:
-- Pantalla unica (`idle -> curating -> complete`) operativa.
-- Chat conectado a `/agent/{thread_id}/refine` (ya no mock).
-- Accesibilidad base: foco visible, ARIA, navegacion por teclado, mensajes de error.
-- QA tecnico cerrado: `lint` y `build` OK.
-- Rama activa de integracion: `feat/mvp2-frontend-art-two-panel` (unica rama operativa para evolucion V2).
+### Raiz del proyecto
+| Archivo | Proposito |
+|---------|-----------|
+| `README.md` | Setup, prerequisites, startup commands |
+| `AI_INSTRUCTIONS.md` | Contexto global para agentes IA |
+| `CLAUDE.md` | Reglas de workflow agentico |
+| `frontend-web/README.md` | Instrucciones especificas del frontend |
 
-## 3) Prioridad documental (actualizar siempre en este orden)
+### Archivo historico
+| Archivo | Proposito |
+|---------|-----------|
+| `MVP-V1-DOCS/BITACORA_APRENDIZAJES.md` | Lecciones aprendidas de V1 (anti-patrones) |
+
+## 3) Prioridad de actualizacion
 
 P0 (obligatorio en cada cambio funcional):
-1. `MVP-V2-DOCS/BITACORA_MVP_V2.md`
-2. `MVP-V2-DOCS/REQUIREMENTS/04-REQUISITOS-FUNCIONALES.md`
-3. `MVP-V2-DOCS/REQUIREMENTS/05-REQUISITOS-TECNICOS.md`
+1. `BITACORA_MVP_V2.md` — registrar sesion, errores, decisiones
 
-P1 (alineacion de producto/arquitectura):
-1. `MVP-V2-DOCS/MVP-2.1-ARQUITECTURA-Y-LOGICA.md`
-2. `MVP-V2-DOCS/REQUIREMENTS/01-VISION-NEGOCIO.md`
-3. `MVP-V2-DOCS/REQUIREMENTS/03-JOURNEY-MAPS.md`
-4. `MVP-V2-DOCS/REQUIREMENTS/06-GUIA-DATOS-LOGOS-EMPRESA.md`
+P1 (alineacion de producto):
+1. `NEO_INTELLIGENCE_V4_SPEC.md` — cualquier cambio de pantallas/flujo
+2. `V4_COMPLETE_IMPLEMENTATION_GUIDE.md` — cambios de endpoints/modelos
 
-P2 (estandares de ejecucion):
-1. `MVP-V2-DOCS/SKILLS/SKILL_BACKEND_EXPERT.md`
-2. `MVP-V2-DOCS/SKILLS/SKILL_FRONTEND_UX_EXPERT.md`
+P2 (estandares):
+1. `SKILLS/SKILL_BACKEND_EXPERT.md`
+2. `SKILLS/SKILL_FRONTEND_EXPERT.md`
 
-## 4) Desalineaciones corregidas en esta actualizacion
+## 4) Estado real por capa (2026-03-07)
 
-1. Se elimina referencia a "ChatPanel mock" (ya esta integrado a backend).
-2. Se elimina mezcla de prompts ajenos en la skill frontend.
-3. Se unifica criterio de estado: `IMPLEMENTADO`, `PARCIAL`, `BACKLOG`.
-4. Se fija decision de storage MVP: SQLite (SQLAlchemy) + Qdrant, sin Postgres/Mongo/Firestore.
+Backend (FastAPI + LangGraph + Qdrant Cloud + Gemini):
+- 27 rutas activas, 71/71 tests pass
+- Graph: intake -> retrieve -> [INTERRUPT] -> update_summary -> draft
+- Storage: SQLite (perfiles, radiografias, insights) + Qdrant Cloud (casos vectorizados)
+- Collections: `neo_cases_v1` (95 pts), `neo_profiles_v1` (5 pts)
+- Seed data: 13 perfiles empresa, 6 radiografias sector, 6 insights humanos
 
-## 5) Candidatos a depuracion
+Frontend (Next.js 16 + Tailwind + Zustand):
+- Design system: NEO ELECTRIC MIDNIGHT v4
+- 6 pantallas wizard: EmptyState > ClientSelection > ActiveWorkspace > ProfileInsights > ProposalReview > TeamAssignment
+- appStore como state manager principal (migrado de agentStore legacy)
+- Build: OK, 0 errores TypeScript
 
-No eliminar documentos del set actual.
+## 5) Archivos eliminados (limpieza 2026-03-07)
 
-Si se requiere limpiar en siguiente ciclo:
-1. Mantener `MVP-2.1-ARQUITECTURA-Y-LOGICA.md` como puente operativo de V2.1.
-2. Evitar crear otro archivo paralelo de arquitectura V2.x; extender este mismo.
-3. Consolidar cualquier nota suelta en bitacora en lugar de nuevos markdowns.
+Redundantes con V4 spec:
+- `V4_IMPLEMENTATION_HANDOFF.md` (70% duplicado)
+- `V4_INTEGRATION_MASTER_PLAN.md` (90% duplicado)
 
-## 6) Plan de desarrollo de alto valor (ejecucion inmediata)
+Obsoletos:
+- `07-ESTADO-RAMAS-GIT-MVP2.md` (datos de ramas stale)
+- `08-UI-UX-GUIDELINES.md` (contradice design system V4)
+- `RUNBOOK_RELEASE_INTEL_BACKEND.md` (merge one-time ya completado)
+- `MVP-V1-DOCS/PROJECT_DETAILS.md` (Streamlit-era, superseded)
+- `MVP-V1-DOCS/RADIOGRAFIA_PROYECTO.md` (cleanup ya completado)
 
-P0 - Impacto directo en propuesta comercial:
-1. Estabilizar contrato `intel` con frontend (`/intel/company/{company_id}/insights`, `/intel/radar/run`).
-2. Cerrar QA E2E sobre flujo principal (`start -> select -> proposal -> refine`).
-3. Reducir errores operativos visibles (mensajes claros y fallback controlado en UI).
-
-P1 - Confiabilidad operativa:
-1. Persistir metricas clave de busqueda/chat (no solo in-memory).
-2. Formalizar job operativo para calidad de links y reporte de rechazo de datos.
-3. Endurecer seguridad de endpoints admin (token + rate limit baseline).
-
-P2 - Escalamiento:
-1. Diseñar migracion gradual de storage (`SQLite -> Postgres/pgvector`) sin romper dominio.
-2. Versionar contratos API para cambios futuros de frontend.
-
-Criterio de salida por sprint:
-1. Cada entrega debe mapearse a un RF (archivo 04) y a un criterio tecnico (archivo 05).
-2. Todo cambio en backend con impacto en payload debe incluir test de contrato.
-3. Todo cambio visible en UI debe pasar `build` y registrar riesgo en bitacora.
+Fusionados:
+- `SKILL_FRONTEND_ART_DIRECTION_EXPERT.md` + `SKILL_FRONTEND_UX_EXPERT.md` -> `SKILL_FRONTEND_EXPERT.md`
