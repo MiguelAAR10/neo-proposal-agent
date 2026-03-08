@@ -19,7 +19,7 @@ class StartRequest(BaseModel):
 
 
 class SelectRequest(BaseModel):
-    case_ids: List[str] = Field(..., min_items=1)
+    case_ids: List[str] = Field(default_factory=list, description="IDs de casos seleccionados (opcional)")
     chat_context: Optional[List[str]] = Field(
         default=None,
         description="Mensajes del chat seleccionados como contexto adicional para la propuesta"

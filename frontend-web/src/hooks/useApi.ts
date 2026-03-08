@@ -201,8 +201,8 @@ export function useGenerateProposal() {
   return useMutation({
     mutationFn: async () => {
       if (!store.threadId) throw new Error('No hay sesion activa')
-      if (store.selectedCaseIds.length === 0) throw new Error('Selecciona al menos un caso')
 
+      // Casos son opcionales - sirven como evidencia de apoyo
       // Extraer mensajes de chat seleccionados como contexto
       const chatContext = store.proposalContext.chatMessageIndices
         .map((idx) => store.chatMessages[idx])

@@ -603,6 +603,26 @@ def _filter_and_format_selected_insights(
     )
 
 
+def _format_optional_cases_section(filtered_cases: list[dict]) -> str:
+    """Formatea la sección de casos de éxito (opcional). Si no hay casos, indica que es propuesta original."""
+    if not filtered_cases:
+        return (
+            "## 📌 EVIDENCIA DE CASOS\n"
+            "No se seleccionaron casos de referencia. Esta propuesta se genera como **solución original** "
+            "basada en las capacidades de NEO y el contexto del cliente.\n\n"
+            "**INSTRUCCIÓN:** Genera una propuesta innovadora sin depender de casos previos. "
+            "Enfócate en las capacidades de NEO para resolver el problema específico del cliente.\n\n"
+        )
+
+    return (
+        "## 📌 CASOS DE ÉXITO (EVIDENCIA DE APOYO OPCIONAL)\n"
+        "El consultor seleccionó los siguientes casos como referencia de experiencia previa:\n\n"
+        f"{format_cases_for_prompt(filtered_cases)}\n\n"
+        "**INSTRUCCIÓN:** Usa estos casos como evidencia de que NEO ya resolvió problemas similares. "
+        "Son apoyo, no el foco principal de la propuesta.\n\n"
+    )
+
+
 def draft_node(state: ProposalState) -> ProposalState:
     """Genera la propuesta final usando los casos y el perfil del cliente."""
     logger.info("Entrando a draft_node empresa=%s", state.get("empresa"))
@@ -613,18 +633,17 @@ def draft_node(state: ProposalState) -> ProposalState:
     selected_ids = list(state.get("casos_seleccionados_ids", []))
     found_cases = state.get("casos_encontrados", [])
     filtered_cases = filter_selected_cases(found_cases, selected_ids)
-    if not filtered_cases:
-        logger.warning("draft_node sin casos filtrados para selected_case_ids=%s", selected_ids)
-        state["error"] = "Debes seleccionar al menos un caso antes de generar la propuesta."
-        return state
 
-    has_url, missing_url_ids = validate_selected_cases_have_url(filtered_cases)
-    if not has_url:
-        state["warning"] = (
-            "Se detectaron casos sin URL de evidencia en la selección: "
-            f"{', '.join(missing_url_ids)}. "
-            "La propuesta se generará con enfoque inspiracional para esos casos."
-        )
+    # Los casos son opcionales - sirven como evidencia de apoyo, no como requisito
+    has_cases = bool(filtered_cases)
+    if has_cases:
+        has_url, missing_url_ids = validate_selected_cases_have_url(filtered_cases)
+        if not has_url:
+            state["warning"] = (
+                "Se detectaron casos sin URL de evidencia en la selección: "
+                f"{', '.join(missing_url_ids)}. "
+                "La propuesta se generará con enfoque inspiracional para esos casos."
+            )
 
     try:
         logger.info("draft_node llamando a Gemini con %s casos", len(filtered_cases))
@@ -651,8 +670,8 @@ def draft_node(state: ProposalState) -> ProposalState:
             "## 🌐 INTELIGENCIA DE MERCADO / SECTOR\n"
             f"{_format_sector_for_prompt(state.get('inteligencia_sector'))}\n\n"
 
-            "## 📌 CASOS DE ÉXITO SELECCIONADOS (BASE DE EVIDENCIA)\n"
-            f"{format_cases_for_prompt(filtered_cases)}\n\n"
+            # Casos de éxito (opcionales - como evidencia de apoyo)
+            f"{_format_optional_cases_section(filtered_cases)}"
 
             # Contexto adicional seleccionado por el usuario (si existe)
             f"{_format_chat_context_for_prompt(state.get('chat_context_messages'))}"

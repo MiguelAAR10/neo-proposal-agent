@@ -187,7 +187,7 @@ export function useDashboardController() {
   const generateMutation = useMutation({
     mutationFn: async () => {
       if (!threadId) throw new Error("No hay sesión activa");
-      if (selectedCaseIds.length === 0) throw new Error("Arrastra al menos un caso a Propuesta de Valor");
+      // Casos son opcionales - sirven como evidencia de apoyo
       const response = await apiClient.post(`/agent/${threadId}/select`, {
         case_ids: selectedCaseIds,
         use_client_profile: useClientProfile,

@@ -71,7 +71,7 @@ export function CasesSidebar() {
         <button
           type="button"
           onClick={() => generateMutation.mutate()}
-          disabled={selectedCaseIds.length === 0 || generateMutation.isPending || proposalSentSuccess}
+          disabled={generateMutation.isPending || proposalSentSuccess}
           className={`neo-pill ${proposalSentSuccess ? 'neo-pill--success' : 'neo-pill--primary'} neo-v4-cases-sidebar__gen-btn`}
           style={proposalSentSuccess ? {
             background: 'linear-gradient(135deg, #059669, #10b981)',
