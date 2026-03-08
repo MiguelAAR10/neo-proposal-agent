@@ -1585,7 +1585,7 @@ h1, h2, h3, h4, h5, h6 {
   height: 44px;
   border-radius: 12px;
   border: 1px solid var(--glass-border);
-  background: #ffffff;
+  background: var(--surface-elevated);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1595,7 +1595,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .neo-header-company-logo--brand {
   width: 172px;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--surface-elevated);
 }
 
 .neo-header-company-logo--fallback {
@@ -1721,11 +1721,12 @@ h1, h2, h3, h4, h5, h6 {
   min-width: 280px;
   padding: 12px 16px;
   border-radius: 16px;
-  border: 1px solid rgba(46, 46, 122, 0.35);
-  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--glass-border);
+  background: var(--surface-elevated);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 18px rgba(79, 140, 255, 0.18);
 }
 
 .neo-welcome-card__brand-logo-img {
