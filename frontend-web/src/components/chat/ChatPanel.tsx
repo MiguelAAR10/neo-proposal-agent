@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Send, Bot, Loader2, Copy, CheckCheck, Edit3 } from 'lucide-react'
+import { Send, Bot, Loader2, Copy, CheckCheck, Edit3, CheckSquare, Square } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useAppStore } from '@/stores/appStore'
 import { useChatMessage } from '@/hooks/useApi'
@@ -130,6 +130,8 @@ export function ChatPanel() {
     setChatMode,
     proposalRawText,
     selectedCaseIds,
+    proposalContext,
+    toggleChatContextMessage,
   } = useAppStore()
 
   const chatMutation = useChatMessage()
@@ -150,14 +152,18 @@ export function ChatPanel() {
     () =>
       mode === 'chat'
         ? [
-            'Top 2 casos con mayor evidencia',
-            '3 propuestas de valor ejecutivas',
-            'Riesgo de implementacion',
+            '¿Cuales son los pain points clave?',
+            'Resume contexto del cliente',
+            'Casos con mayor evidencia',
+            'Analiza fit tecnologico',
+            'Diferenciadores vs competencia',
           ]
         : [
-            'Mas ejecutiva en 6 bullets',
-            'Enfatiza ROI en 12 meses',
-            'Reduce a 180 palabras',
+            'Mas ejecutiva, 5 bullets',
+            'Destaca ROI y metricas',
+            'Enfatiza diferenciadores',
+            'Agrega proximos pasos',
+            'Reduce a 150 palabras',
           ],
     [mode],
   )
@@ -316,13 +322,32 @@ export function ChatPanel() {
                 {m.content}
               </div>
             ) : (
-              <div className="neo-chat-assistant-msg" style={{ maxWidth: '90%' }}>
+              <div className="neo-chat-assistant-msg" style={{ maxWidth: '90%', position: 'relative' }}>
                 <div className="neo-proposal-bubble">{renderMarkdown(m.content)}</div>
-                {m.meta && (
-                  <p style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    {m.meta}
-                  </p>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                  {m.meta && (
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {m.meta}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => toggleChatContextMessage(idx)}
+                    title={proposalContext.chatMessageIndices.includes(idx) ? 'Quitar del contexto' : 'Agregar al contexto de propuesta'}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      padding: '2px 6px', border: 'none', borderRadius: 4,
+                      background: proposalContext.chatMessageIndices.includes(idx) ? 'rgba(123,163,240,0.20)' : 'transparent',
+                      color: proposalContext.chatMessageIndices.includes(idx) ? '#7ba3f0' : 'var(--text-muted)',
+                      fontSize: 10, cursor: 'pointer', marginLeft: 'auto',
+                      opacity: proposalContext.chatMessageIndices.includes(idx) ? 1 : 0.6,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {proposalContext.chatMessageIndices.includes(idx) ? <CheckSquare size={12} /> : <Square size={12} />}
+                    <span style={{ fontFamily: 'var(--font-body)' }}>Contexto</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -397,11 +422,18 @@ export function ChatPanel() {
           </button>
         </div>
 
-        {selectedCaseIds.length > 0 && (
-          <p style={{ marginTop: 5, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center' }}>
-            {selectedCaseIds.length} caso{selectedCaseIds.length !== 1 ? 's' : ''} seleccionado{selectedCaseIds.length !== 1 ? 's' : ''}
-          </p>
-        )}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 5 }}>
+          {proposalContext.chatMessageIndices.length > 0 && (
+            <p style={{ margin: 0, fontSize: 11, color: '#7ba3f0', fontFamily: 'var(--font-mono)' }}>
+              {proposalContext.chatMessageIndices.length} msg{proposalContext.chatMessageIndices.length !== 1 ? 's' : ''} como contexto
+            </p>
+          )}
+          {selectedCaseIds.length > 0 && (
+            <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              {selectedCaseIds.length} caso{selectedCaseIds.length !== 1 ? 's' : ''} seleccionado{selectedCaseIds.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
       </form>
     </div>
   )

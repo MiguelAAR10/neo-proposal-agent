@@ -26,6 +26,10 @@ Implementado y verificado:
 - Schemas nuevos: TeamResponse, AssignRequest.
 - Busqueda E2E funcional: 8 casos (4 NEO + 4 AI) con filtrado por tipo.
 - Error display en ClientSelectionForm para feedback de errores al usuario.
+- **Selector de contexto para propuestas**: mensajes del chat e insights seleccionables para enriquecer generacion.
+- **Prompts sugeridos mejorados**: chips contextuales para analisis y refinamiento de propuestas.
+- **Ficha de puntos de valor**: checklist visual en ProposalReview con indicadores de completitud.
+- **Feedback visual de exito**: boton "Propuesta Generada" con estado de exito auto-reset.
 
 Fixes criticos aplicados (sesion 2026-03-07/08):
 - .env: QDRANT_COLLECTION=neo_casos (vieja, schema incompatible) -> neo_cases_v1 (correcta).
@@ -119,6 +123,28 @@ V2.2 se considera cerrada cuando:
 - Existe job de verificacion de links y se actualiza `link_status`.
 
 ## 8) Registro de actualizaciones de esta bitacora (fecha y hora obligatorias)
+
+- 2026-03-07 23:45 -0500: feat(frontend): selector de contexto para propuestas + prompts mejorados + ficha de valor.
+  - objetivo:
+    - permitir al usuario seleccionar mensajes del chat e insights especificos para incluir como contexto al generar propuestas, mejorando la calidad y relevancia de las propuestas generadas.
+  - razon_negocio:
+    - las propuestas generadas deben reflejar el contexto real de la conversacion y los insights del cliente para maximizar el valor percibido por el equipo comercial.
+  - cambio:
+    - `appStore.ts`: nuevos campos `proposalContext` (chatMessageIndices, insightIds), `proposalSentSuccess`, y acciones `toggleChatContextMessage`, `toggleInsightContext`, `clearProposalContext`.
+    - `ChatPanel.tsx`: prompts sugeridos mejorados (orientados a analisis y refinamiento), checkbox selector en mensajes del assistant para marcar como contexto, indicador visual de mensajes seleccionados.
+    - `ClientProfileInline.tsx`: checkbox selector en cada insight para incluir/excluir de la propuesta, indicador visual de insights seleccionados.
+    - `useApi.ts`: `useGenerateProposal` ahora envia `chat_context` (array de contenido de mensajes seleccionados) e `insight_ids` al backend, feedback de exito con timeout auto-reset.
+    - `CasesSidebar.tsx`: boton "Generar Propuesta" muestra estado de exito ("Propuesta Generada" con icono verde) por 2.5 segundos post-generacion.
+    - `ProposalReview.tsx`: nueva ficha "Puntos de Valor Identificados" con checklist visual (problema, solucion, stack, KPIs, casos, contexto), indicador de proximos pasos.
+  - tradeoff:
+    - el backend actualmente ignora `chat_context` e `insight_ids` (backward compatible); se requiere actualizacion del nodo `draft` para usar este contexto enriquecido.
+  - error detectado/evitado:
+    - se evita romper el flujo existente al hacer los nuevos campos opcionales en el request y mantener backward compatibility.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK.
+    - `npx tsc --noEmit` => OK.
+  - estado:
+    - implementado (frontend ready, backend pendiente de integracion).
 
 - 2026-03-07 19:53 -0500: saneamiento operativo V4 (busqueda, insights, equipos, docs y calidad de codigo).
   - objetivo:

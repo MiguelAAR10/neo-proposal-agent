@@ -202,8 +202,19 @@ export function useGenerateProposal() {
     mutationFn: async () => {
       if (!store.threadId) throw new Error('No hay sesion activa')
       if (store.selectedCaseIds.length === 0) throw new Error('Selecciona al menos un caso')
+
+      // Extraer mensajes de chat seleccionados como contexto
+      const chatContext = store.proposalContext.chatMessageIndices
+        .map((idx) => store.chatMessages[idx])
+        .filter((msg) => msg && msg.role === 'assistant')
+        .map((msg) => msg.content)
+
       const response = await apiClient.post(`/agent/${store.threadId}/select`, {
         case_ids: store.selectedCaseIds,
+        chat_context: chatContext.length > 0 ? chatContext : undefined,
+        insight_ids: store.proposalContext.insightIds.length > 0
+          ? store.proposalContext.insightIds
+          : undefined,
       })
       return response.data
     },
@@ -216,6 +227,9 @@ export function useGenerateProposal() {
         technology: '',
         raw_text: rawText,
       })
+      store.setProposalSentSuccess(true)
+      // Reset success after 2.5 seconds
+      setTimeout(() => store.setProposalSentSuccess(false), 2500)
       store.setActiveScreen(5)
     },
     onError: (error: unknown) => {

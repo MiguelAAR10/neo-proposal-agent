@@ -106,6 +106,13 @@ export interface ChatMessage {
   content: string
   meta?: string
   isProposal?: boolean
+  isContextSelected?: boolean  // Para selector de contexto
+}
+
+// Contexto seleccionado para generación de propuesta
+export interface ProposalContext {
+  chatMessageIndices: number[]  // Índices de mensajes seleccionados
+  insightIds: string[]          // IDs de insights seleccionados
 }
 
 // ── Store State ─────────────────────────────────────────────────────────────
@@ -158,9 +165,15 @@ interface AppState {
   currentProposal: Proposal | null
   proposalRawText: string | null
   selectedTeam: Team | null
+  proposalContext: ProposalContext  // Contexto seleccionado para propuesta
+  proposalSentSuccess: boolean      // Feedback visual de éxito
   setCurrentProposal: (proposal: Proposal | null) => void
   setProposalRawText: (text: string | null) => void
   setSelectedTeam: (team: Team | null) => void
+  toggleChatContextMessage: (index: number) => void
+  toggleInsightContext: (id: string) => void
+  clearProposalContext: () => void
+  setProposalSentSuccess: (success: boolean) => void
 
   // UI
   loading: boolean
@@ -249,9 +262,27 @@ export const useAppStore = create<AppState>()(
       currentProposal: null,
       proposalRawText: null,
       selectedTeam: null,
+      proposalContext: { chatMessageIndices: [], insightIds: [] },
+      proposalSentSuccess: false,
       setCurrentProposal: (proposal) => set({ currentProposal: proposal }),
       setProposalRawText: (text) => set({ proposalRawText: text }),
       setSelectedTeam: (team) => set({ selectedTeam: team }),
+      toggleChatContextMessage: (index) => set((s) => {
+        const indices = s.proposalContext.chatMessageIndices
+        const newIndices = indices.includes(index)
+          ? indices.filter((i) => i !== index)
+          : [...indices, index]
+        return { proposalContext: { ...s.proposalContext, chatMessageIndices: newIndices } }
+      }),
+      toggleInsightContext: (id) => set((s) => {
+        const ids = s.proposalContext.insightIds
+        const newIds = ids.includes(id)
+          ? ids.filter((i) => i !== id)
+          : [...ids, id]
+        return { proposalContext: { ...s.proposalContext, insightIds: newIds } }
+      }),
+      clearProposalContext: () => set({ proposalContext: { chatMessageIndices: [], insightIds: [] } }),
+      setProposalSentSuccess: (success) => set({ proposalSentSuccess: success }),
 
       // UI
       loading: false,
@@ -395,6 +426,8 @@ export const useAppStore = create<AppState>()(
         currentProposal: null,
         proposalRawText: null,
         selectedTeam: null,
+        proposalContext: { chatMessageIndices: [], insightIds: [] },
+        proposalSentSuccess: false,
         loading: false,
         error: null,
       }),

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { WandSparkles, Presentation } from 'lucide-react'
+import { WandSparkles, Presentation, CheckCircle } from 'lucide-react'
 import { useAppStore, type UseCase } from '@/stores/appStore'
 import { useGenerateProposal } from '@/hooks/useApi'
 
@@ -12,6 +12,7 @@ export function CasesSidebar() {
     selectedCaseIds,
     selectCase,
     unselectCase,
+    proposalSentSuccess,
   } = useAppStore()
 
   const generateMutation = useGenerateProposal()
@@ -70,11 +71,24 @@ export function CasesSidebar() {
         <button
           type="button"
           onClick={() => generateMutation.mutate()}
-          disabled={selectedCaseIds.length === 0 || generateMutation.isPending}
-          className="neo-pill neo-pill--primary neo-v4-cases-sidebar__gen-btn"
+          disabled={selectedCaseIds.length === 0 || generateMutation.isPending || proposalSentSuccess}
+          className={`neo-pill ${proposalSentSuccess ? 'neo-pill--success' : 'neo-pill--primary'} neo-v4-cases-sidebar__gen-btn`}
+          style={proposalSentSuccess ? {
+            background: 'linear-gradient(135deg, #059669, #10b981)',
+            borderColor: '#10b981',
+          } : undefined}
         >
-          <WandSparkles size={14} />
-          {generateMutation.isPending ? 'Generando...' : 'Generar Propuesta'}
+          {proposalSentSuccess ? (
+            <>
+              <CheckCircle size={14} />
+              Propuesta Generada
+            </>
+          ) : (
+            <>
+              <WandSparkles size={14} />
+              {generateMutation.isPending ? 'Generando...' : 'Generar Propuesta'}
+            </>
+          )}
         </button>
       </div>
     </div>
