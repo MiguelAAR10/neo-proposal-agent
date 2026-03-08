@@ -623,6 +623,127 @@ def _format_optional_cases_section(filtered_cases: list[dict]) -> str:
     )
 
 
+def _normalize_proposal_to_structure(markdown_text: str) -> dict:
+    """Normaliza markdown libre del LLM a estructura estable.
+
+    Tolera múltiples formatos de headers:
+    - ### 🔍 DIAGNÓSTICO
+    - Sección 1: 🔍 Diagnóstico del Problema
+    - ## 🔍 DIAGNÓSTICO
+
+    Devuelve estructura segura con fallbacks si falta contenido.
+    """
+    from typing import List
+    import re
+
+    # Patrones tolerantes para cada sección (orden de prioridad)
+    patterns = {
+        'diagnostico': [
+            r'###?\s*🔍\s*DIAGNÓSTICO',
+            r'Sección\s*1[:.]?\s*🔍',
+            r'###?\s*Diagnóstico',
+        ],
+        'solucion': [
+            r'###?\s*💡\s*SOLUCIÓN',
+            r'Sección\s*2[:.]?\s*💡',
+            r'###?\s*Solución',
+        ],
+        'arquitectura': [
+            r'###?\s*🏗️\s*ARQUITECTURA',
+            r'Sección\s*3[:.]?\s*🏗️',
+            r'###?\s*Arquitectura',
+        ],
+        'impacto': [
+            r'###?\s*📊\s*IMPACTO',
+            r'Sección\s*4[:.]?\s*📊',
+            r'###?\s*Impacto',
+            r'###?\s*Resultados',
+        ],
+        'roadmap': [
+            r'###?\s*🗓️\s*ROADMAP',
+            r'Sección\s*5[:.]?\s*🗓️',
+            r'###?\s*Roadmap',
+        ],
+        'siguiente_paso': [
+            r'###?\s*🎯\s*SIGUIENTE',
+            r'Sección\s*6[:.]?\s*🎯',
+            r'###?\s*Siguiente\s*Paso',
+        ],
+    }
+
+    def extract_section(key: str) -> tuple[int, int]:
+        """Retorna (start_idx, end_idx) para una sección."""
+        for pattern in patterns[key]:
+            match = re.search(pattern, markdown_text, re.IGNORECASE | re.MULTILINE)
+            if match:
+                start = match.end()
+                # Buscar inicio de siguiente sección
+                rest = markdown_text[start:]
+                next_section = re.search(r'^###?\s', rest, re.MULTILINE)
+                end = start + next_section.start() if next_section else len(markdown_text)
+                return (start, end)
+        return (-1, -1)
+
+    def extract_bullets(text: str) -> List[str]:
+        """Extrae bullets limpiando markdown artifacts."""
+        bullets = []
+        for line in text.split('\n'):
+            line = line.strip()
+            if re.match(r'^[-*•]\s', line):
+                # Limpiar bullet marker y markdown
+                clean = re.sub(r'^[-*•]\s+', '', line)
+                clean = re.sub(r'\*\*([^*]+)\*\*', r'\1', clean)  # Remover negritas
+                clean = re.sub(r'\[([^\]]+)\]', '', clean)  # Remover tags (se extraen aparte)
+                clean = clean.strip()
+                if clean and len(clean) > 5:  # Ignorar líneas muy cortas
+                    bullets.append(clean)
+        return bullets[:5]  # Máximo 5 bullets por sección
+
+    def extract_tags(text: str) -> List[str]:
+        """Extrae tags [Tecnología] del texto."""
+        matches = re.findall(r'\[([^\]]+)\]', text)
+        return list(set(matches))[:8]  # Únicos, max 8
+
+    # Extraer cada sección
+    result = {
+        'diagnostico': [],
+        'solucion': [],
+        'arquitectura': {'bullets': [], 'tags': []},
+        'impacto': [],
+        'roadmap': [],
+        'siguiente_paso': [],
+    }
+
+    for key in ['diagnostico', 'solucion', 'impacto', 'roadmap', 'siguiente_paso']:
+        start, end = extract_section(key)
+        if start >= 0:
+            section_text = markdown_text[start:end]
+            result[key] = extract_bullets(section_text)
+
+    # Arquitectura especial: bullets + tags
+    start, end = extract_section('arquitectura')
+    if start >= 0:
+        arch_text = markdown_text[start:end]
+        result['arquitectura']['bullets'] = extract_bullets(arch_text)
+        result['arquitectura']['tags'] = extract_tags(arch_text)
+
+    # Fallbacks seguros para secciones vacías
+    if not result['diagnostico']:
+        result['diagnostico'] = ['Análisis del problema en proceso']
+    if not result['solucion']:
+        result['solucion'] = ['Solución propuesta en base al contexto del cliente']
+    if not result['arquitectura']['bullets']:
+        result['arquitectura']['bullets'] = ['Arquitectura modular escalable']
+    if not result['impacto']:
+        result['impacto'] = ['Impactos cuantificables a definir']
+    if not result['roadmap']:
+        result['roadmap'] = ['Fase 1: Quick Win', 'Fase 2: Consolidación', 'Fase 3: Optimización']
+    if not result['siguiente_paso']:
+        result['siguiente_paso'] = ['Coordinar reunión de validación con el cliente']
+
+    return result
+
+
 def draft_node(state: ProposalState) -> ProposalState:
     """Genera la propuesta final usando los casos y el perfil del cliente."""
     logger.info("Entrando a draft_node empresa=%s", state.get("empresa"))
@@ -726,8 +847,12 @@ def draft_node(state: ProposalState) -> ProposalState:
         response = llm.invoke(prompt)
         text = str(response.content)
 
+        # Normalizar a estructura estable
+        structured = _normalize_proposal_to_structure(text)
+
         state["propuesta_final"] = text.strip()
         state["propuesta_versiones"] = [text.strip()]
+        state["proposal_structured"] = structured
         state["updated_at"] = datetime.now().isoformat()
         state["error"] = ""
     except Exception as exc:

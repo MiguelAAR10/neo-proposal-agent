@@ -94,6 +94,10 @@ class AgentStateResponse(BaseModel):
     inteligencia_sector: Optional[dict] = None
     human_insights: List[dict] = Field(default_factory=list)
     propuesta_final: Optional[str] = None
+    proposal_structured: Optional[dict] = Field(
+        default=None,
+        description="Propuesta normalizada en estructura estable para consumo directo del frontend"
+    )
     status: str
     warning: Optional[str] = None
     error: Optional[str] = None
