@@ -1,6 +1,6 @@
 'use client'
 
-import { X, Check, AlertTriangle, Cpu, BarChart3, CheckCircle2, Target, Zap, TrendingUp, ArrowRight } from 'lucide-react'
+import { X, Check, AlertTriangle, Lightbulb, Layers, BarChart3, Calendar, Target, CheckCircle2, ArrowRight } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 
 interface ProposalReviewProps {
@@ -8,168 +8,265 @@ interface ProposalReviewProps {
   onReject: () => void
 }
 
-function renderMarkdownSimple(text: string): React.ReactNode[] {
-  return text.split(/\n{2,}/).map((block, i) => {
-    const t = block.trim()
-    if (!t) return null
-    if (/^#{1,4} /.test(t)) {
+interface ProposalSection {
+  key: string
+  emoji: string
+  title: string
+  icon: React.ElementType
+  color: string
+  content: string
+}
+
+// Parser para extraer secciones del markdown generado
+function parseProposalSections(text: string): ProposalSection[] {
+  const sectionDefs = [
+    { key: 'diagnostico', emoji: '🔍', title: 'Diagnóstico', icon: AlertTriangle, color: '#ef4444', pattern: /###?\s*🔍\s*DIAGNÓSTICO/i },
+    { key: 'solucion', emoji: '💡', title: 'Solución Propuesta', icon: Lightbulb, color: '#4f8cff', pattern: /###?\s*💡\s*SOLUCIÓN/i },
+    { key: 'arquitectura', emoji: '🏗️', title: 'Arquitectura & Stack', icon: Layers, color: '#8b5cf6', pattern: /###?\s*🏗️\s*ARQUITECTURA/i },
+    { key: 'impacto', emoji: '📊', title: 'Impacto & KPIs', icon: BarChart3, color: '#10b981', pattern: /###?\s*📊\s*IMPACTO/i },
+    { key: 'roadmap', emoji: '🗓️', title: 'Roadmap', icon: Calendar, color: '#f59e0b', pattern: /###?\s*🗓️\s*ROADMAP/i },
+    { key: 'siguiente', emoji: '🎯', title: 'Siguiente Paso', icon: Target, color: '#ec4899', pattern: /###?\s*🎯\s*SIGUIENTE/i },
+  ]
+
+  const sections: ProposalSection[] = []
+
+  for (let i = 0; i < sectionDefs.length; i++) {
+    const def = sectionDefs[i]
+    const nextDef = sectionDefs[i + 1]
+
+    const startMatch = text.match(def.pattern)
+    if (!startMatch) continue
+
+    const startIdx = startMatch.index! + startMatch[0].length
+    let endIdx = text.length
+
+    if (nextDef) {
+      const nextMatch = text.slice(startIdx).match(nextDef.pattern)
+      if (nextMatch) {
+        endIdx = startIdx + nextMatch.index!
+      }
+    } else {
+      // Para la última sección, buscar fin del contenido
+      const endMatch = text.slice(startIdx).match(/^---/m)
+      if (endMatch) {
+        endIdx = startIdx + endMatch.index!
+      }
+    }
+
+    const content = text.slice(startIdx, endIdx).trim()
+    if (content) {
+      sections.push({
+        key: def.key,
+        emoji: def.emoji,
+        title: def.title,
+        icon: def.icon,
+        color: def.color,
+        content,
+      })
+    }
+  }
+
+  return sections
+}
+
+// Extraer tags tecnológicos del contenido [Tag]
+function extractTechTags(content: string): string[] {
+  const matches = content.match(/\[([^\]]+)\]/g)
+  if (!matches) return []
+  return [...new Set(matches.map(m => m.slice(1, -1)))]
+}
+
+// Renderizar markdown simple a React nodes
+function renderContent(content: string): React.ReactNode[] {
+  // Remover tags [Tecnología] del contenido principal (se muestran aparte)
+  const cleanContent = content.replace(/\[([^\]]+)\]/g, '')
+
+  return cleanContent.split(/\n/).map((line, i) => {
+    const trimmed = line.trim()
+    if (!trimmed) return null
+
+    // Headers
+    if (/^#{1,4}\s/.test(trimmed)) {
+      return null // Ya tenemos el header en la card
+    }
+
+    // Bullets
+    if (/^[-*•]\s/.test(trimmed)) {
+      const text = trimmed.replace(/^[-*•]\s/, '')
+      // Resaltar negritas
+      const parts = text.split(/\*\*([^*]+)\*\*/)
       return (
-        <p key={i} style={{ fontFamily: 'var(--font-serif)', color: 'var(--accent)', fontSize: 16, fontWeight: 700, margin: '12px 0 6px' }}>
-          {t.replace(/^#{1,4} /, '')}
-        </p>
+        <li key={i} style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 4 }}>
+          {parts.map((part, j) =>
+            j % 2 === 1 ? <strong key={j} style={{ color: '#f5f5ff' }}>{part}</strong> : part
+          )}
+        </li>
       )
     }
-    const lines = t.split('\n')
-    if (lines.every((l) => /^[-*] /.test(l.trim()))) {
-      return (
-        <ul key={i} style={{ fontSize: 14, color: 'var(--text-main)', paddingLeft: 18, marginBottom: 10, listStyle: 'disc' }}>
-          {lines.map((l, j) => <li key={j}>{l.replace(/^[-*] /, '').trim()}</li>)}
-        </ul>
-      )
-    }
-    return <p key={i} style={{ fontSize: 14, color: 'var(--text-main)', lineHeight: 1.7, marginBottom: 10 }}>{t}</p>
+
+    // Texto normal con negritas
+    const parts = trimmed.split(/\*\*([^*]+)\*\*/)
+    return (
+      <p key={i} style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 6, color: 'var(--text-main)' }}>
+        {parts.map((part, j) =>
+          j % 2 === 1 ? <strong key={j} style={{ color: '#f5f5ff' }}>{part}</strong> : part
+        )}
+      </p>
+    )
   }).filter(Boolean)
 }
 
 export function ProposalReview({ onAccept, onReject }: ProposalReviewProps) {
-  const { proposalRawText, selectedClient, selectedArea, cases, selectedCaseIds, proposalContext } = useAppStore()
+  const { proposalRawText, selectedClient, selectedArea, proposalContext, selectedCaseIds } = useAppStore()
 
-  const selectedCase = cases.find((c) => selectedCaseIds.includes(c.id)) ?? cases[0]
   const proposalText = proposalRawText ?? ''
+  const sections = parseProposalSections(proposalText)
 
-  // Split proposal into sections (heuristic: use headers or divide into thirds)
-  const sections = proposalText.split(/(?=^## )/m).filter(Boolean)
-  const problemSection = sections[0] ?? proposalText.slice(0, Math.floor(proposalText.length / 3))
-  const solutionSection = sections[1] ?? proposalText.slice(Math.floor(proposalText.length / 3), Math.floor(2 * proposalText.length / 3))
-  const techSection = sections[2] ?? proposalText.slice(Math.floor(2 * proposalText.length / 3))
+  // Fallback si no se parsearon secciones
+  const hasSections = sections.length >= 3
 
   // Puntos de valor identificados
   const valuePoints = [
-    { icon: AlertTriangle, label: 'Problema identificado', present: problemSection.length > 50, color: '#ef4444' },
-    { icon: Cpu, label: 'Solucion propuesta', present: solutionSection.length > 50, color: '#4f8cff' },
-    { icon: BarChart3, label: 'Stack tecnologico', present: techSection.length > 30, color: '#8b5cf6' },
-    { icon: TrendingUp, label: 'KPIs de impacto', present: !!selectedCase?.kpi_impacto, color: '#10b981' },
-    { icon: Target, label: 'Casos de exito', present: selectedCaseIds.length > 0, color: '#f59e0b' },
-    { icon: Zap, label: 'Contexto del cliente', present: proposalContext.chatMessageIndices.length > 0 || proposalContext.insightIds.length > 0, color: '#ec4899' },
+    { label: 'Diagnóstico', present: sections.some(s => s.key === 'diagnostico'), color: '#ef4444' },
+    { label: 'Solución', present: sections.some(s => s.key === 'solucion'), color: '#4f8cff' },
+    { label: 'Stack Tech', present: sections.some(s => s.key === 'arquitectura'), color: '#8b5cf6' },
+    { label: 'KPIs', present: sections.some(s => s.key === 'impacto'), color: '#10b981' },
+    { label: 'Roadmap', present: sections.some(s => s.key === 'roadmap'), color: '#f59e0b' },
+    { label: 'Casos', present: selectedCaseIds.length > 0, color: '#ec4899' },
+    { label: 'Contexto', present: proposalContext.chatMessageIndices.length > 0 || proposalContext.insightIds.length > 0, color: '#06b6d4' },
   ]
 
   return (
     <div className="neo-proposal-review">
+      {/* Header */}
       <div className="neo-proposal-review__header">
-        <h2 className="neo-proposal-review__title">Propuesta Generada</h2>
+        <h2 className="neo-proposal-review__title">Propuesta de Valor</h2>
         <p className="neo-proposal-review__subtitle">
-          {selectedClient?.display_name ?? ''} · {selectedArea ?? ''} · {selectedCase?.titulo ?? ''}
+          {selectedClient?.display_name ?? 'Cliente'} · {selectedArea ?? 'General'}
         </p>
       </div>
 
-      {/* Ficha de Puntos de Valor */}
+      {/* Ficha de Puntos de Valor - Compacta */}
       <div style={{
         display: 'flex',
-        flexWrap: 'wrap',
+        alignItems: 'center',
         gap: 8,
-        padding: '12px 16px',
-        background: 'rgba(5,5,140,0.25)',
-        borderRadius: 10,
-        border: '1px solid rgba(123,163,240,0.20)',
-        marginBottom: 16,
+        padding: '8px 12px',
+        background: 'rgba(5,5,140,0.20)',
+        borderRadius: 8,
+        border: '1px solid rgba(123,163,240,0.15)',
+        marginBottom: 12,
+        flexWrap: 'wrap',
       }}>
-        <div style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 4,
-        }}>
-          <CheckCircle2 size={16} style={{ color: '#10b981' }} />
-          <span style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: '#7ba3f0',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontFamily: 'var(--font-mono)',
-          }}>
-            Puntos de Valor Identificados
+        <CheckCircle2 size={14} style={{ color: '#10b981' }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#7ba3f0', letterSpacing: '0.04em' }}>
+          INCLUIDO:
+        </span>
+        {valuePoints.filter(p => p.present).map((point) => (
+          <span
+            key={point.label}
+            style={{
+              fontSize: 10,
+              padding: '2px 8px',
+              background: 'rgba(16,185,129,0.15)',
+              borderRadius: 4,
+              color: point.color,
+              fontWeight: 500,
+            }}
+          >
+            {point.label}
           </span>
-        </div>
-        {valuePoints.map((point) => {
-          const Icon = point.icon
-          return (
-            <div
-              key={point.label}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '4px 10px',
-                background: point.present ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.05)',
-                borderRadius: 6,
-                border: `1px solid ${point.present ? 'rgba(16,185,129,0.30)' : 'rgba(255,255,255,0.10)'}`,
-              }}
-            >
-              <Icon size={12} style={{ color: point.present ? point.color : 'var(--text-muted)' }} />
-              <span style={{
-                fontSize: 11,
-                color: point.present ? '#f5f5ff' : 'var(--text-muted)',
-                fontFamily: 'var(--font-body)',
-              }}>
-                {point.label}
-              </span>
-              {point.present && (
-                <CheckCircle2 size={10} style={{ color: '#10b981', marginLeft: 2 }} />
-              )}
-            </div>
-          )
-        })}
+        ))}
       </div>
 
-      {/* 3 Proposal Cards */}
-      <div className="neo-proposal-cards">
-        {/* Problem Card */}
-        <div className="neo-proposal-card neo-proposal-card--problem">
-          <div className="neo-proposal-card__icon">
-            <AlertTriangle size={20} />
-          </div>
-          <h3 className="neo-proposal-card__title">Problema Identificado</h3>
-          <div className="neo-proposal-card__content">
-            {renderMarkdownSimple(problemSection)}
-          </div>
-          {selectedCase?.kpi_impacto && (
-            <div className="neo-proposal-card__tags">
-              <span className="neo-metric-tag">{selectedCase.kpi_impacto}</span>
-            </div>
-          )}
-        </div>
+      {/* Cards Grid - 6 secciones en 2 filas */}
+      {hasSections ? (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 12,
+          marginBottom: 16,
+        }}>
+          {sections.map((section) => {
+            const Icon = section.icon
+            const techTags = section.key === 'arquitectura' ? extractTechTags(section.content) : []
 
-        {/* Solution Card */}
-        <div className="neo-proposal-card neo-proposal-card--solution">
-          <div className="neo-proposal-card__icon" style={{ color: '#4f8cff' }}>
-            <Cpu size={20} />
-          </div>
-          <h3 className="neo-proposal-card__title">Solucion Propuesta</h3>
-          <div className="neo-proposal-card__content">
-            {renderMarkdownSimple(solutionSection)}
-          </div>
-          {selectedCase?.tecnologias && selectedCase.tecnologias.length > 0 && (
-            <div className="neo-proposal-card__tags">
-              {selectedCase.tecnologias.slice(0, 4).map((tech) => (
-                <span key={tech} className="neo-tech-tag">{tech}</span>
-              ))}
-            </div>
-          )}
-        </div>
+            return (
+              <div
+                key={section.key}
+                className="neo-proposal-card"
+                style={{
+                  background: 'rgba(5,5,140,0.25)',
+                  borderRadius: 10,
+                  border: '1px solid rgba(123,163,240,0.18)',
+                  padding: 14,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 140,
+                }}
+              >
+                {/* Card Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <div style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    background: `${section.color}20`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Icon size={14} style={{ color: section.color }} />
+                  </div>
+                  <h3 style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: '#f5f5ff',
+                    fontFamily: 'var(--font-serif)',
+                    margin: 0,
+                  }}>
+                    {section.title}
+                  </h3>
+                </div>
 
-        {/* Tech Stack Card */}
-        <div className="neo-proposal-card neo-proposal-card--tech">
-          <div className="neo-proposal-card__icon" style={{ color: '#8b5cf6' }}>
-            <BarChart3 size={20} />
-          </div>
-          <h3 className="neo-proposal-card__title">Stack Tecnologico</h3>
-          <div className="neo-proposal-card__content">
-            {renderMarkdownSimple(techSection)}
-          </div>
+                {/* Card Content */}
+                <div style={{ flex: 1, overflow: 'auto' }}>
+                  <ul style={{ margin: 0, paddingLeft: 14, color: 'var(--text-main)' }}>
+                    {renderContent(section.content)}
+                  </ul>
+                </div>
+
+                {/* Tech Tags (solo para arquitectura) */}
+                {techTags.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 10 }}>
+                    {techTags.slice(0, 6).map((tag) => (
+                      <span
+                        key={tag}
+                        className="neo-tech-tag"
+                        style={{
+                          fontSize: 9,
+                          padding: '2px 6px',
+                          background: 'rgba(139,92,246,0.20)',
+                          border: '1px solid rgba(139,92,246,0.30)',
+                          borderRadius: 4,
+                          color: '#a78bfa',
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
-      </div>
+      ) : (
+        /* Fallback: mostrar markdown raw si no se parsearon secciones */
+        <div className="neo-proposal-card" style={{ padding: 16, marginBottom: 16 }}>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6 }}>{proposalText}</pre>
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="neo-proposal-review__actions">
@@ -183,17 +280,17 @@ export function ProposalReview({ onAccept, onReject }: ProposalReviewProps) {
           borderRadius: 6,
         }}>
           <ArrowRight size={14} style={{ color: '#7ba3f0' }} />
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-            Proximo: Asignar equipo de implementacion
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Próximo: Asignar equipo
           </span>
         </div>
         <button type="button" onClick={onReject} className="neo-proposal-reject-btn">
           <X size={16} />
-          Rechazar y Refinar
+          Refinar
         </button>
         <button type="button" onClick={onAccept} className="neo-pill neo-pill--primary">
           <Check size={16} />
-          Aceptar Propuesta
+          Aceptar
         </button>
       </div>
     </div>
