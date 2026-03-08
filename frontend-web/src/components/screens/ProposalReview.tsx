@@ -8,7 +8,7 @@ interface ProposalReviewProps {
   onReject: () => void
 }
 
-interface ParsedSection {
+interface ProposedSection {
   key: string
   title: string
   icon: React.ElementType
@@ -17,8 +17,50 @@ interface ParsedSection {
   tags?: string[]
 }
 
-// Parser robusto para extraer secciones del markdown
-function parseProposal(text: string): ParsedSection[] {
+// PRIORITY 1: Consume proposal_structured from backend
+function parseStructured(structured: any): ProposedSection[] {
+  if (!structured) return []
+
+  const sections: ProposedSection[] = []
+  const config = [
+    { key: 'diagnostico', title: 'Diagnóstico', icon: AlertTriangle, color: '#ef4444' },
+    { key: 'solucion', title: 'Solución', icon: Lightbulb, color: '#4f8cff' },
+    { key: 'arquitectura', title: 'Stack', icon: Layers, color: '#8b5cf6' },
+    { key: 'impacto', title: 'KPIs', icon: BarChart3, color: '#10b981' },
+    { key: 'roadmap', title: 'Roadmap', icon: Calendar, color: '#f59e0b' },
+    { key: 'siguiente_paso', title: 'Next', icon: Target, color: '#ec4899' },
+  ]
+
+  for (const cfg of config) {
+    const data = structured[cfg.key]
+    if (!data) continue
+
+    if (cfg.key === 'arquitectura' && typeof data === 'object') {
+      sections.push({
+        key: cfg.key,
+        title: cfg.title,
+        icon: cfg.icon,
+        color: cfg.color,
+        bullets: Array.isArray(data.bullets) ? data.bullets : [],
+        tags: Array.isArray(data.tags) ? data.tags : [],
+      })
+    } else if (Array.isArray(data)) {
+      sections.push({
+        key: cfg.key,
+        title: cfg.title,
+        icon: cfg.icon,
+        color: cfg.color,
+        bullets: data,
+        tags: [],
+      })
+    }
+  }
+
+  return sections
+}
+
+// FALLBACK: Legacy markdown parser (only if structured not available)
+function parseMarkdownFallback(text: string): ProposedSection[] {
   const sectionConfig = [
     { key: 'diagnostico', pattern: /###?\s*🔍\s*DIAGNÓSTICO/i, title: 'Diagnóstico', icon: AlertTriangle, color: '#ef4444' },
     { key: 'solucion', pattern: /###?\s*💡\s*SOLUCIÓN/i, title: 'Solución', icon: Lightbulb, color: '#4f8cff' },
@@ -28,7 +70,7 @@ function parseProposal(text: string): ParsedSection[] {
     { key: 'siguiente', pattern: /###?\s*🎯\s*SIGUIENTE/i, title: 'Next', icon: Target, color: '#ec4899' },
   ]
 
-  const sections: ParsedSection[] = []
+  const sections: ProposedSection[] = []
 
   for (let i = 0; i < sectionConfig.length; i++) {
     const cfg = sectionConfig[i]
@@ -43,36 +85,24 @@ function parseProposal(text: string): ParsedSection[] {
     if (next) {
       const nextMatch = text.slice(start).match(next.pattern)
       if (nextMatch) end = start + nextMatch.index!
-    } else {
-      const endMatch = text.slice(start).match(/^---/m)
-      if (endMatch) end = start + endMatch.index!
     }
 
     const content = text.slice(start, end).trim()
-
-    // Extraer bullets y tags
     const lines = content.split('\n').map(l => l.trim()).filter(Boolean)
     const bullets: string[] = []
     const tags: string[] = []
 
     for (const line of lines) {
-      // Skip headers
       if (/^#{1,4}\s/.test(line)) continue
 
-      // Extraer tags [Tecnología]
       const tagMatches = line.match(/\[([^\]]+)\]/g)
       if (tagMatches) {
         tags.push(...tagMatches.map(t => t.slice(1, -1)))
       }
 
-      // Limpiar el bullet
       if (/^[-*•]\s/.test(line)) {
-        let cleanLine = line.replace(/^[-*•]\s/, '')
-        // Remover tags del texto
-        cleanLine = cleanLine.replace(/\[([^\]]+)\]/g, '').trim()
-        // Limpiar markdown bold
-        cleanLine = cleanLine.replace(/\*\*([^*]+)\*\*/g, '$1')
-        if (cleanLine) bullets.push(cleanLine)
+        let clean = line.replace(/^[-*•]\s/, '').replace(/\[([^\]]+)\]/g, '').replace(/\*\*([^*]+)\*\*/g, '$1').trim()
+        if (clean && clean.length > 5) bullets.push(clean)
       }
     }
 
@@ -82,8 +112,8 @@ function parseProposal(text: string): ParsedSection[] {
         title: cfg.title,
         icon: cfg.icon,
         color: cfg.color,
-        bullets: bullets.slice(0, 4), // Máximo 4 bullets por sección
-        tags: [...new Set(tags)].slice(0, 6), // Únicos, máximo 6
+        bullets: bullets.slice(0, 5),
+        tags: [...new Set(tags)].slice(0, 8),
       })
     }
   }
@@ -92,20 +122,29 @@ function parseProposal(text: string): ParsedSection[] {
 }
 
 export function ProposalReview({ onAccept, onReject }: ProposalReviewProps) {
-  const { proposalRawText, selectedClient, selectedArea, selectedCaseIds, cases } = useAppStore()
+  const store = useAppStore()
+  const { selectedClient, selectedArea, selectedCaseIds, cases } = store
 
-  const proposalText = proposalRawText ?? ''
-  const sections = parseProposal(proposalText)
+  // Get from store - needs to be passed from API response
+  const proposalStructured = (store as any).proposalStructured
+  const proposalRawText = store.proposalRawText ?? ''
+
+  // PRIORITY: Use structured if available, else fallback to markdown parsing
+  let sections = parseStructured(proposalStructured)
+  if (sections.length === 0) {
+    sections = parseMarkdownFallback(proposalRawText)
+  }
+
   const hasSections = sections.length >= 2
 
-  // Obtener tecnologías del caso seleccionado si no hay tags en arquitectura
+  // Tech tags from arquitectura section or fallback to case tags
   const selectedCase = cases.find(c => selectedCaseIds.includes(c.id))
   const stackSection = sections.find(s => s.key === 'arquitectura')
   const techTags = stackSection?.tags?.length ? stackSection.tags : (selectedCase?.tecnologias?.slice(0, 5) ?? [])
 
   return (
     <div className="neo-proposal-review" style={{ padding: 24 }}>
-      {/* Header ejecutivo */}
+      {/* Header */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -132,7 +171,7 @@ export function ProposalReview({ onAccept, onReject }: ProposalReviewProps) {
           </p>
         </div>
 
-        {/* Tech Tags compactos */}
+        {/* Tech Tags */}
         {techTags.length > 0 && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 280 }}>
             {techTags.map(tag => (
@@ -155,7 +194,7 @@ export function ProposalReview({ onAccept, onReject }: ProposalReviewProps) {
         )}
       </div>
 
-      {/* Contenido principal - Grid compacto */}
+      {/* Content - 2x3 Grid */}
       {hasSections ? (
         <div style={{
           display: 'grid',
@@ -175,7 +214,7 @@ export function ProposalReview({ onAccept, onReject }: ProposalReviewProps) {
                   padding: '12px 14px',
                 }}
               >
-                {/* Section header */}
+                {/* Section Header */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <div style={{
                     width: 24,
@@ -211,22 +250,21 @@ export function ProposalReview({ onAccept, onReject }: ProposalReviewProps) {
           })}
         </div>
       ) : (
-        /* Fallback minimalista */
+        /* Empty state */
         <div style={{
           background: 'rgba(5,5,140,0.15)',
           borderRadius: 10,
           padding: 16,
           marginBottom: 20,
           fontSize: 13,
-          lineHeight: 1.7,
-          color: 'var(--text-main)',
-          whiteSpace: 'pre-wrap',
+          color: 'var(--text-muted)',
+          textAlign: 'center',
         }}>
-          {proposalText.slice(0, 800)}...
+          Propuesta en generación...
         </div>
       )}
 
-      {/* Footer con acciones */}
+      {/* Footer Actions */}
       <div style={{
         display: 'flex',
         alignItems: 'center',

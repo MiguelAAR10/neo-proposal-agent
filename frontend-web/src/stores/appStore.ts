@@ -164,11 +164,13 @@ interface AppState {
   // Proposal (Screen 5-6)
   currentProposal: Proposal | null
   proposalRawText: string | null
+  proposalStructured: Record<string, any> | null  // Estructura normalizada del backend
   selectedTeam: Team | null
   proposalContext: ProposalContext  // Contexto seleccionado para propuesta
   proposalSentSuccess: boolean      // Feedback visual de éxito
   setCurrentProposal: (proposal: Proposal | null) => void
   setProposalRawText: (text: string | null) => void
+  setProposalStructured: (structured: Record<string, any> | null) => void
   setSelectedTeam: (team: Team | null) => void
   toggleChatContextMessage: (index: number) => void
   toggleInsightContext: (id: string) => void
@@ -265,11 +267,13 @@ export const useAppStore = create<AppState>()(
       // Proposal
       currentProposal: null,
       proposalRawText: null,
+      proposalStructured: null,
       selectedTeam: null,
       proposalContext: { chatMessageIndices: [], insightIds: [] },
       proposalSentSuccess: false,
       setCurrentProposal: (proposal) => set({ currentProposal: proposal }),
       setProposalRawText: (text) => set({ proposalRawText: text }),
+      setProposalStructured: (structured) => set({ proposalStructured: structured }),
       setSelectedTeam: (team) => set({ selectedTeam: team }),
       toggleChatContextMessage: (index) => set((s) => {
         const indices = s.proposalContext.chatMessageIndices
@@ -433,6 +437,7 @@ export const useAppStore = create<AppState>()(
         insights: [],
         currentProposal: null,
         proposalRawText: null,
+        proposalStructured: null,
         selectedTeam: null,
         proposalContext: { chatMessageIndices: [], insightIds: [] },
         proposalSentSuccess: false,
