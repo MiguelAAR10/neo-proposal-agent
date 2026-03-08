@@ -1,13 +1,13 @@
 # BITACORA MVP V2 - ESTADO REAL, ERRORES Y TRAZABILIDAD
 
-Fecha de corte: 2026-03-07
+Fecha de corte: 2026-03-08
 Version objetivo activa: `V4 — NEO ELECTRIC MIDNIGHT (6-screen wizard)`
 Rama activa: `feat/visual-refactor-v3`
 Commit baseline visual V4: `eb6e72d0`
 
 ## 1) Proposito
 
-Esta bitacora es la referencia operativa de V2.  
+Esta bitacora es la referencia operativa de V2.
 Cada entrada conecta: objetivo de version, cambio tecnico, error cometido y aprendizaje.
 
 No reemplaza commits; los vuelve auditables.
@@ -17,15 +17,17 @@ No reemplaza commits; los vuelve auditables.
 Implementado y verificado:
 - Backend FastAPI: 27 rutas, 71/71 tests pass, Qdrant Cloud conectado.
 - Graph LangGraph: intake -> retrieve -> [INTERRUPT] -> update_summary -> draft.
-- Storage: SQLite (perfiles + radiografias + insights) + Qdrant Cloud (neo_cases_v1: 95 pts).
+- Storage: SQLite (perfiles + radiografias + insights) + Qdrant Cloud (neo_cases_v1: 95 pts, indice `tipo` creado).
 - Seed data: 13 perfiles empresa, 6 radiografias sector, 6 human insights.
 - Frontend Next.js 16: design system V4 (NEO ELECTRIC MIDNIGHT), build OK.
 - ChatPanel migrado de agentStore (legacy) a appStore (V4).
 - setSessionFromSearch mapea correctamente: tendencias, oportunidades, benchmarks, pain_points, objetivos, decision_makers, kpis, human_insights.
 - Endpoints nuevos: GET /teams, POST /agent/{tid}/assign.
 - Schemas nuevos: TeamResponse, AssignRequest.
+- Busqueda E2E funcional: 8 casos (4 NEO + 4 AI) con filtrado por tipo.
+- Error display en ClientSelectionForm para feedback de errores al usuario.
 
-Fixes criticos aplicados (sesion 2026-03-07):
+Fixes criticos aplicados (sesion 2026-03-07/08):
 - .env: QDRANT_COLLECTION=neo_casos (vieja, schema incompatible) -> neo_cases_v1 (correcta).
 - requirements.txt: qdrant-client pinneado -> flexible (>=1.13.3,<2.0.0) para compatibilidad con server v1.16.3.
 - Healthcheck: fix para nueva version de qdrant-client (lambda -> referencia directa).
@@ -33,16 +35,19 @@ Fixes criticos aplicados (sesion 2026-03-07):
 - _build_sector_intel: manejo dual de schema (seed vs radar pipeline).
 - retrieve_node: carga eager de human_insights (antes solo se cargaban post-interrupt).
 - Layout CSS: top-split fijo 340px -> max-height 40vh, chat min-height 200px.
+- **Qdrant payload index**: creado indice `tipo: KEYWORD` para filtrado NEO/AI (requerido desde qdrant-client 1.17+).
+- **UI error display**: errores del backend ahora visibles en ClientSelectionForm.
 
 Pendiente:
 - Verificacion visual en browser del flujo completo 6 pantallas.
-- KPIs no se renderizan en ClientProfileInline (store los tiene, componente no los lee).
 - Redis no configurado: sesiones no persistentes (MemorySaver).
 
 ## 3) Matriz de trazabilidad por commit (V2 reciente)
 
 | Commit | Tipo | Objetivo declarado | Error detectado posteriormente | Aprendizaje tecnico | Estado |
 |---|---|---|---|---|---|
+| `34849013` | fix(backend) | Crear indice Qdrant para filtrado tipo NEO/AI | Ninguno detectado hasta ahora | Upgrades de qdrant-client pueden cambiar requisitos de indexado | Vigente |
+| `aae9e8dc` | fix(backend) | Upgrade qdrant-client para compat v1.16.3 | Rompio filtrado por tipo (requiere payload index desde 1.17+) | Probar filtros despues de upgrades de clientes de DB vectoriales | Corregido |
 | `15bfc20b` | feat(ui) | Mostrar busqueda segmentada por evidencia en una pantalla | Chat panel continuo mock y no conectado | No cerrar UI sin endpoint real del chat | Vigente |
 | `f4e86857` | docs | Publicar arquitectura/ejecucion de MVP2.1 | Varias secciones quedaron mas aspiracionales que ejecutables | Documentar siempre con "estado real" + "estado objetivo" separados | Parcial |
 | `9944520d` | feat | Primitiva `/api/search`, SLA, ingesta determinista y refine | Reglas de required/optional no quedaron igual de claras en todos los docs | Definir contrato de datos unico y repetirlo en requirements+skills | Vigente |
@@ -67,6 +72,11 @@ Nota: los "errores detectados" son post-mortem tecnico (no juicio personal), par
 
 4. Error: UX avanzada con backend incompleto (chat mock).
 - Accion: no considerar feature cerrada hasta conectar extremo a extremo.
+
+5. Error: upgrade de dependencias sin verificar cambios de comportamiento.
+- Caso real: qdrant-client 1.13 -> 1.17 cambio de "filtrado tolerante" a "filtrado estricto con indices".
+- Accion: despues de cada upgrade de cliente de DB (qdrant, mongo, redis), probar filtros y queries existentes.
+- Accion: agregar test de integracion que verifique filtrado basico funciona.
 
 ## 5) Regla obligatoria para cada commit de V2
 
@@ -146,6 +156,55 @@ V2.2 se considera cerrada cuando:
   - .gitignore actualizado (.agent/, .agents/, .continue/, .claude/).
   - 00-INDEX-DOCUMENTATION.md reescrito con estado real V4.
   - Bitacora actualizada con estado completo.
+
+- 2026-03-08 00:30 -0500: FIX CRITICO — Busqueda de casos 100% rota por indice Qdrant faltante.
+  - sintoma:
+    - `/agent/start` retornaba `casos_encontrados: []` siempre.
+    - Error: `Index required but not found for "tipo" of one of the following types: [keyword]`.
+    - UI: boton "Buscar Casos de Uso" parecia no hacer nada (error no visible).
+  - root_cause:
+    - El commit `aae9e8dc` actualizo `qdrant-client` de `==1.13.3` a `>=1.13.3,<2.0.0`.
+    - Version instalada: 1.17.0.
+    - Qdrant Cloud v1.16.3 con cliente 1.17+ **exige payload indexes** para usar `FieldCondition(match=...)`.
+    - Comportamiento anterior (1.13.x): filtrado por `tipo=NEO/AI` funcionaba via full-scan.
+    - Comportamiento nuevo (1.17.0): filtrado requiere indice explicito de tipo `keyword`.
+    - La coleccion `neo_cases_v1` fue creada sin payload indexes (solo vector config).
+  - impacto_negocio:
+    - Flujo principal de la aplicacion completamente bloqueado.
+    - Sin casos, no hay propuesta. Sin propuesta, no hay valor comercial.
+    - Usuario veia pantalla estatica sin feedback de error.
+  - solucion_tecnica:
+    1. Crear payload index en Qdrant Cloud:
+       ```python
+       client.create_payload_index(
+           collection_name="neo_cases_v1",
+           field_name="tipo",
+           field_schema=models.PayloadSchemaType.KEYWORD
+       )
+       ```
+    2. Actualizar `_ensure_cases_collection()` en `qdrant_tool.py` para crear el indice automaticamente al crear colecciones nuevas (prevencion futura).
+    3. Agregar display de `error` en `ClientSelectionForm.tsx` para que errores del backend sean visibles al usuario.
+  - archivos_modificados:
+    - `backend/src/tools/qdrant_tool.py:72-77` — agrega creacion de indice en `_ensure_cases_collection()`.
+    - `frontend-web/src/components/screens/ClientSelectionForm.tsx:21,208-213` — destructura `error` del store y lo renderiza.
+  - prevencion:
+    - Regla: al actualizar dependencias de clientes de DB (qdrant-client, pymongo, etc), verificar si APIs de filtrado/indexado cambiaron.
+    - Regla: toda coleccion que use filtros `match` debe tener payload indexes correspondientes.
+  - validacion:
+    - `/agent/start` retorna 8 casos (4 NEO + 4 AI).
+    - `/intel/company/BCP/profile` retorna KPIs completos.
+    - `npm --prefix frontend-web run build` => OK.
+    - `python -m pytest backend/tests` => 71/71 pass.
+    - Qdrant collection info: `payload_schema: {'tipo': PayloadIndexInfo(data_type=KEYWORD, points=95)}`.
+  - commit:
+    - `34849013 fix(backend): add Qdrant payload index for tipo field and UI error display`.
+  - estado:
+    - implementado y verificado E2E.
+  - leccion_aprendida:
+    - Upgrades de dependencias pueden cambiar comportamientos sutiles pero criticos.
+    - El paso de qdrant-client 1.13 a 1.17 cambio de "filtrado tolerante" a "filtrado estricto con indices".
+    - Siempre probar filtros despues de upgrades de clientes de bases de datos vectoriales.
+
   - objetivo:
     - reemplazar implementación inestable por layout SaaS B2B definitivo, escalable y mantenible.
   - cambio:
