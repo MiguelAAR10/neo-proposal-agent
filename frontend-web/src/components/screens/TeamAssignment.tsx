@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Crown, Brain, Beaker, Megaphone, Server, Check, Loader2 } from 'lucide-react'
+import { Send, Crown, Brain, Beaker, Megaphone, Server, Check, Loader2, ExternalLink } from 'lucide-react'
 import { useAppStore, type Team } from '@/stores/appStore'
 import { useTeams, useAssignTeam } from '@/hooks/useApi'
 
@@ -19,13 +19,91 @@ interface TeamAssignmentProps {
   onSend: () => void
 }
 
+function cleanProposalLine(input: string): string {
+  return input
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]/g, '$1')
+    .replace(/^[-*•]\s*/, '')
+    .replace(/^\d+\.\s*/, '')
+    .trim()
+}
+
+function getBlockByHeading(raw: string, patterns: RegExp[]): string {
+  let bestStart = -1
+  let bestLength = 0
+
+  patterns.forEach((pattern) => {
+    const match = raw.match(pattern)
+    if (match && typeof match.index === 'number') {
+      if (bestStart === -1 || match.index < bestStart) {
+        bestStart = match.index
+        bestLength = match[0].length
+      }
+    }
+  })
+
+  if (bestStart < 0) return ''
+
+  const after = raw.slice(bestStart + bestLength)
+  const nextSection = after.match(/\n\s*(###?\s*[🔍💡🏗📊🗓🎯]|Secci[oó]n\s*\d+|Seccion\s*\d+)\b/i)
+  const block = nextSection && typeof nextSection.index === 'number'
+    ? after.slice(0, nextSection.index)
+    : after
+
+  return block.trim()
+}
+
+function getProposalSummary(
+  structured: Record<string, unknown> | null | undefined,
+  raw: string,
+  mode: 'problema' | 'solucion',
+): string {
+  if (structured) {
+    const key = mode === 'problema' ? 'diagnostico' : 'solucion'
+    const section = structured[key]
+    if (Array.isArray(section)) {
+      const line = section.map((item) => cleanProposalLine(String(item ?? ''))).find((v) => v.length > 10)
+      if (line) return line
+    }
+  }
+
+  const patterns = mode === 'problema'
+    ? [/###?\s*🔍/i, /diagn[oó]stico/i, /problema identificado/i, /secci[oó]n\s*1/i]
+    : [/###?\s*💡/i, /soluci[oó]n propuesta/i, /secci[oó]n\s*2/i]
+
+  const block = getBlockByHeading(raw, patterns)
+  if (!block) return mode === 'problema'
+    ? 'Resumen de problema no disponible.'
+    : 'Resumen de solución no disponible.'
+
+  const candidate = block
+    .split('\n')
+    .map((line) => cleanProposalLine(line))
+    .find((line) => line.length > 12)
+
+  return candidate ?? cleanProposalLine(block).slice(0, 240)
+}
+
 export function TeamAssignment({ onSend }: TeamAssignmentProps) {
-  const { setSelectedTeam, selectedArea, cases, selectedCaseIds, threadId } = useAppStore()
+  const {
+    setSelectedTeam,
+    selectedArea,
+    selectedClient,
+    cases,
+    selectedCaseIds,
+    proposalStructured,
+    proposalRawText,
+    threadId,
+  } = useAppStore()
   const { data: teams = [], isLoading: isTeamsLoading, isError: isTeamsError } = useTeams(threadId)
   const assignMutation = useAssignTeam()
   const [localTeam, setLocalTeam] = useState<Team | null>(null)
 
-  const selectedCase = cases.find((c) => selectedCaseIds.includes(c.id)) ?? cases[0]
+  const proposalCase = cases.find((c) => selectedCaseIds.includes(c.id))
+  const backupCase = proposalCase ?? cases.find((c) => Boolean(c.url_slide)) ?? cases[0]
+  const problemSummary = getProposalSummary(proposalStructured, proposalRawText ?? '', 'problema')
+  const solutionSummary = getProposalSummary(proposalStructured, proposalRawText ?? '', 'solucion')
 
   // Auto-select best match when teams load and no local selection yet
   const effectiveTeam = localTeam ?? teams.find((t) => t.is_best_match) ?? null
@@ -51,34 +129,58 @@ export function TeamAssignment({ onSend }: TeamAssignmentProps) {
       {/* Left: Proposal Summary Card */}
       <div className="neo-team-proposal-card">
         <div className="neo-team-proposal-card__header">
-          <h3>Tarjeta de Propuesta</h3>
-          <span className="neo-tag neo-tag--active">{selectedCase?.score ? Math.round(selectedCase.score) : 92}</span>
+          <h3>Resumen de Propuesta</h3>
+          <span className="neo-tag neo-tag--active">{backupCase?.score ? Math.round(backupCase.score) : 92}</span>
         </div>
 
         <div className="neo-team-proposal-card__tags">
-          {selectedCase?.tecnologias?.slice(0, 3).map((t) => (
+          {backupCase?.tecnologias?.slice(0, 3).map((t) => (
             <span key={t} className="neo-tag">{t}</span>
           ))}
           {selectedArea && <span className="neo-tag">{selectedArea}</span>}
         </div>
 
         <h4 className="neo-team-proposal-card__title">
-          {selectedCase?.titulo ?? 'Propuesta'}
+          {selectedClient?.display_name ?? 'Cliente'} · {selectedArea ?? 'General'}
         </h4>
 
         <div className="neo-team-proposal-card__section">
           <span className="neo-team-proposal-card__label">Problema</span>
-          <p>{selectedCase?.problema ?? ''}</p>
+          <p>{problemSummary}</p>
         </div>
 
         <div className="neo-team-proposal-card__section">
           <span className="neo-team-proposal-card__label">Solucion</span>
-          <p>{selectedCase?.solucion ?? ''}</p>
+          <p>{solutionSummary}</p>
         </div>
 
-        {selectedCase?.kpi_impacto && (
+        <div className="neo-team-proposal-card__section">
+          <span className="neo-team-proposal-card__label">Caso de exito de respaldo</span>
+          {backupCase ? (
+            <p>
+              {backupCase.titulo}
+              {backupCase.url_slide ? (
+                <>
+                  {' '}
+                  <a
+                    href={backupCase.url_slide}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="neo-team-proposal-card__link"
+                  >
+                    Ver respaldo <ExternalLink size={12} />
+                  </a>
+                </>
+              ) : ' (sin enlace disponible)'}
+            </p>
+          ) : (
+            <p>No hay caso de respaldo disponible.</p>
+          )}
+        </div>
+
+        {backupCase?.kpi_impacto && (
           <div className="neo-team-proposal-card__kpi">
-            {selectedCase.kpi_impacto}
+            {backupCase.kpi_impacto}
           </div>
         )}
       </div>

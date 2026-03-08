@@ -153,6 +153,7 @@ interface AppState {
   clearChatMessages: () => void
   selectCase: (id: string) => void
   unselectCase: (id: string) => void
+  setSelectedCaseIds: (ids: string[]) => void
 
   // Insights (Screen 4)
   activeProfileArea: string
@@ -164,13 +165,13 @@ interface AppState {
   // Proposal (Screen 5-6)
   currentProposal: Proposal | null
   proposalRawText: string | null
-  proposalStructured: Record<string, any> | null  // Estructura normalizada del backend
+  proposalStructured: Record<string, unknown> | null  // Estructura normalizada del backend
   selectedTeam: Team | null
   proposalContext: ProposalContext  // Contexto seleccionado para propuesta
   proposalSentSuccess: boolean      // Feedback visual de éxito
   setCurrentProposal: (proposal: Proposal | null) => void
   setProposalRawText: (text: string | null) => void
-  setProposalStructured: (structured: Record<string, any> | null) => void
+  setProposalStructured: (structured: Record<string, unknown> | null) => void
   setSelectedTeam: (team: Team | null) => void
   toggleChatContextMessage: (index: number) => void
   toggleInsightContext: (id: string) => void
@@ -256,6 +257,7 @@ export const useAppStore = create<AppState>()(
       unselectCase: (id) => set((s) => ({
         selectedCaseIds: s.selectedCaseIds.filter((cid) => cid !== id)
       })),
+      setSelectedCaseIds: (ids) => set({ selectedCaseIds: Array.from(new Set(ids.map(String))) }),
 
       // Insights
       activeProfileArea: 'Operaciones',

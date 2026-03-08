@@ -2436,6 +2436,21 @@ h1, h2, h3, h4, h5, h6 {
 
 .neo-team-proposal-card__section p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-main); opacity: 0.85; }
 
+.neo-team-proposal-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-cyan);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.neo-team-proposal-card__link:hover {
+  text-decoration: underline;
+}
+
 .neo-team-proposal-card__kpi {
   padding: 8px 12px; border-top: 1px solid var(--glass-border);
   font-family: var(--font-mono), monospace; font-size: 13px; color: var(--accent-cyan); font-weight: 700;

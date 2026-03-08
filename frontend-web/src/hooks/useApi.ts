@@ -221,6 +221,14 @@ export function useGenerateProposal() {
     onSuccess: (data) => {
       const rawText = String(data.propuesta_final ?? '')
       const structured = data.proposal_structured ?? null
+      const backendSelectedIds = Array.isArray(data.casos_seleccionados_ids)
+        ? data.casos_seleccionados_ids.map((id: unknown) => String(id))
+        : null
+
+      if (backendSelectedIds) {
+        store.setSelectedCaseIds(backendSelectedIds)
+      }
+
       store.setProposalRawText(rawText)
       store.setProposalStructured(structured)
       store.setCurrentProposal({
