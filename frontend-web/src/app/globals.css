@@ -1580,6 +1580,37 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 0.95;
 }
 
+.neo-header-company-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.neo-header-company-logo__img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+.neo-header-company-logo__img--neo {
+  filter: invert(1);
+}
+
+.neo-header-company-logo__fallback {
+  font-family: var(--font-mono), monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0a0a2e;
+  letter-spacing: 0.04em;
+}
+
 .neo-main-header__left {
   display: flex;
   align-items: center;

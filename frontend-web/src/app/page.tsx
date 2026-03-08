@@ -2,11 +2,11 @@
 
 import { useCallback } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import Link from "next/link";
 import { LayoutDashboard, RefreshCcw, User } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import { AppTabs } from "@/components/layout/AppTabs";
+import { HeaderCompanyLogo } from "@/components/layout/HeaderCompanyLogo";
 import { EmptyState } from "@/components/screens/EmptyState";
 import { ClientSelectionForm } from "@/components/screens/ClientSelectionForm";
 import { ActiveWorkspace } from "@/components/screens/ActiveWorkspace";
@@ -79,15 +79,7 @@ export default function HomePage() {
       <header className="neo-main-header">
         {/* Left: Logo */}
         <div className="neo-main-header__left">
-          <Image
-            src="/logos/neo-primary.svg"
-            alt="Neo Intelligence"
-            width={160}
-            height={44}
-            className="neo-header-logo"
-            priority
-            unoptimized
-          />
+          <HeaderCompanyLogo selectedClient={selectedClient} />
         </div>
 
         {/* Center: Client tag + Tabs */}
