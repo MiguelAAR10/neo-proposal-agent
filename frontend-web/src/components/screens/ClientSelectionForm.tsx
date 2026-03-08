@@ -18,6 +18,7 @@ export function ClientSelectionForm() {
     selectedArea, setSelectedArea,
     dataSource, setDataSource,
     problemDescription, setProblemDescription,
+    error,
   } = useAppStore()
 
   const { data: catalog = [] } = usePrioritizedClients()
@@ -205,6 +206,11 @@ export function ClientSelectionForm() {
           )}
         </button>
         {searchMutation.isPending && <NeoLoader compact />}
+        {error && (
+          <p className="neo-form-error" style={{ color: 'var(--error, #ef4444)', fontSize: 13, marginTop: 8 }}>
+            {error}
+          </p>
+        )}
       </div>
 
       {/* Right: Client Preview */}

@@ -69,6 +69,13 @@ class QdrantConnection:
             vectors_config=models.VectorParams(size=vector_size, distance=models.Distance.COSINE),
         )
 
+        # Create payload index for "tipo" field (required for filtering NEO/AI)
+        client.create_payload_index(
+            collection_name=collection_name,
+            field_name="tipo",
+            field_schema=models.PayloadSchemaType.KEYWORD,
+        )
+
     def reset_cases_collection(self, collection_name: str) -> None:
         client = self._ensure_client()
         existing = {c.name for c in client.get_collections().collections}
