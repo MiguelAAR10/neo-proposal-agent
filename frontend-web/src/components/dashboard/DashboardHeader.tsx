@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Building, RefreshCcw, LayoutDashboard, ChevronDown, Check } from "lucide-react";
 
 interface DashboardHeaderProps {
-  companyLabel: string;
   companyValue: string;
   companyOptions: Array<{ value: string; label: string }>;
   onCompanyChange: (value: string) => void;
@@ -23,13 +22,12 @@ function slugifyCompany(value: string): string {
 }
 
 export function DashboardHeader({
-  companyLabel,
   companyValue,
   companyOptions,
   onCompanyChange,
   onReset,
 }: DashboardHeaderProps) {
-  const [logoFailed, setLogoFailed] = useState(false);
+  const [failedLogos, setFailedLogos] = useState<Record<string, true>>({});
   const [clientLogoFailed, setClientLogoFailed] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -39,9 +37,7 @@ export function DashboardHeader({
     return slug ? `/logos/companies/${slug}.png` : "";
   }, [companyValue]);
 
-  useEffect(() => {
-    setLogoFailed(false);
-  }, [companyLogoSrc]);
+  const logoFailed = companyLogoSrc ? Boolean(failedLogos[companyLogoSrc]) : false;
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -100,7 +96,10 @@ export function DashboardHeader({
                 width={28}
                 height={28}
                 className="neo-company-badge__logo-img"
-                onError={() => setLogoFailed(true)}
+                onError={() => {
+                  if (!companyLogoSrc) return;
+                  setFailedLogos((prev) => ({ ...prev, [companyLogoSrc]: true }));
+                }}
                 unoptimized
               />
             ) : (
@@ -171,7 +170,10 @@ export function DashboardHeader({
                 width={22}
                 height={22}
                 className="neo-company-badge__logo-img"
-                onError={() => setLogoFailed(true)}
+                onError={() => {
+                  if (!companyLogoSrc) return;
+                  setFailedLogos((prev) => ({ ...prev, [companyLogoSrc]: true }));
+                }}
                 unoptimized
               />
             ) : (

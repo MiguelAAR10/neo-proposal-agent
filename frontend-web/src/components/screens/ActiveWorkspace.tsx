@@ -4,15 +4,12 @@ import { CasesSidebar } from '@/components/workspace/CasesSidebar'
 import { SectorContextPanel } from '@/components/workspace/SectorContextPanel'
 import { ClientProfileInline } from '@/components/workspace/ClientProfileInline'
 import { ChatPanel } from '@/components/chat/ChatPanel'
-import { useAppStore } from '@/stores/appStore'
 
 interface ActiveWorkspaceProps {
   onNavigateToInsights: () => void
 }
 
 export function ActiveWorkspace({ onNavigateToInsights }: ActiveWorkspaceProps) {
-  const { selectedClient, selectedArea } = useAppStore()
-
   return (
     <div className="neo-v4-workspace">
       {/* Left: Cases Sidebar (360px) */}
@@ -34,7 +31,7 @@ export function ActiveWorkspace({ onNavigateToInsights }: ActiveWorkspaceProps) 
 
         {/* Bottom: Chat Panel */}
         <div className="neo-v4-workspace__chat">
-          <ChatPanel isGenerating={false} />
+          <ChatPanel />
         </div>
       </div>
     </div>

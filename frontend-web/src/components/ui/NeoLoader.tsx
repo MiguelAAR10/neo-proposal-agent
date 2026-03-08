@@ -17,7 +17,6 @@ interface NeoLoaderProps {
 export function NeoLoader({ compact = false, className = "" }: NeoLoaderProps) {
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [cycle, setCycle] = useState(0);
-  const [fillLine, setFillLine] = useState(false);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -30,11 +29,7 @@ export function NeoLoader({ compact = false, className = "" }: NeoLoaderProps) {
     };
   }, []);
 
-  useEffect(() => {
-    setFillLine(false);
-    const raf = window.requestAnimationFrame(() => setFillLine(true));
-    return () => window.cancelAnimationFrame(raf);
-  }, [cycle]);
+  const fillLine = cycle % 2 === 1;
 
   return (
     <div className={`neo-loader${compact ? " neo-loader--compact" : ""}${className ? ` ${className}` : ""}`}>

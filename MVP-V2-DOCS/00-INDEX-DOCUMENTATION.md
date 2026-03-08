@@ -14,8 +14,6 @@ Leer primero — define estado real, riesgos y decisiones:
 ### Arquitectura y Especificacion
 | Archivo | Proposito |
 |---------|-----------|
-| `MVP-V2-DOCS/NEO_INTELLIGENCE_V4_SPEC.md` | Spec V4 completa: 6 pantallas, design system, API map, flujo usuario |
-| `MVP-V2-DOCS/V4_COMPLETE_IMPLEMENTATION_GUIDE.md` | Guia de implementacion con code examples y roadmap por fases |
 | `MVP-V2-DOCS/MVP-2.1-ARQUITECTURA-Y-LOGICA.md` | Arquitectura backend: storage, scoring, repositories, SLA |
 
 ### Operacional
@@ -34,7 +32,6 @@ Leer primero — define estado real, riesgos y decisiones:
 |---------|-----------|
 | `README.md` | Setup, prerequisites, startup commands |
 | `AI_INSTRUCTIONS.md` | Contexto global para agentes IA |
-| `CLAUDE.md` | Reglas de workflow agentico |
 | `frontend-web/README.md` | Instrucciones especificas del frontend |
 
 ### Archivo historico
@@ -48,8 +45,7 @@ P0 (obligatorio en cada cambio funcional):
 1. `BITACORA_MVP_V2.md` — registrar sesion, errores, decisiones
 
 P1 (alineacion de producto):
-1. `NEO_INTELLIGENCE_V4_SPEC.md` — cualquier cambio de pantallas/flujo
-2. `V4_COMPLETE_IMPLEMENTATION_GUIDE.md` — cambios de endpoints/modelos
+1. `MVP-2.1-ARQUITECTURA-Y-LOGICA.md` — cambios de endpoints/modelos/storage
 
 P2 (estandares):
 1. `SKILLS/SKILL_BACKEND_EXPERT.md`

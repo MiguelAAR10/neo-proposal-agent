@@ -1,46 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Crown, Brain, Beaker, Megaphone, Server, Check } from 'lucide-react'
+import { Send, Crown, Brain, Beaker, Megaphone, Server, Check, Loader2 } from 'lucide-react'
 import { useAppStore, type Team } from '@/stores/appStore'
-
-const TEAMS: Team[] = [
-  {
-    id: 'analytics-ml',
-    name: 'Analytics & ML',
-    description: 'Modelos predictivos, analitica avanzada, scoring, recomendacion automatizada.',
-    icon: 'brain',
-    specialties: ['Machine Learning', 'Data Analytics', 'Predictive Models'],
-    is_best_match: true,
-  },
-  {
-    id: 'ai-lab',
-    name: 'AI Lab',
-    description: 'LLMs, computer vision, NLP, agentes autonomos, generative AI.',
-    icon: 'beaker',
-    specialties: ['LLMs', 'Computer Vision', 'NLP'],
-  },
-  {
-    id: 'growth-crm',
-    name: 'Growth & CRM',
-    description: 'Estrategia de crecimiento, CRM, marketing automation, customer journey.',
-    icon: 'megaphone',
-    specialties: ['Strategy', 'CRM', 'Marketing Automation'],
-  },
-  {
-    id: 'operaciones',
-    name: 'Operaciones',
-    description: 'Infraestructura, DevOps, cloud, SRE, automatizacion de procesos.',
-    icon: 'server',
-    specialties: ['Infrastructure', 'DevOps', 'Cloud', 'SRE'],
-  },
-]
+import { useTeams, useAssignTeam } from '@/hooks/useApi'
 
 const ICON_MAP: Record<string, typeof Brain> = {
   brain: Brain,
   beaker: Beaker,
+  sparkles: Beaker,
   megaphone: Megaphone,
+  target: Megaphone,
   server: Server,
+  cog: Server,
 }
 
 interface TeamAssignmentProps {
@@ -48,21 +20,30 @@ interface TeamAssignmentProps {
 }
 
 export function TeamAssignment({ onSend }: TeamAssignmentProps) {
-  const { selectedTeam, setSelectedTeam, proposalRawText, selectedClient, selectedArea, cases, selectedCaseIds } = useAppStore()
-  const [localTeam, setLocalTeam] = useState<Team | null>(TEAMS.find((t) => t.is_best_match) ?? null)
+  const { setSelectedTeam, selectedArea, cases, selectedCaseIds, threadId } = useAppStore()
+  const { data: teams = [], isLoading: isTeamsLoading, isError: isTeamsError } = useTeams(threadId)
+  const assignMutation = useAssignTeam()
+  const [localTeam, setLocalTeam] = useState<Team | null>(null)
 
   const selectedCase = cases.find((c) => selectedCaseIds.includes(c.id)) ?? cases[0]
-  const bestMatch = TEAMS.find((t) => t.is_best_match)
+
+  // Auto-select best match when teams load and no local selection yet
+  const effectiveTeam = localTeam ?? teams.find((t) => t.is_best_match) ?? null
+  const bestMatch = teams.find((t) => t.is_best_match)
 
   const handleSelectTeam = (team: Team) => {
     setLocalTeam(team)
     setSelectedTeam(team)
   }
 
-  const handleSend = () => {
-    if (!localTeam) return
-    setSelectedTeam(localTeam)
-    onSend()
+  const handleSend = async () => {
+    const team = effectiveTeam
+    if (!team || !threadId) return
+    setSelectedTeam(team)
+    assignMutation.mutate(
+      { threadId, teamId: team.id },
+      { onSuccess: () => onSend() },
+    )
   }
 
   return (
@@ -117,9 +98,17 @@ export function TeamAssignment({ onSend }: TeamAssignmentProps) {
 
         {/* Team cards */}
         <div className="neo-team-grid">
-          {TEAMS.map((team) => {
+          {isTeamsLoading ? (
+            <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
+              <Loader2 size={16} className="neo-spin" /> Cargando equipos...
+            </div>
+          ) : isTeamsError ? (
+            <div style={{ gridColumn: '1 / -1', fontSize: 13, color: 'var(--text-muted)' }}>
+              No se pudieron cargar los equipos. Intenta de nuevo.
+            </div>
+          ) : teams.map((team) => {
             const Icon = ICON_MAP[team.icon] ?? Brain
-            const isSelected = localTeam?.id === team.id
+            const isSelected = effectiveTeam?.id === team.id
             return (
               <button
                 key={team.id}
@@ -159,12 +148,20 @@ export function TeamAssignment({ onSend }: TeamAssignmentProps) {
         <button
           type="button"
           onClick={handleSend}
-          disabled={!localTeam}
+          disabled={!effectiveTeam || assignMutation.isPending}
           className="neo-pill neo-pill--primary neo-team-send-btn"
         >
-          <Send size={15} />
-          Enviar al Equipo
+          {assignMutation.isPending ? (
+            <><Loader2 size={15} className="neo-spin" /> Asignando...</>
+          ) : (
+            <><Send size={15} /> Enviar al Equipo</>
+          )}
         </button>
+        {assignMutation.isError && (
+          <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8 }}>
+            Error al asignar. Intenta de nuevo.
+          </p>
+        )}
       </div>
     </div>
   )

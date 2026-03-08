@@ -72,6 +72,7 @@ class UpdateSummaryNodeTests(unittest.TestCase):
         self.assertEqual(len(result["human_insights"]), 1)
         self.assertEqual(result["human_insights"][0]["author"], "María Gómez")
         self.assertEqual(result["human_insights"][0]["department"], "Finanzas")
+        self.assertEqual(result["human_insights"][0]["raw_text"], "texto")
         self.assertIn("Fecha:", result["human_insights"][0]["created_at_label"])
         self.assertIn("resumen_departamentos", perfil)
 

@@ -110,6 +110,27 @@ V2.2 se considera cerrada cuando:
 
 ## 8) Registro de actualizaciones de esta bitacora (fecha y hora obligatorias)
 
+- 2026-03-07 19:53 -0500: saneamiento operativo V4 (busqueda, insights, equipos, docs y calidad de codigo).
+  - objetivo:
+    - estabilizar el flujo `ClientSelection -> Workspace -> Proposal -> TeamAssignment` y eliminar falsos positivos de "todo roto".
+  - cambio:
+    - `useApi.ts`: fallback robusto para catalogo (`/api/prioritized-clients`), validaciones duras de `/agent/start` (error/thread_id/casos), hooks reales `useTeams` + `useAssignTeam`.
+    - `ClientSelectionForm.tsx`: KPIs con soporte `profile_payload.kpis`, estado loading/error de perfil, radar con fallback `alerts|triggers`, insights con fallback desde `structured_payload` y vectores del perfil.
+    - `appStore.ts` + `backend/src/agent/nodes.py`: normalizacion de `human_insights` para no perder texto (`text/raw_text/structured_payload`).
+    - `TeamAssignment.tsx`: elimina hardcode, integra `GET /teams` y `POST /agent/{tid}/assign`.
+    - limpieza de warnings/lint en `ChatPanel`, `ActiveWorkspace`, `EmptyState`, `CasesSidebar`, `DashboardHeader`, `NeoLoader`.
+    - docs: `00-INDEX-DOCUMENTATION.md` sin referencias rotas a archivos inexistentes.
+  - error detectado/evitado:
+    - evitado avance a pantalla 3 con respuesta invalida del backend.
+    - evitado panel vacio de insights por payload parcial/inconsistente.
+    - evitada divergencia frontend/backend en asignacion de equipos.
+  - validacion:
+    - `npm --prefix frontend-web run lint` => OK (0 warnings / 0 errors).
+    - `npm --prefix frontend-web run build` => OK.
+    - `my_venv/bin/python -m pytest -q backend/tests` => 71 passed.
+  - estado:
+    - implementado.
+
 - 2026-03-03 15:15 -0500: reconstruccion frontend corporativa Two-Panel con DnD tipado y arquitectura modular.
 - 2026-03-07 18:00 -0500: SESION CRITICA — sincronizacion backend-frontend V4.
   - Root cause: .env apuntaba a coleccion Qdrant vieja (neo_casos vs neo_cases_v1), schema incompatible.

@@ -12,7 +12,6 @@ export function CasesSidebar() {
     selectedCaseIds,
     selectCase,
     unselectCase,
-    setActiveScreen,
   } = useAppStore()
 
   const generateMutation = useGenerateProposal()

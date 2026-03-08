@@ -41,10 +41,6 @@ export default function HomePage() {
     setActiveScreen(2);
   }, [setActiveScreen]);
 
-  const handleBackToEmpty = useCallback(() => {
-    setActiveScreen(1);
-  }, [setActiveScreen]);
-
   const handleNavigateToInsights = useCallback(() => {
     setActiveScreen(4);
   }, [setActiveScreen]);
@@ -127,7 +123,7 @@ export default function HomePage() {
         )}
 
         {activeScreen === 2 && (
-          <ClientSelectionForm onBack={handleBackToEmpty} />
+          <ClientSelectionForm />
         )}
 
         {activeScreen === 3 && (

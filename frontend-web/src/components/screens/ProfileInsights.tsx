@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { ArrowLeft, Clock, Save } from 'lucide-react'
-import { useAppStore, type InsightType, type Insight } from '@/stores/appStore'
-import { useSaveInsight, useClientProfile, AREA_OPTIONS } from '@/hooks/useApi'
+import { useAppStore, type InsightType } from '@/stores/appStore'
+import { useSaveInsight } from '@/hooks/useApi'
 
 function slugifyCompany(value: string): string {
   return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-')

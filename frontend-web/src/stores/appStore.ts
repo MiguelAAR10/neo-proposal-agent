@@ -324,10 +324,18 @@ export const useAppStore = create<AppState>()(
         if (Array.isArray(data.humanInsights)) {
           data.humanInsights.forEach((hi, idx) => {
             const raw = hi as Record<string, unknown>
+            const structured = Array.isArray(raw.structured_payload)
+              ? (raw.structured_payload as Array<Record<string, unknown>>)
+              : []
+            const structuredValues = structured
+              .map((item) => String(item.value ?? '').trim())
+              .filter(Boolean)
+            const fallbackDescription = structuredValues.join(' · ')
+            const description = String(raw.text ?? raw.raw_text ?? fallbackDescription).trim()
             mappedInsights.push({
               id: `hi-${idx}`,
               type: 'contexto' as InsightType,
-              description: String(raw.text ?? raw.raw_text ?? ''),
+              description: description || 'Insight sin detalle',
               source: String(raw.source ?? 'agent'),
               area: data.area,
               timestamp: String(raw.created_at ?? new Date().toISOString()),

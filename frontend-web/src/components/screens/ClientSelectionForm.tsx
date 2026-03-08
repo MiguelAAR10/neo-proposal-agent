@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import Image from 'next/image'
-import { Search, Building, AlertCircle, Lightbulb, Target, FileText, ChevronDown } from 'lucide-react'
+import { Search, Building, AlertCircle, Lightbulb, ChevronDown } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { usePrioritizedClients, useClientProfile, useSearchCases, AREA_OPTIONS } from '@/hooks/useApi'
 import { NeoLoader } from '@/components/ui/NeoLoader'
@@ -12,11 +12,7 @@ function slugifyCompany(value: string): string {
   return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-')
 }
 
-interface ClientSelectionFormProps {
-  onBack: () => void
-}
-
-export function ClientSelectionForm({ onBack }: ClientSelectionFormProps) {
+export function ClientSelectionForm() {
   const {
     selectedClient, setSelectedClient,
     selectedArea, setSelectedArea,
@@ -29,7 +25,7 @@ export function ClientSelectionForm({ onBack }: ClientSelectionFormProps) {
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
 
   const companyId = selectedClient?.name ?? null
-  const { data: profileData } = useClientProfile(companyId, selectedArea ?? undefined)
+  const { data: profileData, isError: isProfileError, isLoading: isProfileLoading } = useClientProfile(companyId, selectedArea ?? undefined)
 
   const handleSelectClient = (client: Client) => {
     setSelectedClient(client)
@@ -50,10 +46,38 @@ export function ClientSelectionForm({ onBack }: ClientSelectionFormProps) {
   }
 
   const profilePayload = profileData?.profile_payload as Record<string, unknown> | undefined
+  const kpis = profilePayload?.kpis as Record<string, string> | undefined
+  const fallbackKpis = profilePayload as Record<string, string> | undefined
+  const radarAlerts = useMemo(() => {
+    if (!profilePayload) return []
+    if (Array.isArray(profilePayload.alerts)) {
+      return (profilePayload.alerts as Array<{ severity?: string; title?: string }>).map((item) => ({
+        severity: String(item.severity ?? 'medium'),
+        title: String(item.title ?? 'Alerta'),
+      }))
+    }
+    if (Array.isArray(profilePayload.triggers)) {
+      return (profilePayload.triggers as Array<Record<string, unknown>>).map((item) => ({
+        severity: String(item.severity ?? 'medium'),
+        title: String(item.title ?? item.trigger_type ?? 'Trigger'),
+      }))
+    }
+    return []
+  }, [profilePayload])
   const insights = useMemo(() => {
     if (!profilePayload) return []
     const raw = profilePayload.human_insights ?? profilePayload.insights ?? []
-    return Array.isArray(raw) ? raw.slice(0, 5) : []
+    if (Array.isArray(raw) && raw.length > 0) return raw.slice(0, 5)
+
+    // Fallback: synthesize insights from profile vectors when raw insight list is absent.
+    const fallback: Array<{ type: string; description: string }> = []
+    const painPoints = Array.isArray(profilePayload.pain_points) ? profilePayload.pain_points as string[] : []
+    const objetivos = Array.isArray(profilePayload.objetivos) ? profilePayload.objetivos as string[] : []
+    const decisionMakers = Array.isArray(profilePayload.decision_makers) ? profilePayload.decision_makers as string[] : []
+    painPoints.slice(0, 2).forEach((value) => fallback.push({ type: 'Pain Point', description: value }))
+    objetivos.slice(0, 2).forEach((value) => fallback.push({ type: 'Objetivo', description: value }))
+    decisionMakers.slice(0, 1).forEach((value) => fallback.push({ type: 'Decision', description: value }))
+    return fallback
   }, [profilePayload])
 
   return (
@@ -207,17 +231,23 @@ export function ClientSelectionForm({ onBack }: ClientSelectionFormProps) {
 
             {/* KPIs */}
             <div className="neo-client-kpis">
-              {[
-                { label: 'Revenue', value: profilePayload?.revenue ? String(profilePayload.revenue) : 'N/A' },
-                { label: 'Satisfaccion', value: profilePayload?.satisfaction ? String(profilePayload.satisfaction) : 'N/A' },
-                { label: 'Empleados TI', value: profilePayload?.empleados_ti ? String(profilePayload.empleados_ti) : 'N/A' },
-                { label: 'Proyectos', value: profilePayload?.proyectos ? String(profilePayload.proyectos) : 'N/A' },
-              ].map((kpi) => (
-                <div key={kpi.label} className="neo-client-kpi">
-                  <span className="neo-client-kpi__value">{kpi.value}</span>
-                  <span className="neo-client-kpi__label">{kpi.label}</span>
-                </div>
-              ))}
+              {isProfileLoading ? (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', gridColumn: '1 / -1' }}>Cargando perfil...</span>
+              ) : isProfileError ? (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', gridColumn: '1 / -1' }}>Perfil no disponible</span>
+              ) : (
+                [
+                  { label: 'Revenue', value: kpis?.revenue ?? fallbackKpis?.revenue ?? 'N/A' },
+                  { label: 'Satisfaccion', value: kpis?.satisfaction ?? fallbackKpis?.satisfaction ?? 'N/A' },
+                  { label: 'Empleados TI', value: kpis?.empleados_ti ?? fallbackKpis?.empleados_ti ?? 'N/A' },
+                  { label: 'Proyectos', value: kpis?.proyectos ?? fallbackKpis?.proyectos ?? 'N/A' },
+                ].map((kpi) => (
+                  <div key={kpi.label} className="neo-client-kpi">
+                    <span className="neo-client-kpi__value">{kpi.value}</span>
+                    <span className="neo-client-kpi__label">{kpi.label}</span>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Alerts */}
@@ -226,8 +256,8 @@ export function ClientSelectionForm({ onBack }: ClientSelectionFormProps) {
                 <AlertCircle size={13} /> Alertas del Radar
               </h4>
               <div className="neo-client-alerts">
-                {profilePayload?.alerts ? (
-                  (profilePayload.alerts as Array<{severity: string; title: string}>).slice(0, 3).map((alert, i) => (
+                {radarAlerts.length > 0 ? (
+                  radarAlerts.slice(0, 3).map((alert, i) => (
                     <span key={i} className={`neo-alert-dot neo-alert-dot--${alert.severity}`}>
                       {alert.title}
                     </span>
@@ -246,14 +276,26 @@ export function ClientSelectionForm({ onBack }: ClientSelectionFormProps) {
               <div className="neo-client-insights-list">
                 {insights.length > 0 ? (
                   insights.map((insight: Record<string, unknown>, i: number) => {
-                    const type = String((insight as Record<string, unknown>).category ?? (insight as Record<string, unknown>).type ?? 'Contexto')
+                    const structured = Array.isArray((insight as Record<string, unknown>).structured_payload)
+                      ? ((insight as Record<string, unknown>).structured_payload as Array<Record<string, unknown>>)
+                      : []
+                    const type = String(
+                      (insight as Record<string, unknown>).category
+                      ?? (insight as Record<string, unknown>).type
+                      ?? (structured[0]?.category ?? 'Contexto')
+                    )
+                    const content = String(
+                      (insight as Record<string, unknown>).value
+                      ?? (insight as Record<string, unknown>).description
+                      ?? structured.map((item) => String(item.value ?? '')).filter(Boolean).join(' · ')
+                    ).trim()
                     return (
                       <div key={i} className="neo-mini-insight">
                         <span className={`neo-insight-type-tag neo-insight-type-tag--${type.toLowerCase().replace(/\s/g, '_')}`}>
                           {type}
                         </span>
                         <span className="neo-mini-insight__text">
-                          {String((insight as Record<string, unknown>).value ?? (insight as Record<string, unknown>).description ?? '')}
+                          {content || 'Sin detalle'}
                         </span>
                       </div>
                     )

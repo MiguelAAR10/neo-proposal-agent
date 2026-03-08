@@ -2,15 +2,12 @@
 
 import { Sparkles, Users, Lightbulb, FileText, Users2 } from 'lucide-react'
 import { GhostSidebar } from '@/components/layout/GhostSidebar'
-import { usePlatformMetrics } from '@/hooks/useApi'
 
 interface EmptyStateProps {
   onStart: () => void
 }
 
 export function EmptyState({ onStart }: EmptyStateProps) {
-  const { data } = usePlatformMetrics()
-
   const stats = [
     { label: 'Clientes Priorizados', value: '12', icon: Users },
     { label: 'Insights Activos', value: '47', icon: Lightbulb },

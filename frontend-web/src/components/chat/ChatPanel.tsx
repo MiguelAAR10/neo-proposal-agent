@@ -9,10 +9,6 @@ import type { ChatMessage } from '@/stores/appStore'
 
 type ChatMode = 'chat' | 'refinar'
 
-interface ChatPanelProps {
-  isGenerating?: boolean
-}
-
 // ── Markdown renderer ────────────────────────────────────────────────────────
 function inlineFmt(text: string): React.ReactNode {
   return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
@@ -125,7 +121,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
-export function ChatPanel({ isGenerating }: ChatPanelProps) {
+export function ChatPanel() {
   const {
     threadId,
     chatMessages,

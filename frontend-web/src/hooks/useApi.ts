@@ -27,9 +27,14 @@ export function usePrioritizedClients() {
   return useQuery({
     queryKey: ['prioritized-clients'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/prioritized-clients')
-      const raw = Array.isArray(response.data?.catalog) ? (response.data.catalog as Client[]) : []
-      return raw.length > 0 ? raw : FALLBACK_CATALOG
+      try {
+        const response = await apiClient.get('/api/prioritized-clients')
+        const raw = Array.isArray(response.data?.catalog) ? (response.data.catalog as Client[]) : []
+        return raw.length > 0 ? raw : FALLBACK_CATALOG
+      } catch {
+        // Keep discovery usable even if catalog API is temporarily unavailable.
+        return FALLBACK_CATALOG
+      }
     },
     staleTime: 1000 * 60 * 10,
   })
@@ -50,6 +55,7 @@ export function useClientProfile(companyId: string | null, area?: string) {
     },
     enabled: !!companyId,
     staleTime: 30_000,
+    retry: 1,
   })
 }
 
@@ -129,9 +135,43 @@ export function useSearchCases() {
       return response.data
     },
     onSuccess: (data) => {
+      const resetSearchState = () => {
+        store.setThreadId(null)
+        store.setCases([])
+        store.setSectorContext(null)
+        store.setSectorTrends([])
+      }
+
+      // P0.2: Validate backend response before advancing screen
+      const backendError = data.error ? String(data.error).trim() : ''
+      if (backendError) {
+        resetSearchState()
+        store.setError(backendError)
+        store.setLoading(false)
+        return
+      }
+
+      if (!data.thread_id) {
+        resetSearchState()
+        store.setError('Respuesta del servidor incompleta: falta thread_id.')
+        store.setLoading(false)
+        return
+      }
+
       const mappedCases = Array.isArray(data.casos_encontrados)
         ? data.casos_encontrados.map((item: Record<string, unknown>) => mapCase(item))
         : []
+
+      if (mappedCases.length === 0) {
+        resetSearchState()
+        store.setError(
+          data.warning
+            ? String(data.warning)
+            : 'No se encontraron casos relevantes. Intenta reformular el problema.'
+        )
+        store.setLoading(false)
+        return
+      }
 
       store.setSessionFromSearch({
         threadId: String(data.thread_id),
@@ -295,6 +335,56 @@ function mapDepartmentToInsightType(department: string): InsightType {
     'Finanzas': 'decision',
   }
   return map[department] ?? 'contexto'
+}
+
+// ── Teams query ─────────────────────────────────────────────────────────────
+
+export function useTeams(threadId: string | null) {
+  return useQuery({
+    queryKey: ['teams', threadId],
+    queryFn: async () => {
+      const params = threadId ? `?thread_id=${encodeURIComponent(threadId)}` : ''
+      const response = await apiClient.get(`/teams${params}`)
+      const raw = Array.isArray(response.data) ? response.data : []
+      return raw.map((t: Record<string, unknown>): import('@/stores/appStore').Team => ({
+        id: String(t.id ?? ''),
+        name: String(t.name ?? ''),
+        description: String(t.description ?? ''),
+        icon: String(t.icon ?? 'brain'),
+        specialties: Array.isArray(t.capabilities) ? (t.capabilities as string[]) : [],
+        is_best_match: Boolean(t.is_best_match),
+      }))
+    },
+    enabled: !!threadId,
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+// ── Assign team mutation ────────────────────────────────────────────────────
+
+export function useAssignTeam() {
+  const store = useAppStore()
+
+  return useMutation({
+    mutationFn: async (params: { threadId: string; teamId: string; notes?: string }) => {
+      const response = await apiClient.post(`/agent/${params.threadId}/assign`, {
+        team_id: params.teamId,
+        notes: params.notes,
+      })
+      return response.data
+    },
+    onSuccess: (data) => {
+      const team = store.selectedTeam
+      if (team) {
+        store.setSelectedTeam({ ...team })
+      }
+      return data
+    },
+    onError: (error: unknown) => {
+      store.setError(getErrorMessage(error, 'No se pudo asignar el equipo.'))
+    },
+  })
 }
 
 // ── Area options constant ──────────────────────────────────────────────────
