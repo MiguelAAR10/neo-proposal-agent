@@ -1853,6 +1853,50 @@ h1, h2, h3, h4, h5, h6 {
   object-fit: contain;
 }
 
+.neo-priority-logo-box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(46, 46, 122, 0.35);
+  background: #ffffff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.neo-priority-logo-box--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+.neo-priority-logo-box--md {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.neo-priority-logo-box__fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #0a0a2e;
+}
+
+.neo-priority-logo-box__img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+}
+
 .neo-form-dropdown {
   position: absolute;
   top: calc(100% + 4px);

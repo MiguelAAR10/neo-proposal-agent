@@ -12,6 +12,40 @@ function slugifyCompany(value: string): string {
   return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-')
 }
 
+function getInitials(value: string): string {
+  return value
+    .split(/\s+/)
+    .map((part) => part[0] ?? '')
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+interface PrioritizedLogoBoxProps {
+  companyName: string
+  displayName: string
+  size?: 'sm' | 'md'
+}
+
+function PrioritizedLogoBox({ companyName, displayName, size = 'sm' }: PrioritizedLogoBoxProps) {
+  return (
+    <span className={`neo-priority-logo-box neo-priority-logo-box--${size}`}>
+      <span className="neo-priority-logo-box__fallback">
+        {getInitials(displayName || companyName)}
+      </span>
+      <Image
+        src={`/logos/companies/${slugifyCompany(companyName)}.png`}
+        alt={displayName}
+        width={size === 'md' ? 28 : 24}
+        height={size === 'md' ? 28 : 24}
+        className="neo-priority-logo-box__img"
+        unoptimized
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+      />
+    </span>
+  )
+}
+
 export function ClientSelectionForm() {
   const {
     selectedClient, setSelectedClient,
@@ -99,17 +133,11 @@ export function ClientSelectionForm() {
             >
               {selectedClient ? (
                 <span className="neo-form-select__content">
-                  <span className="neo-form-select__logo">
-                    <Image
-                      src={`/logos/companies/${slugifyCompany(selectedClient.name)}.png`}
-                      alt={selectedClient.display_name}
-                      width={24}
-                      height={24}
-                      className="neo-form-select__logo-img"
-                      unoptimized
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                    />
-                  </span>
+                  <PrioritizedLogoBox
+                    companyName={selectedClient.name}
+                    displayName={selectedClient.display_name}
+                    size="md"
+                  />
                   {selectedClient.display_name}
                 </span>
               ) : (
@@ -126,14 +154,10 @@ export function ClientSelectionForm() {
                     className={`neo-form-dropdown__item${selectedClient?.name === client.name ? ' neo-form-dropdown__item--active' : ''}`}
                     onClick={() => handleSelectClient(client)}
                   >
-                    <Image
-                      src={`/logos/companies/${slugifyCompany(client.name)}.png`}
-                      alt={client.display_name}
-                      width={24}
-                      height={24}
-                      className="neo-form-select__logo-img"
-                      unoptimized
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    <PrioritizedLogoBox
+                      companyName={client.name}
+                      displayName={client.display_name}
+                      size="sm"
                     />
                     <span>{client.display_name}</span>
                     <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>{client.vertical}</span>
