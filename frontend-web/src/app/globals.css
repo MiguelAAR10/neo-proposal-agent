@@ -1711,17 +1711,44 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 2;
 }
 
-.neo-welcome-card__icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 20px;
+.neo-welcome-card__brand {
+  width: fit-content;
+  margin: 0 auto 24px;
+  position: relative;
+}
+
+.neo-welcome-card__brand-logo {
+  min-width: 280px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(46, 46, 122, 0.35);
+  background: rgba(255, 255, 255, 0.98);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  background: rgba(79, 140, 255, 0.12);
-  border: 1px solid rgba(79, 140, 255, 0.25);
-  color: var(--accent);
+}
+
+.neo-welcome-card__brand-logo-img {
+  width: 100%;
+  height: auto;
+  max-width: 270px;
+  object-fit: contain;
+}
+
+.neo-welcome-card__brand-badge {
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 140, 255, 0.4);
+  background: rgba(79, 140, 255, 0.2);
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 12px rgba(79, 140, 255, 0.28);
 }
 
 .neo-welcome-card__title {

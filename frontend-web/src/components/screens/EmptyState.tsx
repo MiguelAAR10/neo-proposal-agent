@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Sparkles, Users, Lightbulb, FileText, Users2 } from 'lucide-react'
 import { GhostSidebar } from '@/components/layout/GhostSidebar'
 
@@ -26,8 +27,20 @@ export function EmptyState({ onStart }: EmptyStateProps) {
 
         {/* Welcome card */}
         <div className="neo-welcome-card">
-          <div className="neo-welcome-card__icon">
-            <Sparkles size={28} />
+          <div className="neo-welcome-card__brand">
+            <div className="neo-welcome-card__brand-logo">
+              <Image
+                src="/logos/brand/consultora-primary.png"
+                alt="Logo consultora"
+                width={270}
+                height={54}
+                className="neo-welcome-card__brand-logo-img"
+                unoptimized
+              />
+            </div>
+            <div className="neo-welcome-card__brand-badge">
+              <Sparkles size={14} />
+            </div>
           </div>
           <h2 className="neo-welcome-card__title">
             Bienvenido a Neo Intelligence
