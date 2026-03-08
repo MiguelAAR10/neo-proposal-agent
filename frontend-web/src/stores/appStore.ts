@@ -178,8 +178,12 @@ interface AppState {
   // UI
   loading: boolean
   error: string | null
+  sidebarCollapsed: boolean
+  topPanelsCollapsed: boolean
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  toggleSidebar: () => void
+  toggleTopPanels: () => void
 
   // Session from agent/start response
   setSessionFromSearch: (data: {
@@ -287,8 +291,12 @@ export const useAppStore = create<AppState>()(
       // UI
       loading: false,
       error: null,
+      sidebarCollapsed: false,
+      topPanelsCollapsed: false,
       setLoading: (loading) => set({ loading }),
       setError: (error) => set({ error }),
+      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      toggleTopPanels: () => set((state) => ({ topPanelsCollapsed: !state.topPanelsCollapsed })),
 
       // Session from search
       setSessionFromSearch: (data) => {
@@ -428,6 +436,8 @@ export const useAppStore = create<AppState>()(
         selectedTeam: null,
         proposalContext: { chatMessageIndices: [], insightIds: [] },
         proposalSentSuccess: false,
+        sidebarCollapsed: false,
+        topPanelsCollapsed: false,
         loading: false,
         error: null,
       }),

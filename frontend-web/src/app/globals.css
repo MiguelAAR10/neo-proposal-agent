@@ -2139,7 +2139,34 @@ h1, h2, h3, h4, h5, h6 {
 
 .neo-v4-workspace__sector { flex: 1; border-right: 1px solid var(--glass-border); overflow-y: auto; }
 .neo-v4-workspace__profile { flex: 1; overflow-y: auto; }
-.neo-v4-workspace__chat { flex: 1; min-height: 200px; overflow: hidden; }
+.neo-v4-workspace__chat { flex: 1; min-height: 200px; overflow: hidden; transition: flex 0.3s ease; }
+.neo-v4-workspace__chat--expanded { flex: 2; }
+
+/* Collapsible Sidebar */
+.neo-v4-workspace__sidebar { transition: width 0.3s ease; position: relative; }
+.neo-v4-workspace__sidebar--collapsed { width: 32px; background: var(--bg-secondary); }
+
+/* Collapsible Top Panels */
+.neo-v4-workspace__top-split { transition: max-height 0.3s ease; position: relative; }
+.neo-v4-workspace__top-split--collapsed { max-height: 36px; min-height: 36px; }
+
+/* Collapse Toggle Buttons */
+.neo-v4-workspace__collapse-btn {
+  position: absolute; background: var(--bg-secondary);
+  border: 1px solid var(--glass-border); color: var(--text-muted);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  gap: 4px; transition: all 0.2s ease; z-index: 10;
+}
+.neo-v4-workspace__collapse-btn:hover { background: var(--bg-tertiary); color: var(--accent); border-color: var(--accent); }
+.neo-v4-workspace__collapse-btn--sidebar {
+  right: 0; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 48px; border-radius: 0 6px 6px 0; border-left: none;
+}
+.neo-v4-workspace__collapse-btn--top {
+  bottom: 0; left: 50%; transform: translateX(-50%);
+  height: 24px; padding: 0 12px; border-radius: 0 0 6px 6px; border-top: none; font-size: 11px;
+}
+.neo-v4-workspace__collapse-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* Cases Sidebar V4 */
 
