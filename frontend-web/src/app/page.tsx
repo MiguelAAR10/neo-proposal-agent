@@ -79,7 +79,7 @@ export default function HomePage() {
       <header className="neo-main-header">
         {/* Left: Logo */}
         <div className="neo-main-header__left">
-          <HeaderCompanyLogo selectedClient={selectedClient} />
+          <HeaderCompanyLogo />
         </div>
 
         {/* Center: Client tag + Tabs */}
