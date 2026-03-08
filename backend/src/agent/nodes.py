@@ -546,6 +546,63 @@ def _format_prioritized_client_context(context: dict | None) -> str:
     )
 
 
+def _format_chat_context_for_prompt(chat_messages: list[str] | None) -> str:
+    """Formatea los mensajes del chat seleccionados como contexto para la propuesta."""
+    if not chat_messages:
+        return ""
+
+    formatted_messages = "\n".join([f"- {msg[:500]}..." if len(msg) > 500 else f"- {msg}" for msg in chat_messages])
+    return (
+        "## 💬 ACUERDOS PREVIOS EN EL CHAT\n"
+        "El consultor seleccionó los siguientes mensajes como contexto relevante para esta propuesta:\n\n"
+        f"{formatted_messages}\n\n"
+        "**INSTRUCCIÓN:** La propuesta DEBE reflejar y alinearse con estos acuerdos/discusiones previas.\n\n"
+    )
+
+
+def _filter_and_format_selected_insights(
+    all_insights: list[dict], selected_ids: list[str] | None
+) -> str:
+    """Filtra insights por IDs seleccionados y los formatea para el prompt."""
+    if not selected_ids or not all_insights:
+        return ""
+
+    selected_ids_set = set(selected_ids)
+    filtered = [ins for ins in all_insights if ins.get("id") in selected_ids_set]
+
+    if not filtered:
+        return ""
+
+    formatted_insights = []
+    for ins in filtered:
+        dept = ins.get("department", "General")
+        sentiment = ins.get("sentiment", "Neutral")
+        raw_text = ins.get("raw_text", "")[:400]
+        age_label = ins.get("created_at_label", "")
+        structured = ins.get("structured_payload", [])
+
+        # Extract key points from structured payload
+        key_points = []
+        for item in structured[:5]:  # Limit to 5 items
+            if isinstance(item, dict):
+                key_points.append(f"  - {item.get('label', 'Info')}: {item.get('value', 'N/A')}")
+
+        formatted_insights.append(
+            f"**📌 Insight ({dept} | {sentiment})**\n"
+            f"{raw_text}\n"
+            f"{''.join(key_points)}\n"
+            f"_{age_label}_"
+        )
+
+    return (
+        "## 🎯 REQUERIMIENTOS EXPLÍCITOS DEL CLIENTE (PRIORIDAD MÁXIMA)\n"
+        "El consultor priorizó los siguientes insights del cliente para esta propuesta:\n\n"
+        f"{chr(10).join(formatted_insights)}\n\n"
+        "**INSTRUCCIÓN OBLIGATORIA:** La propuesta DEBE abordar directamente cada uno de estos puntos. "
+        "Son requisitos explícitos del equipo comercial.\n\n"
+    )
+
+
 def draft_node(state: ProposalState) -> ProposalState:
     """Genera la propuesta final usando los casos y el perfil del cliente."""
     logger.info("Entrando a draft_node empresa=%s", state.get("empresa"))
@@ -596,6 +653,10 @@ def draft_node(state: ProposalState) -> ProposalState:
 
             "## 📌 CASOS DE ÉXITO SELECCIONADOS (BASE DE EVIDENCIA)\n"
             f"{format_cases_for_prompt(filtered_cases)}\n\n"
+
+            # Contexto adicional seleccionado por el usuario (si existe)
+            f"{_format_chat_context_for_prompt(state.get('chat_context_messages'))}"
+            f"{_filter_and_format_selected_insights(state.get('human_insights', []), state.get('selected_insight_ids'))}"
 
             "---\n\n"
 

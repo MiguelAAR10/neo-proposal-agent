@@ -158,7 +158,12 @@ async def select_cases(thread_id: str, data: SelectRequest):
 
         await graph.aupdate_state(
             config,
-            {"casos_seleccionados_ids": data.case_ids, "warning": warning_message},
+            {
+                "casos_seleccionados_ids": data.case_ids,
+                "warning": warning_message,
+                "chat_context_messages": data.chat_context or [],
+                "selected_insight_ids": data.insight_ids or [],
+            },
         )
 
         final_state = await graph.ainvoke(None, config=config)

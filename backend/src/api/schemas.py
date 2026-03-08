@@ -20,6 +20,14 @@ class StartRequest(BaseModel):
 
 class SelectRequest(BaseModel):
     case_ids: List[str] = Field(..., min_items=1)
+    chat_context: Optional[List[str]] = Field(
+        default=None,
+        description="Mensajes del chat seleccionados como contexto adicional para la propuesta"
+    )
+    insight_ids: Optional[List[str]] = Field(
+        default=None,
+        description="IDs de insights específicos seleccionados por el usuario para priorizar"
+    )
 
 
 class SearchRequest(BaseModel):

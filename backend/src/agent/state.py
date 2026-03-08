@@ -23,6 +23,10 @@ class ProposalState(TypedDict):
     
     # Decisiones HITL
     casos_seleccionados_ids: list[str]
+
+    # Contexto adicional del frontend (opcional)
+    chat_context_messages: NotRequired[list[str]]  # Mensajes del chat seleccionados como contexto
+    selected_insight_ids: NotRequired[list[str]]   # IDs de insights seleccionados por el usuario
     
     # Resultados
     propuesta_final: str
